@@ -39,8 +39,10 @@ import { useDisclosure } from "@mantine/hooks";
 import Player from "@vimeo/player";
 
 // IMPORTS DE SURVEY
-import "survey-react/survey.css";
-import * as Survey from "survey-react";
+import { Model } from "survey-core";
+import { Survey } from "survey-react-ui";
+
+var newSurveyJson = {}
 
 export default function CourseDetail() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -157,18 +159,18 @@ export default function CourseDetail() {
 
       // SurveyJS: definimos la estructura del cuestionario
       // Usamos "correctAnswer" para que SurveyJS maneje la calificación
-      const newSurveyJson = {
+    newSurveyJson = {
         title: "Cuestionario generado",
         // Texto que se mostrará al finalizar (SurveyJS reemplaza
         // automáticamente variables como {correctedAnswers} y {questionCount})
-        completedHtml: `
-          <h3>¡Has finalizado!</h3>
-          <p>
-            Has respondido correctamente a <b>{correctedAnswers}</b> 
-            pregunta(s) de un total de <b>{questionCount}</b>.
-          </p>
-          <p>Puedes revisar las preguntas para ver las respuestas correctas.</p>
-        `,
+        // completedHtml: `
+        //   <h3>¡Has finalizado!</h3>
+        //   <p>
+        //     Has respondido correctamente a <b>{correctedAnswers}</b> 
+        //     pregunta(s) de un total de <b>{questionCount}</b>.
+        //   </p>
+        //   <p>Puedes revisar las preguntas para ver las respuestas correctas.</p>
+        // `,
         pages: [
           {
             name: "page1",
@@ -528,12 +530,14 @@ export default function CourseDetail() {
           </Text>
         ) : (
           (() => {
-            const surveyModel = new Survey.Model(surveyJson);
+            const surveyModel = new Model(surveyJson);
 
             // Al completar el cuestionario
             surveyModel.onComplete.add((sender) => {
               // 1) Modo lectura (ya no se puede cambiar respuestas)
+              
               sender.mode = "display";
+              surveyModel.mode = "display";
               surveyModel.showCorrectAnswers = "on";
               surveyModel.questionsOnPageMode = "singlePage";
               surveyModel.showProgressBar = "off";
@@ -553,9 +557,11 @@ export default function CourseDetail() {
                     ` ❌ (Correcta: ${question.correctAnswer})`;
                 }
               });
+
+              //setSurveyJson(newSurveyJson);
             });
 
-            return <Survey.Survey model={surveyModel} />;
+            return <Survey model={surveyModel} />;
           })()
         )}
       </Drawer>

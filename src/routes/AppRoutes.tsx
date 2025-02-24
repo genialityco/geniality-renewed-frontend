@@ -4,6 +4,7 @@ import Organizations from "../pages/Organizations";
 import OrganizationDetail from "../pages/OrganizationDetail";
 import NotFound from "../pages/NotFound";
 import CourseDetail from "../pages/course/CourseDetail";
+import SurveyComponent from "../pages/quizTest";
 
 export default function AppRoutes() {
   return (
@@ -13,6 +14,7 @@ export default function AppRoutes() {
         <Route path="/organizations" element={<Organizations />} />
         <Route path="/organizations/:id" element={<OrganizationDetail />} />
         <Route path="/course/:eventId" element={<CourseDetail />} />
+        <Route path="/quiztest" element={<SurveyComponent />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>

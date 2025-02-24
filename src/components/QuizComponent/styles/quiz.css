@@ -1,0 +1,16 @@
+.correctAnswer {
+    color: #2ecc71;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.incorrectAnswer {
+    color: #e74c3c;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.sv_completed_page {
+    text-align: center;
+    padding: 20px;
+}
