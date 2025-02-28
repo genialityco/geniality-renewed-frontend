@@ -1,36 +1,39 @@
-// Quiz configuration
+// Configuración del cuestionario
 export const quizConfig = {
-  title: "History Quiz",
+  title: "Quiz",
   showQuestionNumbers: "off",
   showTimer: true,
-  timeLimitPerPage: 10,
-  timeLimit: 25
+  timeLimitPerPage: 60,
+  timeLimit: 60
 };
 
-// Quiz results
+// Mensajes tras completar el cuestionario
 export const quizResults = [
   {
+    // Si el puntaje total > 14...
     expression: "{totalScore} > 14",
-    html: "You got {totalScore} out of {maxScore} points.</br></br>Congratulation! You did great!"
+    html: "Obtuviste {totalScore} de {maxScore} puntos.</br></br>¡Felicidades! ¡Lo hiciste excelente!"
   },
   {
+    // Si el puntaje total > 7...
     expression: "{totalScore} > 7",
-    html: "You got {totalScore} out of {maxScore} points.</br></br>Well Done! <i>Your focus determines your reality.</i> And this is the way you passed the quiz."
+    html: "Obtuviste {totalScore} de {maxScore} puntos.</br></br>¡Bien hecho! <i>Tu constancia determina tu éxito.</i> Continúa así."
   },
   {
+    // Si el puntaje total <= 7...
     expression: "{totalScore} <= 7",
-    html: "You got {totalScore} out of {maxScore} points.</br></br><i>In my experience</i>, as Obi-Wan Kenobi said, <i>there's no such thing as luck.</i>"
+    html: "Obtuviste {totalScore} de {maxScore} puntos.</br></br><i>En mi experiencia</i>, como diría Obi-Wan Kenobi, <i>“la suerte no existe”.</i> ¡Sigue practicando!"
   }
 ];
 
-// Quiz questions
+// Preguntas del cuestionario
 export const quizQuestions = [
   {
     elements: [
       {
         type: "radiogroup",
         name: "presidents",
-        title: "Who was the first US President?",
+        title: "¿Quién fue el primer presidente de los Estados Unidos?",
         correctAnswer: "George Washington",
         choices: [
           "Thomas Jefferson",
@@ -42,7 +45,7 @@ export const quizQuestions = [
       {
         type: "radiogroup",
         name: "independence",
-        title: "In which year was the Declaration of Independence signed?",
+        title: "¿En qué año se firmó la Declaración de Independencia de Estados Unidos?",
         correctAnswer: "1776",
         choices: [
           "1774",
@@ -54,7 +57,7 @@ export const quizQuestions = [
       {
         type: "radiogroup",
         name: "constitution",
-        title: "When was the US Constitution ratified?",
+        title: "¿En qué año se ratificó la Constitución de los Estados Unidos?",
         correctAnswer: "1788",
         choices: [
           "1785",
@@ -67,7 +70,7 @@ export const quizQuestions = [
   }
 ];
 
-// Export the complete quiz
+// Exportar el cuestionario completo
 export const json = {
   ...quizConfig,
   completedHtmlOnCondition: quizResults,

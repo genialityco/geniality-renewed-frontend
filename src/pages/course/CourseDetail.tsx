@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   AppShell,
   Text,
@@ -33,19 +33,16 @@ import {
   findByEventId,
   updateVideoProgress,
 } from "../../services/activityService";
-import { generateQuestionnaire } from "../../services/questionnaireService"; // <-- Importamos nuestro servicio
 import { Event, Module, Activity } from "../../services/types";
 import { useDisclosure } from "@mantine/hooks";
 import Player from "@vimeo/player";
 
 // IMPORTS DE SURVEY
-import { Model } from "survey-core";
-import { Survey } from "survey-react-ui";
-
-var newSurveyJson = {}
+import QuizComponent from "../../components/QuizComponent/QuizComponent";
 
 export default function CourseDetail() {
   const { eventId } = useParams<{ eventId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
@@ -71,11 +68,6 @@ export default function CourseDetail() {
   // Drawer del Cuestionario
   const [drawerQuestionnaireOpen, setDrawerQuestionnaireOpen] = useState(false);
 
-  // Estado para almacenar la definición del cuestionario (SurveyJS)
-  const [surveyJson, setSurveyJson] = useState<any>(null);
-
-  const [showResults, setShowResults] = useState(false);
-
   // Cargar datos iniciales (Evento, Módulos, Actividades)
   useEffect(() => {
     const fetchData = async () => {
@@ -89,6 +81,16 @@ export default function CourseDetail() {
 
           const activitiesData = await findByEventId(eventId);
           setActivities(activitiesData);
+
+          const activityParam = searchParams.get("activity");
+          if (activityParam) {
+            const foundActivity = activitiesData.find(
+              (act) => act._id === activityParam
+            );
+            if (foundActivity) {
+              setSelectedActivity(foundActivity);
+            }
+          }
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -98,7 +100,7 @@ export default function CourseDetail() {
     };
 
     fetchData();
-  }, [eventId]);
+  }, [eventId, searchParams]);
 
   // Manejar reproducción y progreso del video
   useEffect(() => {
@@ -143,60 +145,18 @@ export default function CourseDetail() {
   // Handler para iniciar el cuestionario
   const handleStartQuestionnaire = async () => {
     if (!selectedActivity) return;
-
-    try {
-      // Tomamos la descripción de la actividad como "transcript"
-      const transcript = selectedActivity.description || "Texto vacío";
-      const response = await generateQuestionnaire(transcript);
-
-      // Intentamos parsear la respuesta si viene en formato string
-      let parsedQuestions;
-      try {
-        parsedQuestions = JSON.parse(response);
-      } catch {
-        parsedQuestions = response;
-      }
-
-      // SurveyJS: definimos la estructura del cuestionario
-      // Usamos "correctAnswer" para que SurveyJS maneje la calificación
-    newSurveyJson = {
-        title: "Cuestionario generado",
-        // Texto que se mostrará al finalizar (SurveyJS reemplaza
-        // automáticamente variables como {correctedAnswers} y {questionCount})
-        // completedHtml: `
-        //   <h3>¡Has finalizado!</h3>
-        //   <p>
-        //     Has respondido correctamente a <b>{correctedAnswers}</b> 
-        //     pregunta(s) de un total de <b>{questionCount}</b>.
-        //   </p>
-        //   <p>Puedes revisar las preguntas para ver las respuestas correctas.</p>
-        // `,
-        pages: [
-          {
-            name: "page1",
-            questions: parsedQuestions.map((q: any, idx: number) => ({
-              type: "radiogroup",
-              name: `question${idx}`,
-              title: q.pregunta,
-              choices: q.opciones,
-              // q.respuestacorrecta es un índice numérico;
-              // le pasamos la cadena correspondiente en correctAnswer:
-              correctAnswer: q.opciones[q.respuestacorrecta],
-            })),
-          },
-        ],
-      };
-
-      setSurveyJson(newSurveyJson);
-      setDrawerQuestionnaireOpen(true);
-    } catch (error) {
-      console.error("Error generando cuestionario:", error);
-    }
+    setDrawerQuestionnaireOpen(true);
   };
 
   // Render de actividades en la barra lateral
   const renderActivities = () => {
     if (!activities.length) return <Text size="sm">No hay actividades</Text>;
+
+    const handleActivitySelection = (activity: Activity) => {
+      setSelectedActivity(activity);
+      setSearchParams({ activity: activity._id });
+    };
+  
 
     return (
       <Accordion variant="filled">
@@ -215,7 +175,7 @@ export default function CourseDetail() {
 
           return (
             <Accordion.Item value={activity._id.toString()} key={activity._id}>
-              <Accordion.Control onClick={() => setSelectedActivity(activity)}>
+              <Accordion.Control onClick={() => handleActivitySelection(activity)}>
                 <Group justify="space-between">
                   <Text>{activity.name}</Text>
                   <Text size="xs" c={statusColor}>
@@ -348,6 +308,9 @@ export default function CourseDetail() {
           <Text size="sm" c="dimmed">
             Selecciona una actividad para ver detalles
           </Text>
+          <Text size="lg" fw={600} mt="lg">Módulos y actividades</Text>
+          {modules && (renderModules())}
+          {!modules && activities && (renderActivities())}
         </Card>
       );
     }
@@ -386,7 +349,7 @@ export default function CourseDetail() {
 
         <Divider my="sm" />
 
-        <Text fw={500}>Descripción:</Text>
+        <Text fw={500}>Resumén:</Text>
         <Text size="sm">
           {selectedActivity.description ||
             "Esta actividad no tiene descripción."}
@@ -524,46 +487,7 @@ export default function CourseDetail() {
         size="xl"
         position="right"
       >
-        {!surveyJson ? (
-          <Text size="sm">
-            Cargando cuestionario o sin preguntas generadas.
-          </Text>
-        ) : (
-          (() => {
-            const surveyModel = new Model(surveyJson);
-
-            // Al completar el cuestionario
-            surveyModel.onComplete.add((sender) => {
-              // 1) Modo lectura (ya no se puede cambiar respuestas)
-              
-              sender.mode = "display";
-              surveyModel.mode = "display";
-              surveyModel.showCorrectAnswers = "on";
-              surveyModel.questionsOnPageMode = "singlePage";
-              surveyModel.showProgressBar = "off";
-              // 2) Para cada pregunta, verificamos si es correcta o no
-              sender.getAllQuestions().forEach((question: any) => {
-                // "isAnswerCorrect" existe si definimos "correctAnswer" en la pregunta
-                const isCorrect = question.isAnswerCorrect
-                  ? question.isAnswerCorrect()
-                  : false;
-
-                // 3) Añadimos un sufijo al title de cada pregunta
-                if (isCorrect) {
-                  question.title = question.title + " ✅ (Correcta)";
-                } else {
-                  question.title =
-                    question.title +
-                    ` ❌ (Correcta: ${question.correctAnswer})`;
-                }
-              });
-
-              //setSurveyJson(newSurveyJson);
-            });
-
-            return <Survey model={surveyModel} />;
-          })()
-        )}
+        <QuizComponent transcript={selectedActivity?.description} />
       </Drawer>
     </AppShell>
   );
