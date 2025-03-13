@@ -1,10 +1,9 @@
-import React from "react";
 import "./quiz.css";
 
-const LoadingSpinner = ({message}) => (
+const LoadingSpinner = ({ message }: { message: string }) => (
   <div className="loading-spinner">
     <div className="spinner"></div>
-    <p>{(!!message?message:'Loading')}...</p>
+    <p>{!!message ? message : "Loading"}...</p>
   </div>
 );
 

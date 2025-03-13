@@ -47,7 +47,7 @@ interface ActivityDetailProps {
 
 export default function ActivityDetail({
   activity,
-  eventId,
+  // eventId,
   shareUrl,
   onStartQuestionnaire,
   videoTime = null,
