@@ -74,3 +74,68 @@ export interface GenerateGameRequest {
 export interface GenerateGameResponse {
   gameContent: string[];
 }
+
+export interface Host {
+  _id: string;
+  name: string;
+  image: string;
+  description_activity: boolean;
+  description: string;
+  profession?: string | null;
+  published: boolean;
+  order: number;
+  index: number;
+  event_id: string;
+  activities_ids: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface User {
+  _id: string;
+  firebase_uid: string;
+  name: string;
+  email: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ActivityAttendee {
+  _id: string;
+  user_id: string;
+  activity_id: string;
+  progress?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CourseAttendee {
+  _id: string;
+  user_id: string;
+  event_id: string;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
+// Interfaz en TypeScript para tu Quiz
+export interface Quiz {
+  _id: string;
+  activity_id: string;      // ID de la actividad
+  quiz_json: any;           // El JSON de Survey
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface QuizAttempt {
+  _id: string;
+  quiz_id: string;
+  user_id: string;
+  attempt_number: number;
+  answers_data: any;
+  total_score: number;
+  max_score: number;
+  createdAt?: string | number | Date;
+  updatedAt?: string;
+}

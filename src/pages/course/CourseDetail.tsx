@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+// src/pages/CourseDetail/CourseDetail.tsx
+
+import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import {
   AppShell,
@@ -18,6 +20,7 @@ import {
   ScrollArea,
   Progress,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import {
   FaComments,
   FaForumbee,
@@ -29,16 +32,11 @@ import {
 
 import { fetchEventById } from "../../services/eventService";
 import { fetchModulesByEventId } from "../../services/moduleService";
-import {
-  findByEventId,
-  updateVideoProgress,
-} from "../../services/activityService";
+import { findByEventId } from "../../services/activityService";
 import { Event, Module, Activity } from "../../services/types";
-import { useDisclosure } from "@mantine/hooks";
-import Player from "@vimeo/player";
 
-// IMPORTS DE SURVEY
-import QuizComponent from "../../components/QuizComponent/QuizComponent";
+import QuizDrawer from "../../components/QuizDrawer";
+import ActivityDetail from "../../components/ActivityDetail";
 
 export default function CourseDetail() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -50,9 +48,7 @@ export default function CourseDetail() {
   const [loading, setLoading] = useState(true);
 
   // Actividad seleccionada
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
-    null
-  );
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
 
   // Control de apertura/colapso navbar
   const [opened, { toggle, close }] = useDisclosure(false);
@@ -60,10 +56,6 @@ export default function CourseDetail() {
   // Drawers de Chat y Foro
   const [drawerChatOpen, setDrawerChatOpen] = useState(false);
   const [drawerForumOpen, setDrawerForumOpen] = useState(false);
-
-  // Progreso de video
-  const [videoProgress, setVideoProgress] = useState<number>(0);
-  const vimeoPlayerRef = useRef<HTMLIFrameElement | null>(null);
 
   // Drawer del Cuestionario
   const [drawerQuestionnaireOpen, setDrawerQuestionnaireOpen] = useState(false);
@@ -82,6 +74,7 @@ export default function CourseDetail() {
           const activitiesData = await findByEventId(eventId);
           setActivities(activitiesData);
 
+          // Si viene una actividad en la URL (por compartir)
           const activityParam = searchParams.get("activity");
           if (activityParam) {
             const foundActivity = activitiesData.find(
@@ -102,53 +95,19 @@ export default function CourseDetail() {
     fetchData();
   }, [eventId, searchParams]);
 
-  // Manejar reproducción y progreso del video
-  useEffect(() => {
-    if (selectedActivity?.video && vimeoPlayerRef.current) {
-      const player = new Player(vimeoPlayerRef.current);
-
-      // Cargar el progreso anterior si existe
-      player.getDuration().then((duration) => {
-        if (selectedActivity.video_progress) {
-          const savedTime = (selectedActivity.video_progress / 100) * duration;
-          player.setCurrentTime(savedTime);
-          setVideoProgress(selectedActivity.video_progress);
-        }
-      });
-
-      // Actualizar en tiempo real
-      player.on("timeupdate", async (data) => {
-        const progress = (data.seconds / data.duration) * 100;
-        setVideoProgress(progress);
-
-        if (selectedActivity && progress > 0) {
-          try {
-            await updateVideoProgress(
-              selectedActivity._id,
-              Math.round(progress)
-            );
-          } catch (error) {
-            console.error("Error al actualizar el progreso del video:", error);
-          }
-        }
-      });
-
-      return () => {
-        player.off("timeupdate");
-      };
-    }
-  }, [selectedActivity]);
-
   if (loading) return <Loader />;
   if (!event) return <Text>Curso no encontrado</Text>;
 
-  // Handler para iniciar el cuestionario
-  const handleStartQuestionnaire = async () => {
-    if (!selectedActivity) return;
+  // Handler para iniciar el cuestionario (abrir el Drawer)
+  const handleStartQuestionnaire = () => {
     setDrawerQuestionnaireOpen(true);
   };
 
-  // Render de actividades en la barra lateral
+  function getShareUrl(activity: Activity) {
+    return `${window.location.origin}/course/${eventId}?activity=${activity._id}`;
+  }
+
+  // Función para renderizar las actividades en la barra lateral
   const renderActivities = () => {
     if (!activities.length) return <Text size="sm">No hay actividades</Text>;
 
@@ -156,7 +115,6 @@ export default function CourseDetail() {
       setSelectedActivity(activity);
       setSearchParams({ activity: activity._id });
     };
-  
 
     return (
       <Accordion variant="filled">
@@ -174,7 +132,7 @@ export default function CourseDetail() {
           }
 
           return (
-            <Accordion.Item value={activity._id.toString()} key={activity._id}>
+            <Accordion.Item value={activity._id} key={activity._id}>
               <Accordion.Control onClick={() => handleActivitySelection(activity)}>
                 <Group justify="space-between">
                   <Text>{activity.name}</Text>
@@ -193,14 +151,13 @@ export default function CourseDetail() {
     );
   };
 
-  // Render de módulos y sus actividades
+  // Función para renderizar módulos y sus actividades
   const renderModules = () => {
     if (!modules.length) return <Text size="sm">No hay módulos</Text>;
 
     return (
       <Accordion variant="separated" multiple>
         {modules.map((module) => {
-          // Actividades de este módulo
           const actividadesDelModulo = activities.filter(
             (activity) => activity.module_id === module._id
           );
@@ -243,7 +200,6 @@ export default function CourseDetail() {
                   mt="xs"
                   mb="md"
                 />
-
                 {actividadesDelModulo.length > 0 ? (
                   actividadesDelModulo.map((activity) => {
                     const progress = activity.video_progress || 0;
@@ -297,7 +253,7 @@ export default function CourseDetail() {
     );
   };
 
-  // Render principal (detalle de la actividad)
+  // Render principal: si no hay actividad seleccionada, mostramos un mensaje
   const renderMainContent = () => {
     if (!selectedActivity) {
       return (
@@ -308,68 +264,23 @@ export default function CourseDetail() {
           <Text size="sm" c="dimmed">
             Selecciona una actividad para ver detalles
           </Text>
-          <Text size="lg" fw={600} mt="lg">Módulos y actividades</Text>
-          {modules && (renderModules())}
-          {!modules && activities && (renderActivities())}
+          <Text size="lg" fw={600} mt="lg">
+            Módulos y actividades
+          </Text>
+          {modules.length ? renderModules() : null}
+          {!modules.length && activities.length ? renderActivities() : null}
         </Card>
       );
     }
 
+    // Si hay actividad seleccionada, usamos nuestro nuevo componente
     return (
-      <Card shadow="sm" p="md" radius="md">
-        <Title order={3}>{selectedActivity.name}</Title>
-
-        <Divider my="sm" />
-        <Text fw={500}>Progreso del video:</Text>
-        <Progress value={videoProgress} size="lg" striped />
-        <Text size="sm">{Math.round(videoProgress)}% completado</Text>
-
-        <Divider my="sm" />
-
-        {selectedActivity.video ? (
-          <iframe
-            ref={vimeoPlayerRef}
-            src={`${selectedActivity.video}?api=1&player_id=vimeo-player`}
-            width="100%"
-            height="315"
-            frameBorder="0"
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowFullScreen
-          />
-        ) : (
-          <Text size="sm" c="dimmed" mt="xs">
-            No hay URL de video disponible.
-          </Text>
-        )}
-
-        <Divider my="sm" />
-
-        {/* BOTÓN PARA INICIAR EL CUESTIONARIO */}
-        <Button onClick={handleStartQuestionnaire}>Iniciar Cuestionario</Button>
-
-        <Divider my="sm" />
-
-        <Text fw={500}>Resumén:</Text>
-        <Text size="sm">
-          {selectedActivity.description ||
-            "Esta actividad no tiene descripción."}
-        </Text>
-
-        <Divider my="sm" />
-
-        <Text fw={500}>Conferencistas (host_ids):</Text>
-        {selectedActivity.host_ids && selectedActivity.host_ids.length > 0 ? (
-          <ul style={{ margin: 0, paddingLeft: "1.5rem" }}>
-            {selectedActivity.host_ids.map((hostId) => (
-              <li key={hostId}>{hostId}</li>
-            ))}
-          </ul>
-        ) : (
-          <Text size="sm" c="dimmed">
-            No hay conferencistas asignados.
-          </Text>
-        )}
-      </Card>
+      <ActivityDetail
+        activity={selectedActivity}
+        eventId={event._id}
+        onStartQuestionnaire={handleStartQuestionnaire}
+        shareUrl={selectedActivity ? getShareUrl(selectedActivity) : ""}
+      />
     );
   };
 
@@ -396,8 +307,6 @@ export default function CourseDetail() {
             <Title order={2} style={{ cursor: "pointer" }}>
               {event.name}
             </Title>
-
-            {/* Botones para abrir Chat y Foro como Drawers */}
             <Group>
               <Button
                 variant="subtle"
@@ -417,7 +326,8 @@ export default function CourseDetail() {
           </Group>
         </Flex>
       </AppShell.Header>
-      {/* NAVBAR (BARRA LATERAL) */}
+
+      {/* NAVBAR LATERAL */}
       <AppShell.Navbar p="md" onMouseLeave={() => opened && close()}>
         <ScrollArea style={{ height: "calc(100vh - 80px)" }} type="auto">
           <Text size="xs" fw={700} mb="xs">
@@ -436,7 +346,6 @@ export default function CourseDetail() {
 
           <Divider my="lg" />
 
-          {/* Conferencistas */}
           <UnstyledButton style={{ width: "100%" }}>
             <Group p="xs">
               <FaUsers size={18} />
@@ -444,7 +353,6 @@ export default function CourseDetail() {
             </Group>
           </UnstyledButton>
 
-          {/* Asistentes */}
           <UnstyledButton mt="xs" style={{ width: "100%" }}>
             <Group p="xs">
               <FaUserCheck size={18} />
@@ -453,11 +361,13 @@ export default function CourseDetail() {
           </UnstyledButton>
         </ScrollArea>
       </AppShell.Navbar>
-      {/* MAIN (ZONA CENTRAL) */}
+
+      {/* MAIN */}
       <AppShell.Main style={{ height: "100vh", overflow: "auto" }}>
         <Container fluid>{renderMainContent()}</Container>
       </AppShell.Main>
-      {/* DRAWER PARA CHAT */}
+
+      {/* DRAWER - CHAT */}
       <Drawer
         opened={drawerChatOpen}
         onClose={() => setDrawerChatOpen(false)}
@@ -468,7 +378,8 @@ export default function CourseDetail() {
       >
         <Text>Componente o sección de chat en vivo...</Text>
       </Drawer>
-      {/* DRAWER PARA FORO */}
+
+      {/* DRAWER - FORO */}
       <Drawer
         opened={drawerForumOpen}
         onClose={() => setDrawerForumOpen(false)}
@@ -479,16 +390,14 @@ export default function CourseDetail() {
       >
         <Text>Sección de foro, Q&A o discusiones del curso...</Text>
       </Drawer>
-      <Drawer
+
+      {/* DRAWER - CUESTIONARIO (Quiz) */}
+      <QuizDrawer
         opened={drawerQuestionnaireOpen}
         onClose={() => setDrawerQuestionnaireOpen(false)}
-        title="Cuestionario"
-        padding="md"
-        size="xl"
-        position="right"
-      >
-        <QuizComponent transcript={selectedActivity?.description} />
-      </Drawer>
+        transcript={selectedActivity?.description || ""}
+        activityId={selectedActivity?._id || ""}
+      />
     </AppShell>
   );
 }

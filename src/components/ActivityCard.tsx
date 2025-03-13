@@ -82,7 +82,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
             src={thumbnail}
             alt={activity.name}
             radius="md"
-            height={90}
+            height="auto"
             width="100%"
             fit="cover"
             loading="lazy"
@@ -101,6 +101,9 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
             <Title order={4}>{activity.name}</Title>
             <Text size="sm" c="dimmed">
               408k vistas • hace 1 año
+            </Text>
+            <Text size="sm" variant="gradient">
+              Curso: {activity.event_id?.name || "Sin evento asignado"}
             </Text>
             {matchedSegments.length > 0 && (
               <div style={{ textAlign: "left", marginTop: "1rem" }}>
@@ -122,9 +125,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(
-                          `/activitydetail/${activity._id}?t=${
-                            seg.startTime
-                          }&fragments=${encodeURIComponent(
+                          `/activitydetail/${activity._id}?t=${seg.startTime}&fragments=${encodeURIComponent(
                             JSON.stringify(matchedSegments)
                           )}`
                         );
@@ -132,10 +133,9 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                     >
                       <Text size="sm">
                         <strong style={{ color: "teal" }}>
-                          {formatTime(seg.startTime)} -{" "}
-                          {formatTime(seg.endTime)}:
+                          {formatTime(seg.startTime)} - {formatTime(seg.endTime)}:
                         </strong>{" "}
-                        <Highlight highlight={searchQuery ? searchQuery : ""}>
+                        <Highlight highlight={searchQuery || ""} component="span">
                           {seg.text}
                         </Highlight>
                       </Text>

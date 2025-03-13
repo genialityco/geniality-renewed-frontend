@@ -59,7 +59,7 @@ export function getTextHtml(text: string, str: string, isCorrect: boolean) {
  * Convierte el arreglo de preguntas que devuelve `generateQuestionnaire` en
  * un objeto JSON que entiende SurveyJS.
  */
-function convertToSurveyJson(questions: any[]) {
+export function convertToSurveyJson(questions: any[]) {
   return {
     // Puedes fusionar la config de tu quizConfig si lo deseas:
     ...quizConfig,
