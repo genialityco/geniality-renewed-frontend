@@ -53,7 +53,7 @@ export interface Activity {
   name: string;
   datetime_start?: string;
   datetime_end?: string;
-  event_id: string;
+  event_id: Event;
   date_start_zoom?: string;
   date_end_zoom?: string;
   description?: string;

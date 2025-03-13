@@ -118,6 +118,7 @@ export default function ActivityDetailContainer() {
         opened={drawerQuestionnaireOpen}
         onClose={() => setDrawerQuestionnaireOpen(false)}
         transcript={activity.description || ""}
+        activityId=""
       />
     </ Container>
   );

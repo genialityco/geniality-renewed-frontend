@@ -20,7 +20,7 @@ interface QuizComponentProps {
 
 export default function QuizComponent({
   quizJson,
-  activityId,
+  // activityId,
   quizId,
 }: QuizComponentProps) {
   const { userId } = useUser(); // tu hook de usuario

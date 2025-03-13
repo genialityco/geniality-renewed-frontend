@@ -1,13 +1,13 @@
 
-import QuizComponent from "../components/QuizComponent/QuizComponent";
+// import QuizComponent from "../components/QuizComponent/QuizComponent";
 
 
-function SurveyComponent() {
-  return (
-    <div>
-      <QuizComponent />
-    </div>
-  );
-}
+// function SurveyComponent() {
+//   return (
+//     <div>
+//       <QuizComponent />
+//     </div>
+//   );
+// }
 
-export default SurveyComponent;
+// export default SurveyComponent;

@@ -383,7 +383,7 @@ export default function ActivityDetail({
                     {attempt.max_score}
                   </Text>
                   <Text size="xs" c="dimmed">
-                    {new Date(attempt.createdAt).toLocaleString()}
+                    {new Date(attempt.createdAt as Date).toLocaleString()}
                   </Text>
                 </div>
               ))}

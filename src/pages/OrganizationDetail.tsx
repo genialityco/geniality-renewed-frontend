@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Container,
   Title,
@@ -29,7 +29,7 @@ import ActivityCard from "../components/ActivityCard";
 export default function OrganizationDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  // const [searchParams, setSearchParams] = useSearchParams();
 
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [events, setEvents] = useState<Event[]>([]);

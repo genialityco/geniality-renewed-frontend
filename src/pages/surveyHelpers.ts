@@ -15,7 +15,7 @@ export const fetchSurveyData = async () => {
   }
 };
 
-export const changeTitle = (q) => {
+export const changeTitle = (q: { isAnswerCorrect: () => any; prevTitle: string; title: string; }) => {
   if (!q) return;
 
   const isCorrect = q.isAnswerCorrect();
@@ -25,7 +25,7 @@ export const changeTitle = (q) => {
   q.title = q.prevTitle + " - " + (isCorrect ? correctStr : incorrectStr);
 };
 
-export function getTextHtml(text, str, isCorrect) {
+export function getTextHtml(text: string, str: string, isCorrect: any) {
   if (text.indexOf(str) < 0) return undefined;
 
   return (
