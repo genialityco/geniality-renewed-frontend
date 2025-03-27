@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, RecaptchaVerifier  } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -11,4 +11,14 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+
+// 1) Creas la instancia normal
+const auth = getAuth(app);
+
+// 2) Hack: Forzar la propiedad para testing
+// (tempAuth as any).settings.appVerificationDisabledForTesting = true;
+
+auth.languageCode = 'it';
+
+// 3) Exportas esa misma instancia como "auth"
+export { auth, RecaptchaVerifier}

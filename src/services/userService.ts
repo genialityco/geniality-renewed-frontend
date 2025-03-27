@@ -3,6 +3,16 @@ import api from "./api";
 import { User } from "./types";
 
 /**
+ * Obtiene un usuario por su firebase_uid (GET /users/firebase/:uid)
+ */
+export const fetchUserByFirebaseUid = async (
+  uid: string
+): Promise<User> => {
+  const response = await api.get<User>(`/users/firebase/${uid}`);
+  return response.data;
+};
+
+/**
  * Obtiene la lista de todos los usuarios (GET /users)
  */
 export const fetchAllUsers = async (): Promise<User[]> => {
@@ -21,10 +31,10 @@ export const fetchUserById = async (id: string): Promise<User> => {
 /**
  * Crea o actualiza un usuario (POST /users)
  * Recibe los campos que espera tu backend:
- *   { firebase_uid, name, email }
+ *   { uid, name, email }
  */
 export const createOrUpdateUser = async (payload: {
-  firebase_uid: string;
+  uid: string;
   name: string;
   email: string;
 }): Promise<User> => {

@@ -19,10 +19,6 @@ import {
   createOrUpdateActivityAttendee,
   ActivityAttendeePayload,
 } from "../services/activityAttendeeService";
-import {
-  createOrUpdateCourseAttendee,
-  CourseAttendeePayload,
-} from "../services/courseAttendeeService";
 import { fetchQuizByActivity } from "../services/quizService";
 import { fetchQuizAttemptsByUserAndQuiz } from "../services/quizAttemptService";
 
@@ -135,13 +131,13 @@ export default function ActivityDetail({
         await createOrUpdateActivityAttendee(payloadActivity);
 
         // B) Registrar en el curso (si existe event_id)
-        if (activity.event_id) {
-          const payloadCourse: CourseAttendeePayload = {
-            user_id: userId,
-            event_id: activity.event_id.toString(),
-          };
-          await createOrUpdateCourseAttendee(payloadCourse);
-        }
+        // if (activity.event_id) {
+        //   const payloadCourse: CourseAttendeePayload = {
+        //     user_id: userId,
+        //     event_id: activity.event_id.toString(),
+        //   };
+        //   await createOrUpdateCourseAttendee(payloadCourse);
+        // }
       } catch (err) {
         console.error(
           "Error inscribiendo al usuario en la actividad/curso:",

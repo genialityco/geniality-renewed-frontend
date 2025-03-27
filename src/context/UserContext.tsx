@@ -8,14 +8,18 @@ import {
 } from "react";
 import { auth } from "../firebase/firebaseConfig";
 import {
-  signInAnonymously,
   onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
   User as FirebaseUser,
   setPersistence,
   browserLocalPersistence,
 } from "firebase/auth";
-import { createOrUpdateUser } from "../services/userService";
-// import { fetchUserById } from "../services/userService";
+import {
+  createOrUpdateUser,
+  fetchUserByFirebaseUid,
+} from "../services/userService";
 
 interface UserContextValue {
   firebaseUser: FirebaseUser | null;
@@ -23,7 +27,10 @@ interface UserContextValue {
   name: string;
   email: string;
   loading: boolean;
-  updateUserData: (name: string, email: string) => Promise<void>;
+  updateUserData: (uid: string, name: string, email: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<any>;
+  signUp: (email: string, password: string, name: string) => Promise<any>;
+  signOut: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextValue>({
@@ -33,6 +40,9 @@ const UserContext = createContext<UserContextValue>({
   email: "",
   loading: true,
   updateUserData: async () => {},
+  signIn: async () => {},
+  signUp: async () => {},
+  signOut: async () => {},
 });
 
 export function UserProvider({ children }: { children: ReactNode }) {
@@ -42,24 +52,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Suscripción a Firebase Auth con persistencia local
+  // Configurar persistencia y suscribirse a los cambios en Firebase Auth
   useEffect(() => {
-    // Configuramos la persistencia
     setPersistence(auth, browserLocalPersistence)
       .then(() => {
-        // Una vez configurada, nos suscribimos
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
-          if (!user) {
-            try {
-              // Inicia sesión anónima
-              const cred = await signInAnonymously(auth);
-              setFirebaseUser(cred.user);
-            } catch (err) {
-              console.error("Error al iniciar sesión anónima:", err);
-            }
-          } else {
-            setFirebaseUser(user);
-          }
+          setFirebaseUser(user);
           setLoading(false);
         });
         return () => unsubscribe();
@@ -70,7 +68,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  // Cargar datos del usuario desde localStorage una vez que tenemos firebaseUser
+  // Cargar datos del usuario desde localStorage, en caso de existir
   useEffect(() => {
     if (!loading && firebaseUser) {
       const localData = localStorage.getItem("myUserInfo");
@@ -80,11 +78,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setUserId(parsed._id);
           setName(parsed.name);
           setEmail(parsed.email);
-
-          // Opcional: confirmarlo con tu backend
-          // const userDb = await fetchUserById(parsed._id);
-          // setName(userDb.name);
-          // setEmail(userDb.email);
+          // Opcional: validar con el backend si es necesario.
         } catch (error) {
           console.error("Error parseando localStorage:", error);
         }
@@ -92,28 +86,79 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [loading, firebaseUser]);
 
-  // Crear/actualizar datos en la BD
+  // Función para actualizar o crear los datos del usuario en la BD
+  // Ahora se recibe el uid (ya sea de firebaseUser o del resultado de signUp)
   const updateUserData = useCallback(
-    async (newName: string, newEmail: string) => {
-      if (!firebaseUser) return;
+    async (uid: string, newName: string, newEmail: string) => {
       try {
         const result = await createOrUpdateUser({
-          firebase_uid: firebaseUser.uid,
+          uid,
           name: newName,
           email: newEmail,
         });
+
         setUserId(result._id);
         setName(result.name);
         setEmail(result.email);
-
-        // Guardar en localStorage
         localStorage.setItem("myUserInfo", JSON.stringify(result));
       } catch (err) {
         console.error("Error al actualizar o crear usuario:", err);
       }
     },
-    [firebaseUser]
+    []
   );
+
+  // Función para iniciar sesión con correo y contraseña
+  const signIn = async (email: string, password: string) => {
+    try {
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      // Actualiza los datos del usuario utilizando la información de Firebase.
+      const userData = await fetchUserByFirebaseUid(result.user.uid);
+      await updateUserData(
+        userData.uid,
+        userData.name || "",
+        userData.email || email
+      );
+      return result;
+    } catch (err) {
+      console.error("Error al iniciar sesión:", err);
+      throw err;
+    }
+  };
+
+  // Función para registrarse con correo, contraseña y nombre
+  // Se utiliza el usuario obtenido en el resultado para actualizar el backend
+  const signUp = async (email: string, password: string, name: string) => {
+    try {
+      const result = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      // Aquí usamos result.user.uid en lugar de depender de firebaseUser
+      await updateUserData(result.user.uid, name, email);
+      return result;
+    } catch (err) {
+      console.error("Error al registrarse:", err);
+      throw err;
+    }
+  };
+
+  // Función para cerrar sesión
+  const signOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+      // Opcional: limpiar datos locales
+      setFirebaseUser(null);
+      setUserId(null);
+      setName("");
+      setEmail("");
+      localStorage.removeItem("myUserInfo");
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+      throw error;
+    }
+  };
 
   return (
     <UserContext.Provider
@@ -124,6 +169,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         email,
         loading,
         updateUserData,
+        signIn,
+        signUp,
+        signOut,
       }}
     >
       {children}

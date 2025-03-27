@@ -93,7 +93,7 @@ export interface Host {
 
 export interface User {
   _id: string;
-  firebase_uid: string;
+  uid: string;
   name: string;
   email: string;
   createdAt?: string;
@@ -111,8 +111,8 @@ export interface ActivityAttendee {
 
 export interface CourseAttendee {
   _id: string;
-  user_id: string;
-  event_id: string;
+  user_id: string | User;
+  event_id: Event | string;
   status?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -139,3 +139,26 @@ export interface QuizAttempt {
   createdAt?: string | number | Date;
   updatedAt?: string;
 }
+
+export interface OrganizationUser {
+  _id: string;
+  properties: any;
+  rol_id: string;
+  organization_id: string;
+  user_id: string | User;
+  position_id: string;
+  payment_plan_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentPlan {
+  _id: string;
+  days: number;
+  date_until: string;
+  price: number;
+  organization_user_id: string | OrganizationUser;
+  created_at: string;
+  updated_at: string;
+}
+

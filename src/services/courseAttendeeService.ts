@@ -20,6 +20,15 @@ export const fetchCourseAttendeeById = async (
   return response.data;
 };
 
+export const fetchCourseAttendeesByUser = async (
+  userId: string
+): Promise<CourseAttendee[]> => {
+  const response = await api.get<CourseAttendee[]>(
+    `/course-attendees/user/${userId}`
+  );
+  return response.data;
+};
+
 export const createCourseAttendee = async (
   attendee: Partial<CourseAttendee>
 ): Promise<CourseAttendee> => {

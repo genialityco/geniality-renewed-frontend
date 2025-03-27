@@ -33,7 +33,7 @@ export default function AnonymousAuth() {
       // Envía la info al backend (Nest) para guardar
       // Ajusta la URL según tu endpoint
       const response = await axios.post("http://localhost:3000/users", {
-        firebase_uid: uid,
+        uid,
         name,
         email,
       });

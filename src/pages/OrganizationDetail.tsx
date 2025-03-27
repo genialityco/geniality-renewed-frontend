@@ -22,6 +22,10 @@ import {
   searchSegments,
   TranscriptSearchResult,
 } from "../services/transcriptSegmentsService";
+import { fetchPaymentPlanByUserId } from "../services/paymentPlansService";
+import { useUser } from "../context/UserContext";
+import { useAuthModal } from "../context/AuthModalContext";
+import { usePaymentModal } from "../context/PaymentModalContext";
 
 import { Organization, Event, Activity } from "../services/types";
 import ActivityCard from "../components/ActivityCard";
@@ -29,18 +33,22 @@ import ActivityCard from "../components/ActivityCard";
 export default function OrganizationDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  // const [searchParams, setSearchParams] = useSearchParams();
+  const { userId } = useUser();
+  const { openAuthModal } = useAuthModal();
+  const { openPaymentModal } = usePaymentModal();
 
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Estado para PaymentPlan
+  const [paymentPlan, setPaymentPlan] = useState<any>(null);
+  const [planLoading, setPlanLoading] = useState(true);
+
   // Para la búsqueda
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<TranscriptSearchResult[]>(
-    []
-  );
+  const [searchResults, setSearchResults] = useState<TranscriptSearchResult[]>([]);
 
   // Estado para la pestaña activa: "courses" o "activities"
   const [activeTab, setActiveTab] = useState("courses");
@@ -75,6 +83,23 @@ export default function OrganizationDetail() {
     fetchData();
   }, [id]);
 
+  // Obtener PaymentPlan usando el userId
+  useEffect(() => {
+    const fetchPlan = async () => {
+      try {
+        if (userId) {
+          const planData = await fetchPaymentPlanByUserId(userId);
+          setPaymentPlan(planData);
+        }
+      } catch (error) {
+        console.error("Error fetching payment plan:", error);
+      } finally {
+        setPlanLoading(false);
+      }
+    };
+    fetchPlan();
+  }, [userId]);
+
   // Función para buscar texto en las transcripciones
   const handleSearch = async () => {
     setActiveTab("activities");
@@ -92,12 +117,29 @@ export default function OrganizationDetail() {
 
   // Cuando el usuario escribe, si hay texto se activa el tab de "activities"
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchQuery(value);
+    setSearchQuery(e.target.value);
   };
 
   if (loading) return <Loader />;
   if (!organization) return <Text>Organización no encontrada</Text>;
+
+  // Determinar si el plan está activo: si PaymentPlan se obtuvo y la fecha actual es menor o igual a date_until
+  const planIsActive =
+    paymentPlan && new Date() <= new Date(paymentPlan.date_until);
+
+  // Función para manejar click en un evento (curso)
+  const handleCourseClick = (eventId: string) => {
+    if (!userId) {
+      // Si no está autenticado, muestra el modal de autenticación
+      openAuthModal();
+    } else if (!planIsActive) {
+      // Si el plan está vencido, muestra el modal de pago
+      openPaymentModal();
+    } else {
+      // Si está autenticado y el plan activo, navega al curso
+      navigate(`/course/${eventId}`);
+    }
+  };
 
   // Función para renderizar las pestañas
   const renderTabs = () => (
@@ -129,14 +171,13 @@ export default function OrganizationDetail() {
               <Grid.Col key={event._id} span={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <Card
                   style={{ height: "100%", cursor: "pointer" }}
-                  onClick={() => navigate(`/course/${event._id}`)}
+                  onClick={() => handleCourseClick(event._id)}
                 >
                   <Flex
                     direction="column"
                     justify="space-around"
                     style={{ height: "100%" }}
                   >
-                    {/* Manejo de la imagen */}
                     {(event.picture || event.styles?.event_image) && (
                       <Image
                         src={event.picture || event.styles.banner_image}
@@ -174,9 +215,7 @@ export default function OrganizationDetail() {
                   const foundActivity = activities.find(
                     (act) => act._id === result._id
                   );
-                  if (!foundActivity) {
-                    return null;
-                  }
+                  if (!foundActivity) return null;
                   return (
                     <Grid.Col key={foundActivity._id} span={12}>
                       <ActivityCard
@@ -216,7 +255,12 @@ export default function OrganizationDetail() {
     <Container fluid style={{ padding: "20px", textAlign: "center" }}>
       <Title>{organization.name}</Title>
 
-      {/* Barra de búsqueda fuera de los Tabs */}
+      {!planIsActive && !planLoading && userId && (
+        <Text c="red" fw={700} mt="md">
+          Tu membresía no está activa. Algunas funcionalidades podrían estar bloqueadas.
+        </Text>
+      )}
+
       <Flex
         justify="center"
         align="center"

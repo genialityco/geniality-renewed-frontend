@@ -1,5 +1,3 @@
-// src/pages/CourseDetail/CourseDetail.tsx
-
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import {
@@ -38,6 +36,10 @@ import { Event, Module, Activity } from "../../services/types";
 import QuizDrawer from "../../components/QuizDrawer";
 import ActivityDetail from "../../components/ActivityDetail";
 
+// IMPORTACIONES PARA REGISTRO DE CURSO
+import { useUser } from "../../context/UserContext";
+import { createOrUpdateCourseAttendee, CourseAttendeePayload } from "../../services/courseAttendeeService";
+
 export default function CourseDetail() {
   const { eventId } = useParams<{ eventId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -59,6 +61,9 @@ export default function CourseDetail() {
 
   // Drawer del Cuestionario
   const [drawerQuestionnaireOpen, setDrawerQuestionnaireOpen] = useState(false);
+
+  // Obtener el userId desde el contexto
+  const { userId } = useUser();
 
   // Cargar datos iniciales (Evento, Módulos, Actividades)
   useEffect(() => {
@@ -94,6 +99,25 @@ export default function CourseDetail() {
 
     fetchData();
   }, [eventId, searchParams]);
+
+  // NUEVO: Efecto para registrar al usuario en el curso
+  useEffect(() => {
+    if (!event || !userId) return;
+
+    const enrollInCourse = async () => {
+      try {
+        const payloadCourse: CourseAttendeePayload = {
+          user_id: userId,
+          event_id: event._id.toString(),
+        };
+        await createOrUpdateCourseAttendee(payloadCourse);
+      } catch (error) {
+        console.error("Error inscribiendo al usuario en el curso:", error);
+      }
+    };
+
+    enrollInCourse();
+  }, [event, userId]);
 
   if (loading) return <Loader />;
   if (!event) return <Text>Curso no encontrado</Text>;
