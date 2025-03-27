@@ -15,7 +15,7 @@ import { PaymentModalProvider } from "./context/PaymentModalContext";
 import { AuthModalProvider, useAuthModal } from "./context/AuthModalContext";
 
 function AppShellWithAuth() {
-  const { firebaseUser, userId, name, email, loading, signOut: contextSignOut } = useUser();
+  const { userId, name, email, signOut: contextSignOut } = useUser();
   const { openAuthModal } = useAuthModal();
   const navigate = useNavigate();
 
@@ -59,18 +59,16 @@ function AppShellWithAuth() {
           </Group>
         ) : (
           <Group>
-            <Button variant="outline" onClick={openAuthModal}>Registrate o Iniciar sesión</Button>
+            <Button variant="outline" onClick={openAuthModal}>
+              Registrate o Iniciar sesión
+            </Button>
           </Group>
         )}
       </Group>
     </div>
   );
 
-  return (
-    <>
-      {renderHeader()}
-    </>
-  );
+  return <>{renderHeader()}</>;
 }
 
 export default function App() {

@@ -112,8 +112,9 @@ export interface ActivityAttendee {
 export interface CourseAttendee {
   _id: string;
   user_id: string | User;
-  event_id: Event | string;
+  event_id: Event;
   status?: string;
+  progress: number;
   createdAt?: string;
   updatedAt?: string;
 }

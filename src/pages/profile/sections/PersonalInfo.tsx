@@ -19,7 +19,7 @@ import { FaX } from "react-icons/fa6";
 
 const PersonalInfo = () => {
   const { userId } = useUser();
-  const [user, setUser] = useState<User | null>(null);
+  const [, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
