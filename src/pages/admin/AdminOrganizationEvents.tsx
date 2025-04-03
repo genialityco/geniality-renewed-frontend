@@ -1,5 +1,5 @@
 // pages/admin/AdminOrganizationEvents.tsx
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Container, Title, List, Button, Loader } from "@mantine/core";
 

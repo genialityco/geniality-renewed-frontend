@@ -1,11 +1,10 @@
 // pages/admin/components/AdminModules.tsx
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, List, TextInput, Loader } from "@mantine/core";
 import {
   getModulesByEventId,
   createModule,
-  updateModule,
   deleteModule,
 } from "../../../services/moduleService";
 import { Module } from "../../../services/types";
@@ -15,7 +14,7 @@ interface Props {
   eventId?: string;
 }
 
-export default function AdminModules({ organizationId, eventId }: Props) {
+export default function AdminModules({ eventId }: Props) {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
 

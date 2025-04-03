@@ -1,14 +1,6 @@
 // pages/admin/components/BasicEventData.tsx
 import React, { useState } from "react";
-import {
-  TextInput,
-  Button,
-  Image,
-  Loader,
-  Select,
-  FileInput,
-  // etc.
-} from "@mantine/core";
+import { TextInput, Button, Image, Loader } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 
 import { createEvent, updateEvent } from "../../../services/eventService";
@@ -54,7 +46,9 @@ export default function BasicEventData({
         // CREAR
         const newEvent = await createEvent(organizationId, formData);
         // Podrías redirigir a la pantalla de edición con el nuevo ID
-        navigate(`/admin/organizations/${organizationId}/events/${newEvent._id}`);
+        navigate(
+          `/admin/organizations/${organizationId}/events/${newEvent._id}`
+        );
       }
     } catch (error) {
       console.error(error);

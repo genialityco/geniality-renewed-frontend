@@ -7,7 +7,7 @@ const BASE_URL = "/modules";
 
 // Crear módulo
 export async function createModule(
-eventId: string, moduleData: Partial<Module>): Promise<Module> {
+  _eventId: string, moduleData: Partial<Module>): Promise<Module> {
   const response = await api.post<Module>(`${BASE_URL}`, moduleData);
   return response.data;
 }
@@ -42,7 +42,7 @@ export async function updateModule(
 }
 
 // Eliminar un módulo
-export async function deleteModule(id: string, moduleId: string): Promise<Module> {
+export async function deleteModule(id: string, _moduleId: string): Promise<Module> {
   const response = await api.delete<Module>(`${BASE_URL}/${id}`);
   return response.data;
 }

@@ -22,14 +22,14 @@ export const fetchEventsByOrganizer = async (
 };
 
 /** Crear un nuevo evento */
-export const createEvent = async (organizationId: string, data: Partial<Event>): Promise<Event> => {
+export const createEvent = async (_organizationId: string, data: Partial<Event>): Promise<Event> => {
   const response = await api.post<Event>("/events", data);
   return response.data;
 };
 
 /** Actualizar un evento existente (id) */
 export const updateEvent = async (
-id: string, eventId: string, data: Partial<Event>): Promise<Event> => {
+id: string, _eventId: string, data: Partial<Event>): Promise<Event> => {
   const response = await api.patch<Event>(`/events/${id}`, data);
   return response.data;
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, List, Loader, TextInput, Select, Modal } from "@mantine/core";
 import {
   getActivitiesByEvent,
@@ -14,7 +14,7 @@ interface Props {
   eventId?: string;
 }
 
-export default function AdminActivities({ organizationId, eventId }: Props) {
+export default function AdminActivities({ eventId }: Props) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
