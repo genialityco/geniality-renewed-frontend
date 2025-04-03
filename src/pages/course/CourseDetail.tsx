@@ -11,26 +11,25 @@ import {
   UnstyledButton,
   Group,
   Drawer,
-  Button,
   Divider,
   Burger,
   Flex,
   ScrollArea,
   Progress,
+  Image,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
-  FaComments,
-  FaForumbee,
   FaBookOpen,
   FaListUl,
   FaUsers,
   FaUserCheck,
+  FaArrowLeft,
 } from "react-icons/fa6";
 
 import { fetchEventById } from "../../services/eventService";
-import { fetchModulesByEventId } from "../../services/moduleService";
-import { findByEventId } from "../../services/activityService";
+import { getModulesByEventId } from "../../services/moduleService";
+import { getActivitiesByEvent } from "../../services/activityService";
 import { Event, Module, Activity } from "../../services/types";
 
 import QuizDrawer from "../../components/QuizDrawer";
@@ -38,7 +37,10 @@ import ActivityDetail from "../../components/ActivityDetail";
 
 // IMPORTACIONES PARA REGISTRO DE CURSO
 import { useUser } from "../../context/UserContext";
-import { createOrUpdateCourseAttendee, CourseAttendeePayload } from "../../services/courseAttendeeService";
+import {
+  createOrUpdateCourseAttendee,
+  CourseAttendeePayload,
+} from "../../services/courseAttendeeService";
 
 export default function CourseDetail() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -50,7 +52,9 @@ export default function CourseDetail() {
   const [loading, setLoading] = useState(true);
 
   // Actividad seleccionada
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
+    null
+  );
 
   // Control de apertura/colapso navbar
   const [opened, { toggle, close }] = useDisclosure(false);
@@ -73,10 +77,10 @@ export default function CourseDetail() {
           const eventData = await fetchEventById(eventId);
           setEvent(eventData);
 
-          const modulesData = await fetchModulesByEventId(eventId);
+          const modulesData = await getModulesByEventId(eventId);
           setModules(modulesData);
 
-          const activitiesData = await findByEventId(eventId);
+          const activitiesData = await getActivitiesByEvent(eventId);
           setActivities(activitiesData);
 
           // Si viene una actividad en la URL (por compartir)
@@ -140,9 +144,15 @@ export default function CourseDetail() {
       setSearchParams({ activity: activity._id });
     };
 
+    // Ordenar actividades por `created_at` en orden descendente (más recientes primero)
+    const sortedActivities = [...activities].sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
     return (
       <Accordion variant="filled">
-        {activities.map((activity) => {
+        {sortedActivities.map((activity) => {
           const progress = activity.video_progress || 0;
           let statusLabel = "Sin ver";
           let statusColor = "gray";
@@ -157,7 +167,9 @@ export default function CourseDetail() {
 
           return (
             <Accordion.Item value={activity._id} key={activity._id}>
-              <Accordion.Control onClick={() => handleActivitySelection(activity)}>
+              <Accordion.Control
+                onClick={() => handleActivitySelection(activity)}
+              >
                 <Group justify="space-between">
                   <Text>{activity.name}</Text>
                   <Text size="xs" c={statusColor}>
@@ -299,18 +311,21 @@ export default function CourseDetail() {
 
     // Si hay actividad seleccionada, usamos nuestro nuevo componente
     return (
-      <ActivityDetail
-        activity={selectedActivity}
-        eventId={event._id}
-        onStartQuestionnaire={handleStartQuestionnaire}
-        shareUrl={selectedActivity ? getShareUrl(selectedActivity) : ""}
-      />
+      <Container fluid>
+        <Image src={event.styles.banner_footer} fit="fill" h={180} />
+        <ActivityDetail
+          activity={selectedActivity}
+          eventId={event._id}
+          onStartQuestionnaire={handleStartQuestionnaire}
+          shareUrl={selectedActivity ? getShareUrl(selectedActivity) : ""}
+        />
+      </Container>
     );
   };
 
   return (
     <AppShell
-      header={{ height: 40 }}
+      header={{ height: 60 }}
       navbar={{
         width: 300,
         breakpoint: "sm",
@@ -319,7 +334,7 @@ export default function CourseDetail() {
     >
       {/* HEADER */}
       <AppShell.Header>
-        <Flex align="center">
+        <Flex justify="center" align="center" style={{ height: "100%" }}>
           <Burger
             opened={opened}
             onClick={toggle}
@@ -327,11 +342,20 @@ export default function CourseDetail() {
             color="black"
             onMouseEnter={() => opened || toggle()}
           />
-          <Group justify="space-between" style={{ height: "100%" }}>
-            <Title order={2} style={{ cursor: "pointer" }}>
-              {event.name}
-            </Title>
+          <Group style={{ height: "100%", width: "100%" }}>
             <Group>
+              <img height={40} src={event.styles.event_image} />
+            </Group>
+            <Group>
+              <FaArrowLeft
+                size={24}
+                style={{ cursor: "pointer" }}
+                onClick={() => window.history.back()}
+              />
+              <Title order={4}>{event.name}</Title>
+            </Group>
+
+            {/* <Group>
               <Button
                 variant="subtle"
                 leftSection={<FaComments size={18} />}
@@ -346,7 +370,7 @@ export default function CourseDetail() {
               >
                 Foro
               </Button>
-            </Group>
+            </Group> */}
           </Group>
         </Flex>
       </AppShell.Header>

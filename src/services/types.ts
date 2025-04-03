@@ -5,6 +5,7 @@ export interface AccessSettings {
 }
 
 export interface Organization {
+  [x: string]: any;
   _id: string;
   name: string;
   author: string;
@@ -46,6 +47,7 @@ export interface Module {
 }
 
 export interface Activity {
+  created_at: string | number | Date;
   video_progress: number;
   module_id: string;
   _id: any;
@@ -53,7 +55,7 @@ export interface Activity {
   name: string;
   datetime_start?: string;
   datetime_end?: string;
-  event_id: Event;
+  event_id: Event | string;
   date_start_zoom?: string;
   date_end_zoom?: string;
   description?: string;

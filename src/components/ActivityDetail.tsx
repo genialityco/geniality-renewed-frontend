@@ -12,6 +12,7 @@ import {
 } from "@mantine/core";
 import Player from "@vimeo/player";
 import { FaShare } from "react-icons/fa6";
+import ReactPlayer from "react-player"
 
 import { fetchHostById } from "../services/hostsService";
 import { updateVideoProgress } from "../services/activityService";
@@ -323,16 +324,29 @@ export default function ActivityDetail({
 
       {/* Video iframe */}
       {activity.video ? (
-        <iframe
-          ref={vimeoPlayerRef}
-          src={`${activity.video}?api=1&player_id=vimeo-player`}
+        <ReactPlayer
+          url={activity.video}
           width="100%"
-          height="315"
-          frameBorder="0"
-          allow="autoplay; fullscreen; picture-in-picture"
-          allowFullScreen
+          style={{ aspectRatio: "16/9" }}
+          controls
+          config={{
+            vimeo: {
+              playerOptions: {
+                controls: true,
+              },
+            },
+          }}
         />
       ) : (
+        // <iframe
+        //   ref={vimeoPlayerRef}
+        //   src={`${activity.video}?api=1&player_id=vimeo-player`}
+        //   style={{ aspectRatio: '16/9' }}
+        //   width="100%"
+        //   frameBorder="0"
+        //   allow="autoplay; encrypted-media"
+        //   allowFullScreen
+        // />
         <Text size="sm" c="dimmed" mt="xs">
           No hay URL de video disponible.
         </Text>

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Container, Text } from "@mantine/core";
 
 import { Activity } from "../../services/types";
-import { fetchActivityById } from "../../services/activityService";
+import { getActivityById } from "../../services/activityService";
 
 // Importa tu componente “completo” (la ActivityDetail)
 import ActivityDetail from "../../components/ActivityDetail";
@@ -47,7 +47,7 @@ export default function ActivityDetailContainer() {
         return;
       }
       try {
-        const response = await fetchActivityById(activityId);
+        const response = await getActivityById(activityId);
         setActivity(response);
       } catch (error) {
         console.error("Error fetching activity:", error);

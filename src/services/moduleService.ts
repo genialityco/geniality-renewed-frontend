@@ -1,49 +1,54 @@
-import api from "./api";
+// modulesService.ts
+
+import api from "./api"; // tu instancia de Axios
 import { Module } from "./types";
 
-/**
- * Obtener todos los módulos
- */
-export const fetchAllModules = async (): Promise<Module[]> => {
-  const response = await api.get<Module[]>("/modules");
-  return response.data;
-};
+const BASE_URL = "/modules";
 
-/**
- * Obtener un módulo por su ID
- */
-export const fetchModuleById = async (id: string): Promise<Module> => {
-  const response = await api.get<Module>(`/modules/${id}`);
+// Crear módulo
+export async function createModule(
+eventId: string, moduleData: Partial<Module>): Promise<Module> {
+  const response = await api.post<Module>(`${BASE_URL}`, moduleData);
   return response.data;
-};
+}
 
-/**
- * Crear un nuevo módulo
- */
-export const createModule = async (module: Omit<Module, "_id" | "created_at" | "updated_at">): Promise<Module> => {
-  const response = await api.post<Module>("/modules", module);
+// Obtener todos los módulos
+export async function getModules(): Promise<Module[]> {
+  const response = await api.get<Module[]>(`${BASE_URL}`);
   return response.data;
-};
+}
 
-/**
- * Actualizar un módulo existente
- */
-export const updateModule = async (id: string, module: Partial<Module>): Promise<Module> => {
-  const response = await api.put<Module>(`/modules/${id}`, module);
+// Obtener un módulo por id
+export async function getModuleById(id: string): Promise<Module> {
+  const response = await api.get<Module>(`${BASE_URL}/${id}`);
   return response.data;
-};
+}
 
-/**
- * Eliminar un módulo por su ID
- */
-export const deleteModule = async (id: string): Promise<void> => {
-  await api.delete(`/modules/${id}`);
-};
+// Actualizar un módulo (con PUT o PATCH)
+export async function updateModule(
+  id: string,
+  moduleData: Partial<Module>,
+  usePatch = true
+): Promise<Module> {
+  if (usePatch) {
+    // PATCH
+    const response = await api.patch<Module>(`${BASE_URL}/${id}`, moduleData);
+    return response.data;
+  } else {
+    // PUT
+    const response = await api.put<Module>(`${BASE_URL}/${id}`, moduleData);
+    return response.data;
+  }
+}
 
-/**
- * Obtener módulos por event_id
- */
-export const fetchModulesByEventId = async (event_id: string): Promise<Module[]> => {
-  const response = await api.get<Module[]>(`/modules/event/${event_id}`);
+// Eliminar un módulo
+export async function deleteModule(id: string, moduleId: string): Promise<Module> {
+  const response = await api.delete<Module>(`${BASE_URL}/${id}`);
   return response.data;
-};
+}
+
+// Obtener módulos por event_id
+export async function getModulesByEventId(event_id: string): Promise<Module[]> {
+  const response = await api.get<Module[]>(`${BASE_URL}/event/${event_id}`);
+  return response.data;
+}

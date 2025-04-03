@@ -6,6 +6,7 @@ import {
   Text,
   Button,
   Menu,
+  Image,
 } from "@mantine/core";
 import { UserProvider, useUser } from "./context/UserContext";
 import { BrowserRouter, useNavigate } from "react-router-dom";
@@ -32,11 +33,19 @@ function AppShellWithAuth() {
   };
 
   const renderHeader = () => (
-    <div style={{ padding: "1rem", borderBottom: "1px solid #ccc" }}>
+    <div style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>
       <Group justify="space-between" align="center" style={{ height: "100%" }}>
-        <Text fw="bold" size="xl">
-          Mi App
-        </Text>
+        <Group justify="space-between">
+          <Image
+            src="https://storage.googleapis.com/geniality-sas.appspot.com/evius/events/JqzemlKcQEClLYBMFxfSv8fAYX6PwXFZdKf0eNqT.png"
+            w={70}
+            radius="md"
+            style={{ boxShadow: "0 0 5px black" }}
+          />
+          <Text fw="bold" size="xl">
+            EndoCampus
+          </Text>
+        </Group>
         {userId ? (
           <Group>
             <Menu shadow="md" width={200}>

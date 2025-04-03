@@ -13,11 +13,12 @@ import {
   TextInput,
   Button,
   Divider,
+  Paper,
 } from "@mantine/core";
 
 import { fetchOrganizationById } from "../services/organizationService";
 import { fetchEventsByOrganizer } from "../services/eventService";
-import { fetchActivitiesByOrganization } from "../services/activityService";
+import { getActivitiesByOrganization } from "../services/activityService";
 import {
   searchSegments,
   TranscriptSearchResult,
@@ -48,7 +49,9 @@ export default function OrganizationDetail() {
 
   // Para la búsqueda
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<TranscriptSearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<TranscriptSearchResult[]>(
+    []
+  );
 
   // Estado para la pestaña activa: "courses" o "activities"
   const [activeTab, setActiveTab] = useState("courses");
@@ -70,7 +73,7 @@ export default function OrganizationDetail() {
           setEvents(sortedEvents);
 
           // Obtener actividades de la organización
-          const activityData = await fetchActivitiesByOrganization(id);
+          const activityData = await getActivitiesByOrganization(id);
           setActivities(activityData);
         }
       } catch (error) {
@@ -253,30 +256,50 @@ export default function OrganizationDetail() {
 
   return (
     <Container fluid style={{ padding: "20px", textAlign: "center" }}>
-      <Title>{organization.name}</Title>
+      <Paper
+        shadow="md"
+        radius="md"
+        style={{
+          backgroundImage: `url(${organization.styles.banner_image})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          padding: "120px",
+          textAlign: "center",
+          color: "#fff",
+        }}
+      >
+        <Title style={{ textShadow: "0px 2px 4px rgba(0,0,0,0.5)" }}>
+          {organization.name}
+        </Title>
 
-      {!planIsActive && !planLoading && userId && (
-        <Text c="red" fw={700} mt="md">
-          Tu membresía no está activa. Algunas funcionalidades podrían estar bloqueadas.
-        </Text>
-      )}
+        {!planIsActive && !planLoading && userId && (
+          <Text
+            c="red"
+            fw={700}
+            mt="md"
+            style={{ textShadow: "0px 2px 4px rgba(0,0,0,0.5)" }}
+          >
+            Tu membresía no está activa. Algunas funcionalidades podrían estar
+            bloqueadas.
+          </Text>
+        )}
+        <Divider mb="lg" />
+      </Paper>
 
       <Flex
-        justify="center"
-        align="center"
-        gap="md"
-        style={{ margin: "20px 0" }}
-      >
-        <TextInput
-          placeholder="Buscar texto en transcripciones..."
-          value={searchQuery}
-          onChange={handleSearchInputChange}
-          style={{ width: 250 }}
-        />
-        <Button onClick={handleSearch}>Buscar</Button>
-      </Flex>
-
-      <Divider mb="lg" />
+          justify="center"
+          align="center"
+          gap="md"
+          style={{ margin: "20px 0" }}
+        >
+          <TextInput
+            placeholder="Buscar texto en transcripciones..."
+            value={searchQuery}
+            onChange={handleSearchInputChange}
+            style={{ width: 250 }}
+          />
+          <Button onClick={handleSearch}>Buscar</Button>
+        </Flex>
 
       {renderTabs()}
     </Container>
