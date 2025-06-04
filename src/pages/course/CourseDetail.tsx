@@ -17,6 +17,7 @@ import {
   ScrollArea,
   Progress,
   Image,
+  Avatar,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -30,7 +31,7 @@ import {
 import { fetchEventById } from "../../services/eventService";
 import { getModulesByEventId } from "../../services/moduleService";
 import { getActivitiesByEvent } from "../../services/activityService";
-import { Event, Module, Activity } from "../../services/types";
+import { Event, Module, Activity, Host } from "../../services/types";
 
 import QuizDrawer from "../../components/QuizDrawer";
 import ActivityDetail from "../../components/ActivityDetail";
@@ -41,6 +42,81 @@ import {
   createOrUpdateCourseAttendee,
   CourseAttendeePayload,
 } from "../../services/courseAttendeeService";
+import { fetchHostsByEventId } from "../../services/hostsService";
+
+// Componente auxiliar para renderizar la tarjeta de actividad
+interface ActivityCardProps {
+  activity: Activity;
+  hosts: Host[];
+  onClick: () => void;
+}
+
+function ActivityCard({ activity, hosts, onClick }: ActivityCardProps) {
+  const progress = activity.video_progress || 0;
+  let statusLabel = "Sin ver";
+  let statusColor = "gray";
+
+  if (progress > 0 && progress < 100) {
+    statusLabel = "Viendo";
+    statusColor = "yellow";
+  } else if (progress === 100) {
+    statusLabel = "Visto completamente";
+    statusColor = "green";
+  }
+
+  // Filtramos los hosts asignados a esta actividad
+  const activityHosts = hosts.filter((host) =>
+    host.activities_ids?.includes(activity._id)
+  );
+
+  return (
+    <Card
+      shadow="xs"
+      p="md"
+      radius="md"
+      withBorder
+      style={{ cursor: "pointer" }}
+      onClick={onClick}
+    >
+      <Group align="center" p="md">
+        {/* Mostrar avatar grande del primer host (si existe) */}
+        {activityHosts.length > 0 ? (
+          <Avatar
+            src={activityHosts[0].image}
+            alt={activityHosts[0].name}
+            size={60}
+            radius="xl"
+          />
+        ) : (
+          <Avatar size={60} radius="xl" />
+        )}
+        <div style={{ flex: 1 }}>
+          <Group p={8}>
+            <FaBookOpen size={18} />
+            <Text fw={600} size="md">
+              {activity.name}
+            </Text>
+          </Group>
+          {activityHosts.length > 0 ? (
+            <Text fw={500} size="sm" mt={4}>
+              {activityHosts[0].name}
+            </Text>
+          ) : (
+            <Text fw={500} size="sm" mt={4}>
+              Sin conferencista
+            </Text>
+          )}
+        </div>
+        <Group p="xs">
+          <Text size="xs" c={statusColor}>
+            {statusLabel} ({Math.round(progress)}%)
+          </Text>
+        </Group>
+      </Group>
+      <Progress value={progress} size="sm" color={statusColor} mt="xs" />
+    </Card>
+  );
+}
 
 export default function CourseDetail() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -49,12 +125,11 @@ export default function CourseDetail() {
   const [event, setEvent] = useState<Event | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [hosts, setHosts] = useState<Host[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Actividad seleccionada
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
-    null
-  );
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
 
   // Control de apertura/colapso navbar
   const [opened, { toggle, close }] = useDisclosure(false);
@@ -69,7 +144,7 @@ export default function CourseDetail() {
   // Obtener el userId desde el contexto
   const { userId } = useUser();
 
-  // Cargar datos iniciales (Evento, Módulos, Actividades)
+  // Cargar datos iniciales (Evento, Módulos, Actividades, Hosts)
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -82,6 +157,9 @@ export default function CourseDetail() {
 
           const activitiesData = await getActivitiesByEvent(eventId);
           setActivities(activitiesData);
+
+          const hostData = await fetchHostsByEventId(eventId);
+          setHosts(hostData);
 
           // Si viene una actividad en la URL (por compartir)
           const activityParam = searchParams.get("activity");
@@ -104,7 +182,7 @@ export default function CourseDetail() {
     fetchData();
   }, [eventId, searchParams]);
 
-  // NUEVO: Efecto para registrar al usuario en el curso
+  // Efecto para registrar al usuario en el curso
   useEffect(() => {
     if (!event || !userId) return;
 
@@ -144,7 +222,7 @@ export default function CourseDetail() {
       setSearchParams({ activity: activity._id });
     };
 
-    // Ordenar actividades por `created_at` en orden descendente (más recientes primero)
+    // Ordenar actividades por created_at descendente (más recientes primero)
     const sortedActivities = [...activities].sort(
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -152,37 +230,18 @@ export default function CourseDetail() {
 
     return (
       <Accordion variant="filled">
-        {sortedActivities.map((activity) => {
-          const progress = activity.video_progress || 0;
-          let statusLabel = "Sin ver";
-          let statusColor = "gray";
-
-          if (progress > 0 && progress < 100) {
-            statusLabel = "Viendo";
-            statusColor = "yellow";
-          } else if (progress === 100) {
-            statusLabel = "Visto completamente";
-            statusColor = "green";
-          }
-
-          return (
-            <Accordion.Item value={activity._id} key={activity._id}>
-              <Accordion.Control
+        <p>{sortedActivities.length}</p>
+        {sortedActivities.map((activity) => (
+          <Accordion.Item value={activity._id} key={activity._id}>
+            <Accordion.Control onClick={() => handleActivitySelection(activity)}>
+              <ActivityCard
+                activity={activity}
+                hosts={hosts}
                 onClick={() => handleActivitySelection(activity)}
-              >
-                <Group justify="space-between">
-                  <Text>{activity.name}</Text>
-                  <Text size="xs" c={statusColor}>
-                    {statusLabel} ({Math.round(progress)}%)
-                  </Text>
-                </Group>
-              </Accordion.Control>
-              <Accordion.Panel>
-                <Progress value={progress} size="sm" color={statusColor} />
-              </Accordion.Panel>
-            </Accordion.Item>
-          );
-        })}
+              />
+            </Accordion.Control>
+          </Accordion.Item>
+        ))}
       </Accordion>
     );
   };
@@ -223,7 +282,7 @@ export default function CourseDetail() {
               <Accordion.Control>
                 <Group justify="space-between">
                   <Text>{module.module_name}</Text>
-                  <Text size="xs" c={moduloColor}>
+                  <Text size="xs" color={moduloColor}>
                     {moduloStatus} ({Math.round(progresoModulo)}%)
                   </Text>
                 </Group>
@@ -237,47 +296,16 @@ export default function CourseDetail() {
                   mb="md"
                 />
                 {actividadesDelModulo.length > 0 ? (
-                  actividadesDelModulo.map((activity) => {
-                    const progress = activity.video_progress || 0;
-                    let statusLabel = "Sin ver";
-                    let statusColor = "gray";
-
-                    if (progress > 0 && progress < 100) {
-                      statusLabel = "Viendo";
-                      statusColor = "yellow";
-                    } else if (progress === 100) {
-                      statusLabel = "Visto completamente";
-                      statusColor = "green";
-                    }
-
-                    return (
-                      <Card
-                        key={activity._id}
-                        shadow="xs"
-                        mb="xs"
-                        p="sm"
-                        style={{ cursor: "pointer" }}
-                        onClick={() => setSelectedActivity(activity)}
-                      >
-                        <Group justify="space-between">
-                          <Text size="sm" fw={500}>
-                            {activity.name}
-                          </Text>
-                          <Text size="xs" c={statusColor}>
-                            {statusLabel} ({Math.round(progress)}%)
-                          </Text>
-                        </Group>
-                        <Progress
-                          value={progress}
-                          size="sm"
-                          color={statusColor}
-                          mt="xs"
-                        />
-                      </Card>
-                    );
-                  })
+                  actividadesDelModulo.map((activity) => (
+                    <ActivityCard
+                      key={activity._id}
+                      activity={activity}
+                      hosts={hosts}
+                      onClick={() => setSelectedActivity(activity)}
+                    />
+                  ))
                 ) : (
-                  <Text size="sm" c="dimmed">
+                  <Text size="sm" color="dimmed">
                     Sin actividades
                   </Text>
                 )}
@@ -297,22 +325,21 @@ export default function CourseDetail() {
           <Text size="md" fw={500}>
             Bienvenido(a) al curso {event.name}.
           </Text>
-          <Text size="sm" c="dimmed">
+          <Text size="sm" color="dimmed">
             Selecciona una actividad para ver detalles
           </Text>
           <Text size="lg" fw={600} mt="lg">
             Módulos y actividades
           </Text>
-          {modules.length ? renderModules() : null}
-          {!modules.length && activities.length ? renderActivities() : null}
+          {modules.length ? renderModules() : renderActivities()}
         </Card>
       );
     }
 
-    // Si hay actividad seleccionada, usamos nuestro nuevo componente
+    // Si hay actividad seleccionada, mostramos el detalle
     return (
       <Container fluid>
-        <Image src={event.styles.banner_footer} fit="fill" h={180} />
+        <Image src={event.styles.banner_footer} fit="fill" height={180} />
         <ActivityDetail
           activity={selectedActivity}
           eventId={event._id}
@@ -340,11 +367,11 @@ export default function CourseDetail() {
             onClick={toggle}
             size="sm"
             color="black"
-            onMouseEnter={() => opened || toggle()}
+            onMouseEnter={() => (opened ? null : toggle())}
           />
           <Group style={{ height: "100%", width: "100%" }}>
             <Group>
-              <img height={40} src={event.styles.event_image} />
+              <img height={40} src={event.styles.event_image} alt="Evento" />
             </Group>
             <Group>
               <FaArrowLeft
@@ -354,23 +381,6 @@ export default function CourseDetail() {
               />
               <Title order={4}>{event.name}</Title>
             </Group>
-
-            {/* <Group>
-              <Button
-                variant="subtle"
-                leftSection={<FaComments size={18} />}
-                onClick={() => setDrawerChatOpen(true)}
-              >
-                Chat
-              </Button>
-              <Button
-                variant="subtle"
-                leftSection={<FaForumbee size={18} />}
-                onClick={() => setDrawerForumOpen(true)}
-              >
-                Foro
-              </Button>
-            </Group> */}
           </Group>
         </Flex>
       </AppShell.Header>

@@ -94,6 +94,7 @@ export interface Host {
 }
 
 export interface User {
+  [x: string]: any;
   _id: string;
   uid: string;
   name: string;

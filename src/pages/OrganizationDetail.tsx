@@ -14,6 +14,7 @@ import {
   Button,
   Divider,
   Paper,
+  Modal,
 } from "@mantine/core";
 
 import { fetchOrganizationById } from "../services/organizationService";
@@ -46,6 +47,7 @@ export default function OrganizationDetail() {
   // Estado para PaymentPlan
   const [paymentPlan, setPaymentPlan] = useState<any>(null);
   const [planLoading, setPlanLoading] = useState(true);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   // Para la búsqueda
   const [searchQuery, setSearchQuery] = useState("");
@@ -127,14 +129,14 @@ export default function OrganizationDetail() {
   if (!organization) return <Text>Organización no encontrada</Text>;
 
   // Determinar si el plan está activo: si PaymentPlan se obtuvo y la fecha actual es menor o igual a date_until
-  const planIsActive =
-    paymentPlan && new Date() <= new Date(paymentPlan.date_until);
+  const planIsActive = true;
 
   // Función para manejar click en un evento (curso)
   const handleCourseClick = (eventId: string) => {
     if (!userId) {
+      setShowSubscriptionModal(true);
       // Si no está autenticado, muestra el modal de autenticación
-      openAuthModal();
+      // openAuthModal();
     } else if (!planIsActive) {
       // Si el plan está vencido, muestra el modal de pago
       openPaymentModal();
@@ -287,21 +289,43 @@ export default function OrganizationDetail() {
       </Paper>
 
       <Flex
-          justify="center"
-          align="center"
-          gap="md"
-          style={{ margin: "20px 0" }}
-        >
-          <TextInput
-            placeholder="Buscar texto en transcripciones..."
-            value={searchQuery}
-            onChange={handleSearchInputChange}
-            style={{ width: 250 }}
-          />
-          <Button onClick={handleSearch}>Buscar</Button>
-        </Flex>
+        justify="center"
+        align="center"
+        gap="md"
+        style={{ margin: "20px 0" }}
+      >
+        <TextInput
+          placeholder="Buscar texto en transcripciones..."
+          value={searchQuery}
+          onChange={handleSearchInputChange}
+          style={{ width: 250 }}
+        />
+        <Button onClick={handleSearch}>Buscar</Button>
+      </Flex>
 
       {renderTabs()}
+      <Modal
+        opened={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        title="Suscripción requerida"
+        centered
+        size="lg"
+      >
+        <Text mb="md">
+          Para acceder al contenido seleccionado debes suscribirte a{" "}
+          <strong>ENDOCAMPUS ACE</strong>. Esta suscripción tiene un costo de{" "}
+          <strong>$50.000 COP</strong> o <strong>15 USD</strong>, y con ella
+          tienes derecho a material académico desarrollado por la ACE (Congresos
+          y simposios).
+        </Text>
+        <Text mb="xl">
+          La suscripción tiene vigencia de <strong>1 año</strong> a partir de la
+          fecha en que se realice el pago.
+        </Text>
+        <Button fullWidth onClick={() => navigate(`/pagos/${id}`)}>
+          Comenzar
+        </Button>
+      </Modal>
     </Container>
   );
 }

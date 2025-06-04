@@ -25,3 +25,9 @@ export const deleteHost = async (id: string): Promise<Host> => {
   const response = await api.delete<Host>(`/hosts/${id}`);
   return response.data;
 };
+
+// Consultar hosts por event_id
+export const fetchHostsByEventId = async (eventId: string): Promise<Host[]> => {
+  const response = await api.get<Host[]>(`/hosts/event/${eventId}`);
+  return response.data;
+};
