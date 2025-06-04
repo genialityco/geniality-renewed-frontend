@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
-import { Modal, TextInput, PasswordInput, Button, Group } from "@mantine/core";
-import { useUser } from "./UserContext";
+import { Modal } from "@mantine/core";
 import AuthForm from "../components/AuthForm";
 
 interface AuthModalContextProps {

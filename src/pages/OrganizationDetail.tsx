@@ -26,7 +26,7 @@ import {
 } from "../services/transcriptSegmentsService";
 import { fetchPaymentPlanByUserId } from "../services/paymentPlansService";
 import { useUser } from "../context/UserContext";
-import { useAuthModal } from "../context/AuthModalContext";
+// import { useAuthModal } from "../context/AuthModalContext";
 import { usePaymentModal } from "../context/PaymentModalContext";
 
 import { Organization, Event, Activity } from "../services/types";
@@ -36,7 +36,7 @@ export default function OrganizationDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { userId } = useUser();
-  const { openAuthModal } = useAuthModal();
+  // const { openAuthModal } = useAuthModal();
   const { openPaymentModal } = usePaymentModal();
 
   const [organization, setOrganization] = useState<Organization | null>(null);
@@ -45,7 +45,7 @@ export default function OrganizationDetail() {
   const [loading, setLoading] = useState(true);
 
   // Estado para PaymentPlan
-  const [paymentPlan, setPaymentPlan] = useState<any>(null);
+  const [, setPaymentPlan] = useState<any>(null);
   const [planLoading, setPlanLoading] = useState(true);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
