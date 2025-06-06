@@ -1,17 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import {
-  Card,
-  Image,
-  Text,
-  Title,
-  Grid,
-  Flex,
-  Button,
-  Highlight,
-} from "@mantine/core";
+import { Card, Image, Text, Title, Grid, Flex, Highlight } from "@mantine/core";
 import { Activity } from "../services/types";
-import { generateTranscript } from "../services/activityService";
-import { useState } from "react";
 
 interface MatchedSegment {
   segmentId: string;
@@ -40,7 +29,6 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   searchQuery,
 }) => {
   const navigate = useNavigate();
-  const [loadingTranscript, setLoadingTranscript] = useState(false);
 
   const vimeoId = activity.video ? activity.video.split("/").pop() : null;
   const thumbnail = vimeoId
@@ -49,22 +37,6 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
 
   const handleClickCard = (activityId: string) => {
     navigate(`/activitydetail/${activityId}`);
-  };
-
-  const handleGenerateTranscript = async (
-    event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    activityId: string
-  ) => {
-    event.stopPropagation();
-    try {
-      setLoadingTranscript(true);
-      const result = await generateTranscript(activityId);
-      console.log("Transcripción generada:", result);
-    } catch (error) {
-      console.error("Error al generar la transcripción:", error);
-    } finally {
-      setLoadingTranscript(false);
-    }
   };
 
   return (
@@ -87,21 +59,11 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
             fit="cover"
             loading="lazy"
           />
-          <Button
-            loading={loadingTranscript}
-            onClick={(event) => handleGenerateTranscript(event, activity._id)}
-            mt="xs"
-          >
-            G-Transcript
-          </Button>
         </Grid.Col>
 
         <Grid.Col span={8}>
           <Flex direction="column" justify="space-between">
             <Title order={4}>{activity.name}</Title>
-            <Text size="sm" c="dimmed">
-              408k vistas • hace 1 año
-            </Text>
             <Text size="sm" variant="gradient">
               Curso:{" "}
               {typeof activity.event_id === "object" &&

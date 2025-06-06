@@ -109,3 +109,17 @@ export async function generateTranscript(activityId: string): Promise<{
   }>(`${BASE_URL}/generate-transcript/${activityId}`);
   return response.data;
 }
+
+/**
+ * Consulta el estado de la transcripción
+ * GET /activities/transcription-status/:job_id
+ */
+export async function getTranscriptionStatus(jobId: string): Promise<{
+  status: string;
+  [key: string]: any; // Por si el backend retorna más información
+}> {
+  const response = await api.get<{ status: string }>(
+    `${BASE_URL}/transcription-status/${jobId}`
+  );
+  return response.data;
+}

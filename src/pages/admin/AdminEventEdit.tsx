@@ -39,7 +39,7 @@ export default function AdminEventEdit() {
   }
 
   return (
-    <Container>
+    <Container fluid>
       <Title order={2}>
         {isEditing ? "Editar Evento" : "Crear Nuevo Evento"}
       </Title>

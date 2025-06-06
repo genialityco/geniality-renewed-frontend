@@ -76,6 +76,7 @@ export default function OrganizationDetail() {
 
           // Obtener actividades de la organización
           const activityData = await getActivitiesByOrganization(id);
+          console.log("Actividades obtenidas:", activityData);
           setActivities(activityData);
         }
       } catch (error) {
@@ -114,6 +115,7 @@ export default function OrganizationDetail() {
         return;
       }
       const results = await searchSegments(searchQuery);
+      console.log(results);
       setSearchResults(results);
     } catch (error) {
       console.error("Error searching segments:", error);
@@ -218,7 +220,7 @@ export default function OrganizationDetail() {
               <Grid mt="md" gutter="md">
                 {searchResults.map((result) => {
                   const foundActivity = activities.find(
-                    (act) => act._id === result._id
+                    (act) => String(act._id) === String(result._id)
                   );
                   if (!foundActivity) return null;
                   return (

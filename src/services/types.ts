@@ -66,6 +66,8 @@ export interface Activity {
   selected_document: string[];
   type_id?: string;
   transcription_id?: string;
+  transcript_available?: boolean;
+  transcription_job_id?: string;
 }
 
 export interface GenerateGameRequest {

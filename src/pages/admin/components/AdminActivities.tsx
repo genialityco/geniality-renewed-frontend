@@ -1,10 +1,27 @@
 import { useEffect, useState } from "react";
-import { Button, List, Loader, TextInput, Select, Modal } from "@mantine/core";
+import {
+  Button,
+  List,
+  Loader,
+  TextInput,
+  Select,
+  Modal,
+  Badge,
+  Group,
+  Card,
+  Image,
+  Text,
+  Title,
+  Flex,
+  Container,
+} from "@mantine/core";
 import {
   getActivitiesByEvent,
   createActivity,
   deleteActivity,
   updateActivityPut, // <<--- Asegúrate de importar esta función
+  generateTranscript,
+  getTranscriptionStatus,
 } from "../../../services/activityService";
 import { Activity, Module } from "../../../services/types";
 import { getModulesByEventId } from "../../../services/moduleService";
@@ -36,6 +53,14 @@ export default function AdminActivities({ eventId }: Props) {
   const [editVideoUrl, setEditVideoUrl] = useState("");
   const [editHostIds, setEditHostIds] = useState<string>("");
   // Podrías usar MultiSelect con un array de hosts. Aquí simplifico a una sola cadena
+
+  const [generatingTranscriptId, setGeneratingTranscriptId] = useState<
+    string | null
+  >(null);
+  const [transcriptionStatus, setTranscriptionStatus] = useState<
+    Record<string, string>
+  >({});
+  const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!eventId) return;
@@ -141,8 +166,48 @@ export default function AdminActivities({ eventId }: Props) {
     }
   };
 
+  // ========== GENERAR TRANSCRIPT ==========
+  const handleGenerateTranscript = async (activityId: string) => {
+    setGeneratingTranscriptId(activityId);
+    try {
+      await generateTranscript(activityId);
+      // Reconsultar actividades para actualizar el estado real desde backend
+      if (eventId) {
+        const acts = await getActivitiesByEvent(eventId);
+        setActivities(acts);
+      }
+    } catch (error) {
+      console.error("Error al generar transcript:", error);
+    } finally {
+      setGeneratingTranscriptId(null);
+    }
+  };
+
+  // ========== CONSULTAR ESTADO TRANSCRIPCIÓN ==========
+  const handleCheckTranscriptionStatus = async (
+    activityId: string,
+    jobId: string
+  ) => {
+    setCheckingStatusId(activityId);
+    try {
+      const result = await getTranscriptionStatus(jobId);
+      setTranscriptionStatus((prev) => ({
+        ...prev,
+        [activityId]: result.status,
+      }));
+    } catch (error) {
+      setTranscriptionStatus((prev) => ({
+        ...prev,
+        [activityId]: "Error",
+      }));
+      console.error("Error al consultar estado de transcripción:", error);
+    } finally {
+      setCheckingStatusId(null);
+    }
+  };
+
   return (
-    <div>
+    <Container fluid>
       <h3>Actividades</h3>
 
       {/* Formulario para crear nueva actividad */}
@@ -175,31 +240,101 @@ export default function AdminActivities({ eventId }: Props) {
       </div>
 
       {/* Lista de actividades existentes */}
-      <List spacing="sm" mt="xl">
+      <div
+        style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 32 }}
+      >
         {activities.map((act) => (
-          <List.Item key={act._id}>
-            {act.name} {act.module_id && <em>(Módulo: {act.module_id})</em>}
-            {"  "}
-            <Button
-              variant="outline"
-              size="xs"
-              ml="md"
-              onClick={() => handleOpenEdit(act)}
+          <Card
+            key={act._id}
+            shadow="sm"
+            radius="md"
+            withBorder
+            style={{ width: 200, minHeight: 220, position: "relative" }}
+          >
+            <Flex
+              direction="column"
+              justify="space-between"
+              style={{ height: "100%" }}
             >
-              Editar
-            </Button>
-            <Button
-              variant="outline"
-              color="red"
-              size="xs"
-              ml="md"
-              onClick={() => handleDeleteActivity(act._id)}
-            >
-              Eliminar
-            </Button>
-          </List.Item>
+              <div>
+                <Group justify="space-around" mb="xs">
+                  <Title order={4}>{act.name}</Title>
+                  <Badge color={act.transcript_available ? "teal" : "gray"}>
+                    {act.transcript_available
+                      ? "Transcript listo"
+                      : "Sin transcript"}
+                  </Badge>
+                </Group>
+                <Text size="sm" c="dimmed" mb={8}>
+                  {act.module_id && <em>Módulo: {act.module_id}</em>}
+                </Text>
+                <Text size="xs" c="gray">
+                  {act.video ? `Video: ${act.video}` : "Sin video"}
+                </Text>
+                <Text size="xs" c="dimmed" mt={8}>
+                  {act._id || "Sin descripción"}
+                </Text>
+                {/* Botón y estado de transcripción */}
+                {act.transcription_job_id && (
+                  <Group mt={8}>
+                    <Button
+                      size="xs"
+                      variant="subtle"
+                      loading={checkingStatusId === act._id}
+                      onClick={() =>
+                        handleCheckTranscriptionStatus(
+                          act._id,
+                          act.transcription_job_id as string
+                        )
+                      }
+                    >
+                      Ver estado transcripción
+                    </Button>
+                    {transcriptionStatus[act._id] && (
+                      <Badge
+                        color={
+                          transcriptionStatus[act._id] === "completed"
+                            ? "teal"
+                            : transcriptionStatus[act._id] === "error"
+                            ? "red"
+                            : "yellow"
+                        }
+                      >
+                        {transcriptionStatus[act._id]}
+                      </Badge>
+                    )}
+                  </Group>
+                )}
+              </div>
+              <Group mt="md" p="xs">
+                <Button
+                  size="xs"
+                  loading={generatingTranscriptId === act._id}
+                  onClick={() => handleGenerateTranscript(act._id)}
+                  variant="light"
+                >
+                  Generar Transcript
+                </Button>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => handleOpenEdit(act)}
+                >
+                  Editar
+                </Button>
+                <Button
+                  variant="outline"
+                  color="red"
+                  size="xs"
+                  onClick={() => handleDeleteActivity(act._id)}
+                >
+                  Eliminar
+                </Button>
+              </Group>
+            </Flex>
+          </Card>
         ))}
-      </List>
+      </div>
 
       {/* MODAL DE EDICIÓN */}
       <Modal
@@ -234,6 +369,6 @@ export default function AdminActivities({ eventId }: Props) {
 
         <Button onClick={handleSaveEdit}>Guardar Cambios</Button>
       </Modal>
-    </div>
+    </Container>
   );
 }
