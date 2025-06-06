@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   Button,
-  List,
   Loader,
   TextInput,
   Select,
@@ -9,7 +8,6 @@ import {
   Badge,
   Group,
   Card,
-  Image,
   Text,
   Title,
   Flex,
