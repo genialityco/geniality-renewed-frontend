@@ -5,14 +5,12 @@ import {
   Title,
   Text,
   Loader,
-  Card,
   Grid,
   Image,
   Flex,
   Tabs,
   TextInput,
   Button,
-  Divider,
   Paper,
   Modal,
   Pagination,
@@ -336,7 +334,9 @@ export default function OrganizationDetail() {
           <>
             <Grid mt="md" gutter="md">
               {filteredActivities.length === 0 ? (
-                <Text>No hay actividades disponibles.</Text>
+                <Grid.Col span={12}>
+                  <Text>No hay actividades disponibles.</Text>
+                </Grid.Col>
               ) : (
                 filteredActivities.map((activity) => (
                   <Grid.Col
