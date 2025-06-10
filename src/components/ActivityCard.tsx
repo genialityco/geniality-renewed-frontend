@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Card, Image, Text, Title, Grid, Flex, Highlight } from "@mantine/core";
 import { Activity } from "../services/types";
+import { useEffect, useState } from "react";
 
 interface MatchedSegment {
   segmentId: string;
@@ -30,10 +31,24 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  const vimeoId = activity.video ? activity.video.split("/").pop() : null;
-  const thumbnail = vimeoId
-    ? `https://vumbnail.com/${vimeoId}.jpg`
-    : "https://via.placeholder.com/160x160?text=No+Video";
+  // Obtener imagen del evento si existe (event_id es el objeto del evento)
+  let eventImage: string =
+    "https://via.placeholder.com/160x160?text=No+Video";
+  if (typeof activity.event_id === "object" && activity.event_id !== null) {
+    const eventObj = activity.event_id as any;
+    eventImage =
+      eventObj.picture ||
+      eventObj.styles?.event_image ||
+      eventObj.styles?.banner_image ||
+      eventImage;
+  }
+
+  const [imgSrc, setImgSrc] = useState<string>(eventImage);
+
+  useEffect(() => {
+    setImgSrc(eventImage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activity._id]);
 
   const handleClickCard = (activityId: string) => {
     navigate(`/activitydetail/${activityId}`);
@@ -42,8 +57,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   return (
     <Card
       shadow="sm"
-      padding="md"
-      radius="md"
+      radius="xs"
       withBorder
       style={{ position: "relative", cursor: "pointer" }}
       onClick={() => handleClickCard(activity._id)}
@@ -51,26 +65,45 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
       <Grid gutter="md" align="center">
         <Grid.Col span={4}>
           <Image
-            src={thumbnail}
+            src={imgSrc}
             alt={activity.name}
-            radius="md"
+            radius="xs"
             height="auto"
             width="100%"
-            fit="cover"
+            fit="contain"
             loading="lazy"
+            onError={() => {
+              setImgSrc("https://via.placeholder.com/160x160?text=No+Video");
+            }}
           />
         </Grid.Col>
 
         <Grid.Col span={8}>
-          <Flex direction="column" justify="space-between">
+          <Flex direction="column" ta="left" justify="space-between">
             <Title order={4}>{activity.name}</Title>
             <Text size="sm" variant="gradient">
-              Curso:{" "}
+              Evento:{" "}
               {typeof activity.event_id === "object" &&
               activity.event_id !== null &&
-              "name" in activity.event_id
-                ? activity.event_id.name
-                : "Sin evento asignado"}
+              "name" in activity.event_id ? (
+                <span
+                  style={{ color: "#228be6", textDecoration: "underline", cursor: "pointer" }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    const eventId =
+                      (activity.event_id as any)._id ||
+                      (activity.event_id as any).id ||
+                      "";
+                    if (eventId) {
+                      window.open(`http://localhost:5173/course/${eventId}`, "_blank");
+                    }
+                  }}
+                >
+                  {activity.event_id.name}
+                </span>
+              ) : (
+                "Sin evento asignado"
+              )}
             </Text>
 
             {matchedSegments.length > 0 && (

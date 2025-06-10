@@ -17,16 +17,18 @@ export async function createActivity(
 }
 
 /**
- * Lista las actividades filtrando por ID de organización (opcional)
- * GET /activities/by-organization?organizationId=xxx
+ * Lista las actividades filtrando por ID de organización (opcional) y paginación
+ * GET /activities/by-organization?organizationId=xxx&page=1&limit=20
  */
 export async function getActivitiesByOrganization(
-  organizationId?: string
-): Promise<Activity[]> {
-  const url = `${BASE_URL}/by-organization${
-    organizationId ? `?organizationId=${organizationId}` : ""
-  }`;
-  const response = await api.get<Activity[]>(url);
+  organizationId?: string,
+  page: number = 1,
+  limit: number = 20
+): Promise<{ results: Activity[]; total: number; page: number; limit: number }> {
+  let url = `${BASE_URL}/by-organization?`;
+  if (organizationId) url += `organizationId=${organizationId}&`;
+  url += `page=${page}&limit=${limit}`;
+  const response = await api.get<{ results: Activity[]; total: number; page: number; limit: number }>(url);
   return response.data;
 }
 
