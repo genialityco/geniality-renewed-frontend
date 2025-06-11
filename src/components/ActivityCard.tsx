@@ -95,7 +95,10 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                       (activity.event_id as any).id ||
                       "";
                     if (eventId) {
-                      window.open(`http://localhost:5173/course/${eventId}`, "_blank");
+                      window.open(
+                        `${window.location.origin}/course/${eventId}`,
+                        "_blank"
+                      );
                     }
                   }}
                 >
