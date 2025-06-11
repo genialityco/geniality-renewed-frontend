@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  Container,
   Title,
   Text,
   Loader,
@@ -17,7 +16,10 @@ import {
 } from "@mantine/core";
 
 import { fetchOrganizationById } from "../services/organizationService";
-import { fetchEventsByOrganizer } from "../services/eventService";
+import {
+  fetchEventsByOrganizer,
+  fetchEventByName,
+} from "../services/eventService";
 import { getActivitiesByOrganization } from "../services/activityService";
 import {
   searchSegments,
@@ -55,21 +57,24 @@ export default function OrganizationDetail() {
   const [searchResults, setSearchResults] = useState<TranscriptSearchResult[]>(
     []
   );
+  const [eventSearchResults, setEventSearchResults] = useState<Event[]>([]);
+  const [eventSearchMode, setEventSearchMode] = useState(false);
 
   // Estado para la pestaña activa: "courses" o "activities"
   const [activeTab, setActiveTab] = useState("courses");
 
   // Nuevo: estados filtrados
-  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
+  const [, setFilteredEvents] = useState<Event[]>([]);
   const [filteredActivities, setFilteredActivities] = useState<Activity[]>([]);
 
   // Estado para paginación
   const [activityPage, setActivityPage] = useState(1);
-  const [activityLimit] = useState(12); // Puedes ajustar el límite por página
+  const [activityLimit] = useState(12);
   const [activityTotal, setActivityTotal] = useState(0);
-
-  // Nuevo: actividades encontradas por búsqueda de transcripción (cuando hay paginación)
   const [searchActivities, setSearchActivities] = useState<Activity[]>([]);
+  const [searchPagedResults, setSearchPagedResults] = useState<
+    TranscriptSearchResult[]
+  >([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -131,14 +136,22 @@ export default function OrganizationDetail() {
   const handleSearch = async () => {
     setActiveTab("activities");
     setActivityPage(1);
-    setSearching(true); // Inicia loading
-    const query = searchQuery.trim().toLowerCase();
+    setSearching(true);
+    const query = searchQuery.trim();
 
-    // Filtrar eventos por nombre
-    const filteredEv = events.filter((ev) =>
-      ev.name?.toLowerCase().includes(query)
-    );
-    setFilteredEvents(filteredEv);
+    // Buscar eventos por nombre usando el backend
+    if (query) {
+      setEventSearchMode(true);
+      try {
+        const event = await fetchEventByName(query);
+        setEventSearchResults(event ? [event] : []);
+      } catch (error) {
+        setEventSearchResults([]);
+      }
+    } else {
+      setEventSearchMode(false);
+      setEventSearchResults([]);
+    }
 
     // Filtrar actividades por nombre solo al hacer clic en buscar
     let filteredActs = activities.filter((act) =>
@@ -150,45 +163,154 @@ export default function OrganizationDetail() {
       setFilteredActivities(filteredActs);
       setSearchResults([]);
       setSearchActivities([]);
+      setSearchPagedResults([]);
       setActivityTotal(filteredActs.length);
+      setSearching(false);
       return;
     }
     try {
-      const results = await searchSegments(searchQuery);
-      setSearchResults(results);
+      // Nuevo: usar paginación en el servicio de búsqueda
+      const paged = await searchSegments(searchQuery, 1, activityLimit);
+      setSearchResults(paged.data);
+      setActivityTotal(paged.total);
+      setSearchPagedResults(paged.data);
 
-      if (results.length > 0) {
-        // Buscar las actividades por _id (pueden no estar en el array activities por paginación)
-        const ids = results.map((r) => String(r._id));
-        // Traer todas las actividades encontradas (peticiones paralelas)
+      if (paged.data.length > 0) {
+        const ids = paged.data.map((r) => String(r._id));
         const uniqueIds = Array.from(new Set(ids));
         const activitiesFound = await Promise.all(
           uniqueIds.map((id) => getActivityById(id))
         );
         setSearchActivities(activitiesFound);
         setFilteredActivities(activitiesFound);
-        setActivityTotal(activitiesFound.length);
       } else {
         setSearchActivities([]);
         setFilteredActivities([]);
-        setActivityTotal(0);
       }
     } catch (error) {
       setSearchActivities([]);
       setFilteredActivities([]);
+      setSearchResults([]);
+      setSearchPagedResults([]);
       setActivityTotal(0);
       console.error("Error searching segments:", error);
     } finally {
-      setSearching(false); // Finaliza loading
+      setSearching(false);
     }
   };
 
-  // Cuando el usuario escribe, si hay texto se activa el tab de "activities"
+  // Nuevo: paginación de resultados de búsqueda
+  useEffect(() => {
+    const fetchPagedSearch = async () => {
+      if (!searchQuery.trim()) return;
+      setSearching(true);
+      try {
+        const paged = await searchSegments(
+          searchQuery,
+          activityPage,
+          activityLimit
+        );
+        console.log(paged);
+        setSearchResults(paged.data);
+        setActivityTotal(paged.total);
+        setSearchPagedResults(paged.data);
+
+        if (paged.data.length > 0) {
+          const ids = paged.data.map((r) => String(r._id));
+          const uniqueIds = Array.from(new Set(ids));
+          const activitiesFound = await Promise.all(
+            uniqueIds.map((id) => getActivityById(id))
+          );
+          setSearchActivities(activitiesFound);
+          setFilteredActivities(activitiesFound);
+        } else {
+          setSearchActivities([]);
+          setFilteredActivities([]);
+        }
+      } catch (error) {
+        setSearchActivities([]);
+        setFilteredActivities([]);
+        setSearchResults([]);
+        setSearchPagedResults([]);
+        setActivityTotal(0);
+      } finally {
+        setSearching(false);
+      }
+    };
+    // Solo si hay búsqueda activa
+    if (searchQuery.trim()) {
+      fetchPagedSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityPage, activityLimit]);
+
+  // Cuando el usuario escribe, solo actualiza el valor, no filtra ni limpia resultados
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
   };
 
-  if (loading) return <Loader />;
+  // Cuando se limpia el input, salir de modo búsqueda de eventos y recargar todas las actividades y eventos
+  const handleClearSearch = async () => {
+    setSearchQuery("");
+    setEventSearchMode(false);
+    setEventSearchResults([]);
+    setSearchResults([]);
+    setSearchActivities([]);
+    setSearchPagedResults([]);
+    setActivityPage(1);
+
+    // Recargar eventos y actividades completos (paginados)
+    if (id) {
+      setLoading(true);
+      try {
+        const orgData = await fetchOrganizationById(id);
+        setOrganization(orgData);
+
+        const eventData = await fetchEventsByOrganizer(id);
+        const sortedEvents = eventData.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setEvents(sortedEvents);
+        setFilteredEvents(sortedEvents);
+
+        const activityData = await getActivitiesByOrganization(
+          id,
+          1, // página 1
+          activityLimit
+        );
+        setActivities(activityData.results);
+        setFilteredActivities(activityData.results);
+        setActivityTotal(activityData.total);
+      } catch (error) {
+        setEvents([]);
+        setFilteredEvents([]);
+        setActivities([]);
+        setFilteredActivities([]);
+        setActivityTotal(0);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  if (loading)
+    return (
+      <Flex
+        justify="center"
+        align="center"
+        style={{
+          minHeight: "60vh",
+          width: "100vw",
+          flexDirection: "column",
+        }}
+      >
+        <Loader size="xl" color="blue" variant="dots" />
+        <Text mt="md" size="lg" c="dimmed">
+          Cargando información...
+        </Text>
+      </Flex>
+    );
   if (!organization) return <Text>Organización no encontrada</Text>;
 
   // Determinar si el plan está activo: si PaymentPlan se obtuvo y la fecha actual es menor o igual a date_until
@@ -218,27 +340,27 @@ export default function OrganizationDetail() {
           setActiveTab(value);
         }
       }}
+      m="lg"
     >
       <Tabs.List>
         <Tabs.Tab value="courses">
-          Eventos ({searchQuery.trim() ? filteredEvents.length : events.length})
+          Eventos ({eventSearchMode ? eventSearchResults.length : events.length}
+          )
         </Tabs.Tab>
         <Tabs.Tab value="activities">Actividades ({activityTotal})</Tabs.Tab>
       </Tabs.List>
 
       {/* Tab de Eventos */}
       <Tabs.Panel value="courses" pt="md">
-        <Flex justify="flex-start">
-          <Text>
-            {searchQuery.trim() ? filteredEvents.length : events.length} eventos
-            disponibles
-          </Text>
-        </Flex>
-        {(searchQuery.trim() ? filteredEvents : events).length === 0 ? (
+        {(
+          eventSearchMode
+            ? eventSearchResults.length === 0
+            : events.length === 0
+        ) ? (
           <Text>No hay eventos disponibles.</Text>
         ) : (
           <Grid gutter="xs">
-            {(searchQuery.trim() ? filteredEvents : events).map((event) => (
+            {(eventSearchMode ? eventSearchResults : events).map((event) => (
               <Grid.Col key={event._id} span={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <Paper
                   p="xs"
@@ -272,12 +394,6 @@ export default function OrganizationDetail() {
 
       {/* Tab de Actividades */}
       <Tabs.Panel value="activities" pt="md">
-        <Flex justify="flex-start" align="center" gap="md">
-          <Text>
-            {searchQuery.trim() ? filteredActivities.length : activityTotal}{" "}
-            actividades disponibles
-          </Text>
-        </Flex>
         {searching ? (
           <Flex justify="center" align="center" mt="md">
             <Text size="md" c="dimmed">
@@ -290,29 +406,24 @@ export default function OrganizationDetail() {
               Resultados de búsqueda para "{searchQuery}":
             </Text>
             <Grid mt="md" gutter="md">
-              {searchResults
-                .slice(
-                  (activityPage - 1) * activityLimit,
-                  activityPage * activityLimit
-                )
-                .map((result) => {
-                  const foundActivity = searchActivities.find(
-                    (act) => String(act._id) === String(result._id)
-                  );
-                  if (!foundActivity) return null;
-                  return (
-                    <Grid.Col
-                      key={foundActivity._id}
-                      span={searchQuery ? 12 : { xs: 12, sm: 6, md: 4, lg: 3 }}
-                    >
-                      <ActivityCard
-                        activity={foundActivity}
-                        matchedSegments={result.matchedSegments}
-                        searchQuery={searchQuery}
-                      />
-                    </Grid.Col>
-                  );
-                })}
+              {searchPagedResults.map((result) => {
+                const foundActivity = searchActivities.find(
+                  (act) => String(act._id) === String(result._id)
+                );
+                if (!foundActivity) return null;
+                return (
+                  <Grid.Col
+                    key={foundActivity._id}
+                    span={searchQuery ? 12 : { xs: 12, sm: 6, md: 4, lg: 3 }}
+                  >
+                    <ActivityCard
+                      activity={foundActivity}
+                      matchedSegments={result.matchedSegments}
+                      searchQuery={searchQuery}
+                    />
+                  </Grid.Col>
+                );
+              })}
             </Grid>
             <Flex justify="center" mt="md">
               <Pagination
@@ -322,13 +433,6 @@ export default function OrganizationDetail() {
                 size="sm"
               />
             </Flex>
-          </>
-        ) : searchQuery.trim() !== "" && searchResults.length === 0 ? (
-          <>
-            <Text size="sm" mb="sm">
-              Resultados de búsqueda para "{searchQuery}":
-            </Text>
-            <Text>No se encontraron resultados.</Text>
           </>
         ) : (
           <>
@@ -363,35 +467,24 @@ export default function OrganizationDetail() {
   );
 
   return (
-    <Container fluid style={{ padding: "20px", textAlign: "center" }}>
-      <Paper
-        shadow="md"
-        radius="md"
-        style={{
-          backgroundImage: `url(${organization.styles.banner_image})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          padding: "120px",
-          textAlign: "center",
-          color: "#fff",
-        }}
-      >
-        {/* <Title style={{ textShadow: "0px 2px 4px rgba(0,0,0,0.5)" }}>
-          {organization.name}
-        </Title> */}
+    <div style={{ textAlign: "center" }}>
+      <Image
+        src={organization.styles.banner_image}
+        alt={organization.name}
+        mt="md"
+      />
 
-        {!planIsActive && !planLoading && userId && (
-          <Text
-            c="red"
-            fw={700}
-            mt="md"
-            style={{ textShadow: "0px 2px 4px rgba(0,0,0,0.5)" }}
-          >
-            Tu membresía no está activa. Algunas funcionalidades podrían estar
-            bloqueadas.
-          </Text>
-        )}
-      </Paper>
+      {!planIsActive && !planLoading && userId && (
+        <Text
+          c="red"
+          fw={700}
+          mt="md"
+          style={{ textShadow: "0px 2px 4px rgba(0,0,0,0.5)" }}
+        >
+          Tu membresía no está activa. Algunas funcionalidades podrían estar
+          bloqueadas.
+        </Text>
+      )}
 
       <Flex
         justify="center"
@@ -400,7 +493,7 @@ export default function OrganizationDetail() {
         style={{ margin: "20px 0" }}
       >
         <TextInput
-          placeholder="Buscar texto en transcripciones..."
+          placeholder="Buscar en actividades y eventos.."
           value={searchQuery}
           onChange={handleSearchInputChange}
           style={{ width: 250 }}
@@ -411,12 +504,7 @@ export default function OrganizationDetail() {
                 variant="subtle"
                 color="gray"
                 px={6}
-                onClick={() => {
-                  setSearchQuery("");
-                  setFilteredEvents(events);
-                  setFilteredActivities(activities);
-                  setSearchResults([]);
-                }}
+                onClick={handleClearSearch}
                 tabIndex={-1}
               >
                 ×
@@ -450,6 +538,6 @@ export default function OrganizationDetail() {
           Comenzar
         </Button>
       </Modal>
-    </Container>
+    </div>
   );
 }

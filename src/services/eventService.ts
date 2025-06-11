@@ -22,14 +22,20 @@ export const fetchEventsByOrganizer = async (
 };
 
 /** Crear un nuevo evento */
-export const createEvent = async (_organizationId: string, data: Partial<Event>): Promise<Event> => {
+export const createEvent = async (
+  _organizationId: string,
+  data: Partial<Event>
+): Promise<Event> => {
   const response = await api.post<Event>("/events", data);
   return response.data;
 };
 
 /** Actualizar un evento existente (id) */
 export const updateEvent = async (
-id: string, _eventId: string, data: Partial<Event>): Promise<Event> => {
+  id: string,
+  _eventId: string,
+  data: Partial<Event>
+): Promise<Event> => {
   const response = await api.patch<Event>(`/events/${id}`, data);
   return response.data;
 };
@@ -37,5 +43,13 @@ id: string, _eventId: string, data: Partial<Event>): Promise<Event> => {
 /** Eliminar un evento (id) */
 export const deleteEvent = async (id: string): Promise<Event> => {
   const response = await api.delete<Event>(`/events/${id}`);
+  return response.data;
+};
+
+/** Buscar un evento por su nombre */
+export const fetchEventByName = async (name: string): Promise<Event | null> => {
+  const response = await api.get<Event | null>(
+    `/events/search/by-name/${encodeURIComponent(name)}`
+  );
   return response.data;
 };

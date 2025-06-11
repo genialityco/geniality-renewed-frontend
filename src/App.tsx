@@ -9,16 +9,45 @@ import {
   Image,
 } from "@mantine/core";
 import { UserProvider, useUser } from "./context/UserContext";
-import { BrowserRouter, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  useNavigate,
+  useLocation,
+  matchPath,
+} from "react-router-dom";
 import AppRoutes from "./routes/AppRoutes";
 import { theme } from "./theme";
 import { PaymentModalProvider } from "./context/PaymentModalContext";
 import { AuthModalProvider, useAuthModal } from "./context/AuthModalContext";
+import { fetchOrganizationById } from "./services/organizationService";
+import { useEffect, useState } from "react";
 
 function AppShellWithAuth() {
   const { userId, name, email, signOut: contextSignOut } = useUser();
   const { openAuthModal } = useAuthModal();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Estado para organización si aplica
+  const [headerOrg, setHeaderOrg] = useState<{
+    name: string;
+    image: string;
+  } | null>(null);
+
+  useEffect(() => {
+    // Detecta si la ruta es /organizations/:id
+    const match = matchPath("/organizations/:orgId", location.pathname);
+    if (match && match.params.orgId) {
+      fetchOrganizationById(match.params.orgId).then((org) => {
+        setHeaderOrg({
+          name: org.name,
+          image: org.styles?.event_image || org.styles?.banner_image || "",
+        });
+      });
+    } else {
+      setHeaderOrg(null);
+    }
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     try {
@@ -37,13 +66,17 @@ function AppShellWithAuth() {
       <Group justify="space-between" align="center" style={{ height: "100%" }}>
         <Group justify="space-between">
           <Image
-            src="https://storage.googleapis.com/geniality-sas.appspot.com/evius/events/JqzemlKcQEClLYBMFxfSv8fAYX6PwXFZdKf0eNqT.png"
-            w={70}
-            radius="md"
+            src={
+              headerOrg?.image
+                ? headerOrg.image
+                : "https://firebasestorage.googleapis.com/v0/b/geniality-sas.appspot.com/o/images%2FLOGOS_GEN.iality_web-02.svg?alt=media&token=8290b734-ceb9-456c-b9d2-39b7ce736cb4"
+            }
+            w={80}
+            radius="sm"
             style={{ boxShadow: "0 0 5px black" }}
           />
           <Text fw="bold" size="xl">
-            EndoCampus
+            {headerOrg?.name || "Geniality SAS"}
           </Text>
         </Group>
         {userId ? (

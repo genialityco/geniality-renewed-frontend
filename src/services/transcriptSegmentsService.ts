@@ -67,17 +67,24 @@ export const createSegmentsForActivity = async (
  * retornando los resultados agrupados por 'activity_id'.
  * Endpoint: GET /transcript-segments/search?q=...
  */
+export interface PagedTranscriptSearchResult {
+  data: TranscriptSearchResult[];
+  total: number;
+}
+
 export const searchSegments = async (
-  query: string
-): Promise<TranscriptSearchResult[]> => {
+  query: string,
+  page: number = 1,
+  pageSize: number = 10
+): Promise<PagedTranscriptSearchResult> => {
   if (!query) {
-    // Podrías retornar un array vacío o lanzar un error,
-    // depende de cómo manejes la búsqueda sin texto
-    return [];
+    return { data: [], total: 0 };
   }
 
-  const response = await api.get<TranscriptSearchResult[]>(
-    `/transcript-segments/search?q=${encodeURIComponent(query)}`
+  const response = await api.get<PagedTranscriptSearchResult>(
+    `/transcript-segments/search?q=${encodeURIComponent(
+      query
+    )}&page=${page}&pageSize=${pageSize}`
   );
   return response.data;
 };
