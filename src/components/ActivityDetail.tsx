@@ -11,7 +11,7 @@ import {
   Flex,
 } from "@mantine/core";
 import Player from "@vimeo/player";
-import { FaShare } from "react-icons/fa6";
+import { FaArrowLeft, FaShare } from "react-icons/fa6";
 import ReactPlayer from "react-player";
 
 import { fetchHostById } from "../services/hostsService";
@@ -46,7 +46,7 @@ export default function ActivityDetail({
   activity,
   // eventId,
   shareUrl,
-  onStartQuestionnaire,
+  // onStartQuestionnaire,
   videoTime = null,
   fragments = [],
   formatTime,
@@ -58,8 +58,8 @@ export default function ActivityDetail({
     activity?.video_progress || 0
   );
   const [hosts, setHosts] = useState<Host[]>([]);
-  const [quiz, setQuiz] = useState<Quiz | null>(null);
-  const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
+  const [_quiz, setQuiz] = useState<Quiz | null>(null);
+  const [_quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
   const [shareNotification, setShareNotification] = useState(false);
 
   const [player, setPlayer] = useState<Player | null>(null);
@@ -313,7 +313,14 @@ export default function ActivityDetail({
 
   return (
     <Card shadow="sm" p="md" radius="md">
-      <Title order={3}>{activity.name}</Title>
+      <Group justify="left">
+        <FaArrowLeft
+          size={24}
+          style={{ cursor: "pointer" }}
+          onClick={() => window.history.back()}
+        />
+        <Title order={3}>{activity.name}</Title>
+      </Group>
       <Text size="sm" variant="gradient">
         Evento:{" "}
         {typeof activity.event_id === "object" &&
