@@ -397,7 +397,7 @@ export default function ActivityDetail({
           tiempo real!
         </Text>
         <Group>
-          <Button onClick={onStartQuestionnaire}>Iniciar Cuestionario</Button>
+          {/* <Button onClick={onStartQuestionnaire}>Iniciar Cuestionario</Button> */}
           <Button
             onClick={handleShareActivity}
             leftSection={<FaShare size={16} />}
@@ -410,7 +410,7 @@ export default function ActivityDetail({
       <Divider my="sm" />
 
       {/* Intentos de quiz */}
-      {quiz ? (
+      {/* {quiz ? (
         <>
           <Text fw={500} mt="sm">
             Intentos de cuestionario:
@@ -442,7 +442,7 @@ export default function ActivityDetail({
         <Text size="sm" c="dimmed" mt="md">
           Aún no se ha generado un cuestionario para esta actividad.
         </Text>
-      )}
+      )} */}
 
       {shareNotification && (
         <Notification color="green" mt="md">
@@ -452,10 +452,10 @@ export default function ActivityDetail({
 
       <Divider my="sm" />
 
-      <Text fw={500}>Resumen:</Text>
+      {/* <Text fw={500}>Resumen:</Text>
       <Text size="sm">
         {activity.description || "Esta actividad no tiene descripción."}
-      </Text>
+      </Text> */}
 
       <Divider my="sm" />
       <Text fw={500}>Conferencistas:</Text>
