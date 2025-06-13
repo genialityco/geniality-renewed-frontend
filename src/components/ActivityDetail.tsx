@@ -12,7 +12,7 @@ import {
 } from "@mantine/core";
 import Player from "@vimeo/player";
 import { FaShare } from "react-icons/fa6";
-import ReactPlayer from "react-player"
+import ReactPlayer from "react-player";
 
 import { fetchHostById } from "../services/hostsService";
 import { updateVideoProgress } from "../services/activityService";
@@ -314,6 +314,37 @@ export default function ActivityDetail({
   return (
     <Card shadow="sm" p="md" radius="md">
       <Title order={3}>{activity.name}</Title>
+      <Text size="sm" variant="gradient">
+        Evento:{" "}
+        {typeof activity.event_id === "object" &&
+        activity.event_id !== null &&
+        "name" in activity.event_id ? (
+          <span
+            style={{
+              color: "#228be6",
+              textDecoration: "underline",
+              cursor: "pointer",
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              const eventId =
+                (activity.event_id as any)._id ||
+                (activity.event_id as any).id ||
+                "";
+              if (eventId) {
+                window.open(
+                  `${window.location.origin}/course/${eventId}`,
+                  "_blank"
+                );
+              }
+            }}
+          >
+            {activity.event_id.name}
+          </span>
+        ) : (
+          "Sin evento asignado"
+        )}
+      </Text>
       <Divider my="sm" />
 
       <Text fw={500}>Progreso del video:</Text>

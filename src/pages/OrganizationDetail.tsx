@@ -143,8 +143,8 @@ export default function OrganizationDetail() {
     if (query) {
       setEventSearchMode(true);
       try {
-        const event = await fetchEventByName(query);
-        setEventSearchResults(event ? [event] : []);
+        const events = await fetchEventByName(query);
+        setEventSearchResults(Array.isArray(events) ? events : events ? [events] : []);
       } catch (error) {
         setEventSearchResults([]);
       }
@@ -210,7 +210,6 @@ export default function OrganizationDetail() {
           activityPage,
           activityLimit
         );
-        console.log(paged);
         setSearchResults(paged.data);
         setActivityTotal(paged.total);
         setSearchPagedResults(paged.data);
@@ -244,9 +243,53 @@ export default function OrganizationDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityPage, activityLimit]);
 
-  // Cuando el usuario escribe, solo actualiza el valor, no filtra ni limpia resultados
-  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
+  // Cuando el usuario escribe, solo actualiza el valor, pero si borra todo, recarga la información inicial
+  const handleSearchInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+
+    if (value.trim() === "") {
+      setEventSearchMode(false);
+      setEventSearchResults([]);
+      setSearchResults([]);
+      setSearchActivities([]);
+      setSearchPagedResults([]);
+      setActivityPage(1);
+
+      // Recargar eventos y actividades completos (paginados)
+      if (id) {
+        setLoading(true);
+        try {
+          const orgData = await fetchOrganizationById(id);
+          setOrganization(orgData);
+
+          const eventData = await fetchEventsByOrganizer(id);
+          const sortedEvents = eventData.sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          setEvents(sortedEvents);
+          setFilteredEvents(sortedEvents);
+
+          const activityData = await getActivitiesByOrganization(
+            id,
+            1, // página 1
+            activityLimit
+          );
+          setActivities(activityData.results);
+          setFilteredActivities(activityData.results);
+          setActivityTotal(activityData.total);
+        } catch (error) {
+          setEvents([]);
+          setFilteredEvents([]);
+          setActivities([]);
+          setFilteredActivities([]);
+          setActivityTotal(0);
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
   };
 
   // Cuando se limpia el input, salir de modo búsqueda de eventos y recargar todas las actividades y eventos
@@ -352,8 +395,7 @@ export default function OrganizationDetail() {
 
       {/* Tab de Eventos */}
       <Tabs.Panel value="courses" pt="md">
-        {(
-          eventSearchMode
+        {(eventSearchMode
             ? eventSearchResults.length === 0
             : events.length === 0
         ) ? (
