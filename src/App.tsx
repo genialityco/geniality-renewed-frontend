@@ -12,42 +12,18 @@ import { UserProvider, useUser } from "./context/UserContext";
 import {
   BrowserRouter,
   useNavigate,
-  useLocation,
-  matchPath,
 } from "react-router-dom";
 import AppRoutes from "./routes/AppRoutes";
 import { theme } from "./theme";
 import { PaymentModalProvider } from "./context/PaymentModalContext";
 import { AuthModalProvider, useAuthModal } from "./context/AuthModalContext";
-import { fetchOrganizationById } from "./services/organizationService";
-import { useEffect, useState } from "react";
+import { OrganizationProvider, useOrganization } from "./context/OrganizationContext";
 
 function AppShellWithAuth() {
   const { userId, name, email, signOut: contextSignOut } = useUser();
   const { openAuthModal } = useAuthModal();
   const navigate = useNavigate();
-  const location = useLocation();
-
-  // Estado para organización si aplica
-  const [headerOrg, setHeaderOrg] = useState<{
-    name: string;
-    image: string;
-  } | null>(null);
-
-  useEffect(() => {
-    // Detecta si la ruta es /organizations/:id
-    const match = matchPath("/organizations/:orgId", location.pathname);
-    if (match && match.params.orgId) {
-      fetchOrganizationById(match.params.orgId).then((org) => {
-        setHeaderOrg({
-          name: org.name,
-          image: org.styles?.event_image || org.styles?.banner_image || "",
-        });
-      });
-    } else {
-      setHeaderOrg(null);
-    }
-  }, [location.pathname]);
+  const { organization: headerOrg } = useOrganization();
 
   const handleLogout = async () => {
     try {
@@ -120,8 +96,10 @@ export default function App() {
         <AuthModalProvider>
           <PaymentModalProvider>
             <BrowserRouter>
-              <AppShellWithAuth />
-              <AppRoutes />
+              <OrganizationProvider>
+                <AppShellWithAuth />
+                <AppRoutes />
+              </OrganizationProvider>
             </BrowserRouter>
           </PaymentModalProvider>
         </AuthModalProvider>

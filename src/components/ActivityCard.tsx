@@ -43,7 +43,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
       eventImage;
   }
 
-  const [imgSrc, setImgSrc] = useState<string>(eventImage);
+  const [_imgSrc, setImgSrc] = useState<string>(eventImage);
 
   useEffect(() => {
     setImgSrc(eventImage);
@@ -65,7 +65,13 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
       <Grid gutter="md" align="center">
         <Grid.Col span={4}>
           <Image
-            src={imgSrc}
+            src={
+              typeof activity.event_id === "object" && activity.event_id !== null
+                ? activity.event_id.picture ||
+                  activity.event_id.styles?.banner_image ||
+                  "https://via.placeholder.com/160x160?text=No+Video"
+                : "https://via.placeholder.com/160x160?text=No+Video"
+            }
             alt={activity.name}
             radius="xs"
             height="auto"

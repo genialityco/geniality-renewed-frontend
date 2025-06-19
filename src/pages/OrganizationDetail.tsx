@@ -144,7 +144,7 @@ export default function OrganizationDetail() {
       setEventSearchMode(true);
       try {
         const events = await fetchEventByName(query);
-        setEventSearchResults(Array.isArray(events) ? events : events ? [events] : []);
+        setEventSearchResults(events ? [events] : []);
       } catch (error) {
         setEventSearchResults([]);
       }
@@ -210,6 +210,7 @@ export default function OrganizationDetail() {
           activityPage,
           activityLimit
         );
+        console.log(paged);
         setSearchResults(paged.data);
         setActivityTotal(paged.total);
         setSearchPagedResults(paged.data);
@@ -395,7 +396,8 @@ export default function OrganizationDetail() {
 
       {/* Tab de Eventos */}
       <Tabs.Panel value="courses" pt="md">
-        {(eventSearchMode
+        {(
+          eventSearchMode
             ? eventSearchResults.length === 0
             : events.length === 0
         ) ? (

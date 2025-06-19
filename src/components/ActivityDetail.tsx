@@ -9,9 +9,11 @@ import {
   Button,
   Notification,
   Flex,
+  Stack,
+  Avatar,
 } from "@mantine/core";
 import Player from "@vimeo/player";
-import { FaArrowLeft, FaShare } from "react-icons/fa6";
+import { FaShare } from "react-icons/fa6";
 import ReactPlayer from "react-player";
 
 import { fetchHostById } from "../services/hostsService";
@@ -312,46 +314,40 @@ export default function ActivityDetail({
   };
 
   return (
-    <Card shadow="sm" p="md" radius="md">
+    <Card shadow="sm" radius="md">
       <Group justify="left">
-        <FaArrowLeft
-          size={24}
-          style={{ cursor: "pointer" }}
-          onClick={() => window.history.back()}
-        />
         <Title order={3}>{activity.name}</Title>
       </Group>
-      <Text size="sm" variant="gradient">
-        Evento:{" "}
-        {typeof activity.event_id === "object" &&
+      {typeof activity.event_id === "object" &&
         activity.event_id !== null &&
-        "name" in activity.event_id ? (
-          <span
-            style={{
-              color: "#228be6",
-              textDecoration: "underline",
-              cursor: "pointer",
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              const eventId =
-                (activity.event_id as any)._id ||
-                (activity.event_id as any).id ||
-                "";
-              if (eventId) {
-                window.open(
-                  `${window.location.origin}/course/${eventId}`,
-                  "_blank"
-                );
-              }
-            }}
-          >
-            {activity.event_id.name}
-          </span>
-        ) : (
-          "Sin evento asignado"
+        "name" in activity.event_id && (
+          <Text size="sm" variant="gradient">
+            Evento:{" "}
+            <span
+              style={{
+                color: "#228be6",
+                textDecoration: "underline",
+                cursor: "pointer",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                const eventId =
+                  (activity.event_id as any)._id ||
+                  (activity.event_id as any).id ||
+                  "";
+                if (eventId) {
+                  window.open(
+                    `${window.location.origin}/course/${eventId}`,
+                    "_blank"
+                  );
+                }
+              }}
+            >
+              {activity.event_id.name}
+            </span>
+          </Text>
         )}
-      </Text>
+
       <Divider my="sm" />
 
       <Text fw={500}>Progreso del video:</Text>
@@ -471,17 +467,26 @@ export default function ActivityDetail({
           No hay conferencistas asignados.
         </Text>
       ) : (
-        <Group p="sm" mt="md">
+        <Group p="sm" mt="md" p="lg">
           {hosts.map((host) => (
-            <Card key={host._id} shadow="xs" p="sm" style={{ width: 150 }}>
-              <img
-                src={host.image}
-                alt={host.name}
-                style={{ width: "100%", height: 100, objectFit: "cover" }}
-              />
-              <Text size="sm" ta="center" mt="xs">
-                {host.name}
-              </Text>
+            <Card
+              key={host._id}
+              shadow="lg"
+              radius="lg"
+              style={{ width: 150, cursor: "pointer" }}
+              onClick={() => /* si necesitas un onClick */ {}}
+            >
+              <Stack align="center">
+                <Avatar
+                  src={host.image}
+                  alt={host.name}
+                  size={100}
+                  radius="md"
+                />
+                <Text size="sm" ta="center">
+                  {host.name}
+                </Text>
+              </Stack>
             </Card>
           ))}
         </Group>

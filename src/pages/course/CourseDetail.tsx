@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   AppShell,
   Text,
@@ -18,8 +18,11 @@ import {
   Progress,
   Image,
   Avatar,
+  Grid,
+  Stack,
+  useMantineTheme,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
   FaBookOpen,
   FaListUl,
@@ -121,6 +124,13 @@ function ActivityCard({ activity, hosts, onClick }: ActivityCardProps) {
 export default function CourseDetail() {
   const { eventId } = useParams<{ eventId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const theme = useMantineTheme();
+  const isSm = useMediaQuery(`(min-width: ${theme.breakpoints.sm})`);
+
+  // Ajustes según ancho
+  const titleMaxWidth = isSm ? 700 : 120;
+  const titleFontSize = isSm ? theme.fontSizes.md : theme.fontSizes.sm;
 
   const [event, setEvent] = useState<Event | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
@@ -129,7 +139,9 @@ export default function CourseDetail() {
   const [loading, setLoading] = useState(true);
 
   // Actividad seleccionada
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
+    null
+  );
 
   // Control de apertura/colapso navbar
   const [opened, { toggle, close }] = useDisclosure(false);
@@ -229,26 +241,28 @@ export default function CourseDetail() {
     );
 
     return (
-      <Accordion variant="filled">
-        <p>{sortedActivities.length}</p>
+      <Grid>
         {sortedActivities.map((activity) => (
-          <Accordion.Item value={activity._id} key={activity._id}>
-            <Accordion.Control onClick={() => handleActivitySelection(activity)}>
-              <ActivityCard
-                activity={activity}
-                hosts={hosts}
-                onClick={() => handleActivitySelection(activity)}
-              />
-            </Accordion.Control>
-          </Accordion.Item>
+          <Grid.Col span={12} key={activity._id}>
+            <ActivityCard
+              activity={activity}
+              hosts={hosts}
+              onClick={() => handleActivitySelection(activity)}
+            />
+          </Grid.Col>
         ))}
-      </Accordion>
+      </Grid>
     );
   };
 
   // Función para renderizar módulos y sus actividades
   const renderModules = () => {
     if (!modules.length) return <Text size="sm">No hay módulos</Text>;
+
+    const handleActivitySelection = (activity: Activity) => {
+      setSelectedActivity(activity);
+      setSearchParams({ activity: activity._id });
+    };
 
     return (
       <Accordion variant="separated" multiple>
@@ -282,7 +296,7 @@ export default function CourseDetail() {
               <Accordion.Control>
                 <Group justify="space-between">
                   <Text>{module.module_name}</Text>
-                  <Text size="xs" color={moduloColor}>
+                  <Text size="xs" c={moduloColor}>
                     {moduloStatus} ({Math.round(progresoModulo)}%)
                   </Text>
                 </Group>
@@ -301,11 +315,11 @@ export default function CourseDetail() {
                       key={activity._id}
                       activity={activity}
                       hosts={hosts}
-                      onClick={() => setSelectedActivity(activity)}
+                      onClick={() => handleActivitySelection(activity)}
                     />
                   ))
                 ) : (
-                  <Text size="sm" color="dimmed">
+                  <Text size="sm" c="dimmed">
                     Sin actividades
                   </Text>
                 )}
@@ -317,42 +331,105 @@ export default function CourseDetail() {
     );
   };
 
+  // Dentro de CourseDetail, después de renderModules y antes de renderMainContent
+
+  // 1. Filtra los hosts que tienen al menos una activity_id que corresponde
+  const renderAllHosts = () => {
+    if (!hosts.length)
+      return (
+        <Text size="sm" c="dimmed">
+          No hay conferencistas
+        </Text>
+      );
+
+    // Build set of activity IDs
+    const activityIds = new Set(activities.map((a) => a._id));
+    // Keep only hosts que estén en alguna activity
+    const activityHosts = hosts.filter((h) =>
+      h.activities_ids?.some((id) => activityIds.has(id))
+    );
+
+    if (!activityHosts.length)
+      return (
+        <Text size="sm" c="dimmed">
+          No hay conferencistas asignados
+        </Text>
+      );
+
+    return (
+      <div style={{ marginTop: 16 }}>
+        <Text size="sm" fw={600} mb="xs">
+          Conferencistas
+        </Text>
+        <Group p="md">
+          {activityHosts.map((host) => (
+            <Stack key={host._id} align="center" p={2}>
+              <Avatar src={host.image} alt={host.name} size={40} radius="xl" />
+              <Text size="xs" ta="center">
+                {host.name}
+              </Text>
+            </Stack>
+          ))}
+        </Group>
+      </div>
+    );
+  };
+
   // Render principal: si no hay actividad seleccionada, mostramos un mensaje
   const renderMainContent = () => {
     if (!selectedActivity) {
       return (
-        <Card shadow="sm" p="md" radius="md">
-          <Text size="md" fw={500}>
-            Bienvenido(a) al curso {event.name}.
-          </Text>
-          <Text size="sm" color="dimmed">
-            Selecciona una actividad para ver detalles
-          </Text>
-          <Text size="lg" fw={600} mt="lg">
-            Módulos y actividades
-          </Text>
-          {modules.length ? renderModules() : renderActivities()}
+        <Card shadow="sm" radius="md" p="lg">
+          <Stack p="sm">
+            <Text size="md" fw={500}>
+              Bienvenido(a) al curso {event.name}.
+            </Text>
+
+            <Text size="sm" c="dimmed">
+              Selecciona una actividad para ver detalles
+            </Text>
+
+            <Text size="lg" fw={600}>
+              Módulos y actividades
+            </Text>
+
+            {modules.length ? renderModules() : renderActivities()}
+
+            {renderAllHosts()}
+          </Stack>
         </Card>
       );
     }
 
     // Si hay actividad seleccionada, mostramos el detalle
     return (
-      <Container fluid>
-        <Image src={event.styles.banner_footer} fit="fill" height={180} />
+      <div>
+        <Image src={event.styles.banner_footer} fit="contain" />
         <ActivityDetail
           activity={selectedActivity}
           eventId={event._id}
           onStartQuestionnaire={handleStartQuestionnaire}
           shareUrl={selectedActivity ? getShareUrl(selectedActivity) : ""}
         />
-      </Container>
+      </div>
     );
+  };
+
+  // Función de retroceso condicional
+  const handleBack = () => {
+    const basePath = `/course/${eventId}`;
+    if (location.pathname === basePath && !location.search) {
+      navigate("/organizations/63f552d916065937427b3b02");
+    } else if (location.pathname === basePath && searchParams.has("activity")) {
+      navigate(`/course/${eventId}`);
+      setSelectedActivity(null);
+    } else {
+      navigate(-1);
+    }
   };
 
   return (
     <AppShell
-      header={{ height: 60 }}
       navbar={{
         width: 300,
         breakpoint: "sm",
@@ -361,26 +438,44 @@ export default function CourseDetail() {
     >
       {/* HEADER */}
       <AppShell.Header>
-        <Flex justify="center" align="center" style={{ height: "100%" }}>
-          <Burger
-            opened={opened}
-            onClick={toggle}
-            size="sm"
-            color="black"
-            onMouseEnter={() => (opened ? null : toggle())}
-          />
-          <Group style={{ height: "100%", width: "100%" }}>
-            <Group>
-              <img height={40} src={event.styles.event_image} alt="Evento" />
-            </Group>
-            <Group>
-              <FaArrowLeft
-                size={24}
-                style={{ cursor: "pointer" }}
-                onClick={() => window.history.back()}
-              />
-              <Title order={4}>{event.name}</Title>
-            </Group>
+        <Flex align="center" style={{ height: "100%" }}>
+          <Group p="xs" align="center">
+            {/* Burger */}
+            <Burger
+              opened={opened}
+              onClick={toggle}
+              size="sm"
+              color={theme.colors.gray[7]}
+            />
+
+            {/* Icono de retroceso */}
+            <FaArrowLeft
+              size={20}
+              style={{ cursor: "pointer" }}
+              onClick={handleBack}
+            />
+
+            {/* Logo */}
+            <img
+              src={event.styles.event_image}
+              alt="Evento"
+              style={{ height: 40 }}
+            />
+
+            {/* Título siempre presente, truncado */}
+            <Title
+              order={4}
+              style={{
+                marginLeft: theme.spacing.sm,
+                maxWidth: titleMaxWidth,
+                fontSize: titleFontSize,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {event.name}
+            </Title>
           </Group>
         </Flex>
       </AppShell.Header>
@@ -421,7 +516,7 @@ export default function CourseDetail() {
       </AppShell.Navbar>
 
       {/* MAIN */}
-      <AppShell.Main style={{ height: "100vh", overflow: "auto" }}>
+      <AppShell.Main>
         <Container fluid>{renderMainContent()}</Container>
       </AppShell.Main>
 
