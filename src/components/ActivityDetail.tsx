@@ -467,7 +467,7 @@ export default function ActivityDetail({
           No hay conferencistas asignados.
         </Text>
       ) : (
-        <Group p="sm" mt="md" p="lg">
+        <Group p="sm" mt="md">
           {hosts.map((host) => (
             <Card
               key={host._id}
