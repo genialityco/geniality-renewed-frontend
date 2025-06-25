@@ -120,7 +120,6 @@ export default function OrganizationDetail() {
     const fetchPlan = async () => {
       try {
         if (userId) {
-          console.log
           const planData = await fetchPaymentPlanByUserId(userId);
           setPaymentPlan(planData);
         }
@@ -145,7 +144,7 @@ export default function OrganizationDetail() {
       setEventSearchMode(true);
       try {
         const events = await fetchEventByName(query);
-        setEventSearchResults(events ? [events] : []);
+        setEventSearchResults(Array.isArray(events) ? events : events ? [events] : []);
       } catch (error) {
         setEventSearchResults([]);
       }
@@ -211,7 +210,6 @@ export default function OrganizationDetail() {
           activityPage,
           activityLimit
         );
-        console.log(paged);
         setSearchResults(paged.data);
         setActivityTotal(paged.total);
         setSearchPagedResults(paged.data);

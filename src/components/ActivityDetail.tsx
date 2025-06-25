@@ -417,7 +417,7 @@ export default function ActivityDetail({
       {/* Resto de tu componente igual (botones, quiz, conferencistas, fragmentos) */}
       <Divider my="sm" />
       <Group>
-        <Text ta="left" size="md">
+        {/* <Text ta="left" size="md">
           ¡Descubre nuevas formas de aprender!
           <br />
           Puedes tomar un test sobre el video, ya sea antes o en cualquier
@@ -425,7 +425,7 @@ export default function ActivityDetail({
           <br />
           ¡Este test se genera dinámicamente mediante IA y se adapta a ti en
           tiempo real!
-        </Text>
+        </Text> */}
         <Group>
           {/* <Button onClick={onStartQuestionnaire}>Iniciar Cuestionario</Button> */}
           <Button
