@@ -1,3 +1,4 @@
+// src/context/UserContext.tsx
 import {
   createContext,
   useContext,
@@ -16,30 +17,37 @@ import {
   setPersistence,
   browserLocalPersistence,
 } from "firebase/auth";
-import {
-  createOrUpdateUser,
-  fetchUserByFirebaseUid,
-} from "../services/userService";
+import { createOrUpdateUser, fetchUserByFirebaseUid } from "../services/userService";
+import { createOrUpdateOrganizationUser, fetchOrganizationUserByUserId } from "../services/organizationUserService";
+
+interface SignUpData {
+  email: string;
+  password: string;
+  properties: Record<string, any>;
+  organizationId: string;
+  positionId: string;
+  rolId: string;
+}
 
 interface UserContextValue {
   firebaseUser: FirebaseUser | null;
   userId: string | null;
+  organizationUserData: any;
   name: string;
   email: string;
   loading: boolean;
-  updateUserData: (uid: string, name: string, email: string) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<any>;
-  signUp: (email: string, password: string, name: string) => Promise<any>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (data: SignUpData) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextValue>({
   firebaseUser: null,
   userId: null,
+  organizationUserData: null,
   name: "",
   email: "",
   loading: true,
-  updateUserData: async () => {},
   signIn: async () => {},
   signUp: async () => {},
   signOut: async () => {},
@@ -48,15 +56,16 @@ const UserContext = createContext<UserContextValue>({
 export function UserProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [organizationUserData, setOrganizationUserData] = useState<any>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Configurar persistencia y suscribirse a los cambios en Firebase Auth
+  // Persistencia y suscripción a Auth
   useEffect(() => {
     setPersistence(auth, browserLocalPersistence)
       .then(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
           setFirebaseUser(user);
           setLoading(false);
         });
@@ -68,7 +77,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  // Cargar datos del usuario desde localStorage, en caso de existir
+  // Carga user info de localStorage
   useEffect(() => {
     if (!loading && firebaseUser) {
       const localData = localStorage.getItem("myUserInfo");
@@ -78,102 +87,70 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setUserId(parsed._id);
           setName(parsed.name);
           setEmail(parsed.email);
-          // Opcional: validar con el backend si es necesario.
-        } catch (error) {
-          console.error("Error parseando localStorage:", error);
+        } catch {
+          console.error("Error parsing localStorage user info");
         }
       }
     }
   }, [loading, firebaseUser]);
 
-  // Función para actualizar o crear los datos del usuario en la BD
-  // Ahora se recibe el uid (ya sea de firebaseUser o del resultado de signUp)
-  const updateUserData = useCallback(
-    async (uid: string, newName: string, newEmail: string) => {
-      try {
-        const result = await createOrUpdateUser({
-          uid,
-          name: newName,
-          email: newEmail,
-        });
+  // signIn: Firebase + carga user desde backend
+  const signIn = useCallback(async (email: string, password: string) => {
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    const userData = await fetchUserByFirebaseUid(result.user.uid);
+    const organizationUserData = await fetchOrganizationUserByUserId(userData._id);
+    console.log(organizationUserData)
+    setUserId(userData._id);
+    setOrganizationUserData(organizationUserData);
+    setName(userData.name);
+    setEmail(userData.email);
+    localStorage.setItem("myUserInfo", JSON.stringify(userData));
+  }, []);
 
-        setUserId(result._id);
-        setName(result.name);
-        setEmail(result.email);
-        localStorage.setItem("myUserInfo", JSON.stringify(result));
-      } catch (err) {
-        console.error("Error al actualizar o crear usuario:", err);
-      }
-    },
-    []
-  );
+  // signUp: Firebase + /users + /organization-users
+  const signUp = useCallback(async (data: SignUpData) => {
+    const { email, password, properties, organizationId, positionId, rolId } = data;
 
-  // Función para iniciar sesión con correo y contraseña
-  const signIn = async (email: string, password: string) => {
-    try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      // Actualiza los datos del usuario utilizando la información de Firebase.
-      const userData = await fetchUserByFirebaseUid(result.user.uid);
-      await updateUserData(
-        userData.uid,
-        userData.name || "",
-        userData.email || email
-      );
-      return result;
-    } catch (err) {
-      console.error("Error al iniciar sesión:", err);
-      throw err;
-    }
-  };
+    // 1) Firebase Auth
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    const uid = result.user.uid;
 
-  // Función para registrarse con correo, contraseña y nombre
-  // Se utiliza el usuario obtenido en el resultado para actualizar el backend
-  const signUp = async (email: string, password: string, name: string) => {
-    try {
-      const result = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      // Aquí usamos result.user.uid en lugar de depender de firebaseUser
-      await updateUserData(result.user.uid, name, email);
-      return result;
-    } catch (err) {
-      console.error("Error al registrarse:", err);
-      throw err;
-    }
-  };
+    // 2) /users
+    const userRecord = await createOrUpdateUser({
+      uid,
+      email,
+      ...properties,
+      name: properties.names || properties.name || "",
+    });
 
-  // Función para cerrar sesión
-  const signOut = async () => {
-    try {
-      await firebaseSignOut(auth);
-      // Opcional: limpiar datos locales
-      setFirebaseUser(null);
-      setUserId(null);
-      setName("");
-      setEmail("");
-      localStorage.removeItem("myUserInfo");
-    } catch (error) {
-      console.error("Error al cerrar sesión:", error);
-      throw error;
-    }
-  };
+    // 3) /organization-users
+    await createOrUpdateOrganizationUser({
+      user_id: userRecord._id,
+      organization_id: organizationId,
+      position_id: positionId,
+      rol_id: rolId,
+      properties,
+    });
+
+    // 4) Estado y localStorage
+    setUserId(userRecord._id);
+    setName(userRecord.name);
+    setEmail(userRecord.email);
+    localStorage.setItem("myUserInfo", JSON.stringify(userRecord));
+  }, []);
+
+  // signOut: Firebase + limpiar estado
+  const signOut = useCallback(async () => {
+    await firebaseSignOut(auth);
+    setFirebaseUser(null);
+    setUserId(null);
+    setName("");
+    setEmail("");
+    localStorage.removeItem("myUserInfo");
+  }, []);
 
   return (
-    <UserContext.Provider
-      value={{
-        firebaseUser,
-        userId,
-        name,
-        email,
-        loading,
-        updateUserData,
-        signIn,
-        signUp,
-        signOut,
-      }}
-    >
+    <UserContext.Provider value={{ firebaseUser, userId, organizationUserData, name, email, loading, signIn, signUp, signOut }}>
       {children}
     </UserContext.Provider>
   );

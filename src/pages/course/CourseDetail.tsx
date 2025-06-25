@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   AppShell,
   Text,
@@ -18,11 +18,9 @@ import {
   Progress,
   Image,
   Avatar,
-  Grid,
   Stack,
-  useMantineTheme,
 } from "@mantine/core";
-import { useDisclosure, useMediaQuery } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import {
   FaBookOpen,
   FaListUl,
@@ -124,13 +122,7 @@ function ActivityCard({ activity, hosts, onClick }: ActivityCardProps) {
 export default function CourseDetail() {
   const { eventId } = useParams<{ eventId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const theme = useMantineTheme();
-  const isSm = useMediaQuery(`(min-width: ${theme.breakpoints.sm})`);
-
-  // Ajustes según ancho
-  const titleMaxWidth = isSm ? 700 : 120;
-  const titleFontSize = isSm ? theme.fontSizes.md : theme.fontSizes.sm;
+  const { organizationId } = useParams<{ organizationId: string }>();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
@@ -222,7 +214,7 @@ export default function CourseDetail() {
   };
 
   function getShareUrl(activity: Activity) {
-    return `${window.location.origin}/course/${eventId}?activity=${activity._id}`;
+    return `${window.location.origin}/organizations/${organizationId}/course/${eventId}?activity=${activity._id}`;
   }
 
   // Función para renderizar las actividades en la barra lateral
@@ -241,28 +233,27 @@ export default function CourseDetail() {
     );
 
     return (
-      <Grid>
+      <Accordion variant="filled">
         {sortedActivities.map((activity) => (
-          <Grid.Col span={12} key={activity._id}>
-            <ActivityCard
-              activity={activity}
-              hosts={hosts}
+          <Accordion.Item value={activity._id} key={activity._id}>
+            <Accordion.Control
               onClick={() => handleActivitySelection(activity)}
-            />
-          </Grid.Col>
+            >
+              <ActivityCard
+                activity={activity}
+                hosts={hosts}
+                onClick={() => handleActivitySelection(activity)}
+              />
+            </Accordion.Control>
+          </Accordion.Item>
         ))}
-      </Grid>
+      </Accordion>
     );
   };
 
   // Función para renderizar módulos y sus actividades
   const renderModules = () => {
     if (!modules.length) return <Text size="sm">No hay módulos</Text>;
-
-    const handleActivitySelection = (activity: Activity) => {
-      setSelectedActivity(activity);
-      setSearchParams({ activity: activity._id });
-    };
 
     return (
       <Accordion variant="separated" multiple>
@@ -296,7 +287,7 @@ export default function CourseDetail() {
               <Accordion.Control>
                 <Group justify="space-between">
                   <Text>{module.module_name}</Text>
-                  <Text size="xs" c={moduloColor}>
+                  <Text size="xs" color={moduloColor}>
                     {moduloStatus} ({Math.round(progresoModulo)}%)
                   </Text>
                 </Group>
@@ -315,11 +306,11 @@ export default function CourseDetail() {
                       key={activity._id}
                       activity={activity}
                       hosts={hosts}
-                      onClick={() => handleActivitySelection(activity)}
+                      onClick={() => setSelectedActivity(activity)}
                     />
                   ))
                 ) : (
-                  <Text size="sm" c="dimmed">
+                  <Text size="sm" color="dimmed">
                     Sin actividades
                   </Text>
                 )}
@@ -331,72 +322,50 @@ export default function CourseDetail() {
     );
   };
 
-  // Dentro de CourseDetail, después de renderModules y antes de renderMainContent
-
-  // 1. Filtra los hosts que tienen al menos una activity_id que corresponde
-  const renderAllHosts = () => {
-    if (!hosts.length)
-      return (
-        <Text size="sm" c="dimmed">
-          No hay conferencistas
-        </Text>
-      );
-
-    // Build set of activity IDs
-    const activityIds = new Set(activities.map((a) => a._id));
-    // Keep only hosts que estén en alguna activity
-    const activityHosts = hosts.filter((h) =>
-      h.activities_ids?.some((id) => activityIds.has(id))
-    );
-
-    if (!activityHosts.length)
-      return (
-        <Text size="sm" c="dimmed">
-          No hay conferencistas asignados
-        </Text>
-      );
-
-    return (
-      <div style={{ marginTop: 16 }}>
-        <Text size="sm" fw={600} mb="xs">
-          Conferencistas
-        </Text>
-        <Group p="md">
-          {activityHosts.map((host) => (
-            <Stack key={host._id} align="center" p={2}>
-              <Avatar src={host.image} alt={host.name} size={40} radius="xl" />
-              <Text size="xs" ta="center">
-                {host.name}
-              </Text>
-            </Stack>
-          ))}
-        </Group>
-      </div>
-    );
-  };
-
   // Render principal: si no hay actividad seleccionada, mostramos un mensaje
   const renderMainContent = () => {
     if (!selectedActivity) {
       return (
-        <Card shadow="sm" radius="md" p="lg">
-          <Stack p="sm">
-            <Text size="md" fw={500}>
-              Bienvenido(a) al curso {event.name}.
-            </Text>
+        <Card shadow="sm" radius="md">
+          <Text size="md" fw={500}>
+            Bienvenido(a) al curso {event.name}.
+          </Text>
+          <Text size="sm" c="dimmed">
+            Selecciona una actividad para ver detalles
+          </Text>
+          <Text size="lg" fw={600}>
+            Módulos y actividades
+          </Text>
+          {modules.length ? renderModules() : renderActivities()}
 
+          {/* Mostrar conferencistas debajo de módulos/actividades */}
+          <Divider my="lg" />
+          <Text size="lg" fw={600} mb="sm">
+            Conferencistas
+          </Text>
+          {hosts.length === 0 ? (
             <Text size="sm" c="dimmed">
-              Selecciona una actividad para ver detalles
+              No hay conferencistas asignados.
             </Text>
-
-            <Text size="lg" fw={600}>
-              Módulos y actividades
-            </Text>
-
-            {modules.length ? renderModules() : renderActivities()}
-
-            {renderAllHosts()}
-          </Stack>
+          ) : (
+            <Group p="sm" mt="md">
+              {hosts.map((host) => (
+                <Card
+                  key={host._id}
+                  shadow="lg"
+                  radius="lg"
+                  style={{ width: 150, cursor: "pointer" }}
+                >
+                  <Stack align="center">
+                    <Avatar src={host.image} alt={host.name} size={80} radius="md" />
+                    <Text size="sm" ta="center">
+                      {host.name}
+                    </Text>
+                  </Stack>
+                </Card>
+              ))}
+            </Group>
+          )}
         </Card>
       );
     }
@@ -415,16 +384,18 @@ export default function CourseDetail() {
     );
   };
 
-  // Función de retroceso condicional
+  // Handler para navegación hacia atrás
   const handleBack = () => {
-    const basePath = `/course/${eventId}`;
-    if (location.pathname === basePath && !location.search) {
-      navigate("/organizations/63f552d916065937427b3b02");
-    } else if (location.pathname === basePath && searchParams.has("activity")) {
-      navigate(`/course/${eventId}`);
+    if (searchParams.has("activity")) {
+      // Si hay actividad seleccionada por query param, limpia el query param y selecciona null
+      setSearchParams({});
       setSelectedActivity(null);
+    } else if (organizationId && eventId) {
+      // Si está en /organizations/:organizationId/course/:eventId sin query, navega a la lista de organizaciones
+      window.location.href = `${window.location.origin}/organizations/${organizationId}`;
     } else {
-      navigate(-1);
+      // Fallback: navega a la raíz de organizaciones
+      window.location.href = `${window.location.origin}/organizations`;
     }
   };
 
@@ -438,44 +409,30 @@ export default function CourseDetail() {
     >
       {/* HEADER */}
       <AppShell.Header>
-        <Flex align="center" style={{ height: "100%" }}>
-          <Group p="xs" align="center">
-            {/* Burger */}
-            <Burger
-              opened={opened}
-              onClick={toggle}
-              size="sm"
-              color={theme.colors.gray[7]}
-            />
-
-            {/* Icono de retroceso */}
-            <FaArrowLeft
-              size={20}
-              style={{ cursor: "pointer" }}
-              onClick={handleBack}
-            />
-
-            {/* Logo */}
-            <img
-              src={event.styles.event_image}
-              alt="Evento"
-              style={{ height: 40 }}
-            />
-
-            {/* Título siempre presente, truncado */}
-            <Title
-              order={4}
-              style={{
-                marginLeft: theme.spacing.sm,
-                maxWidth: titleMaxWidth,
-                fontSize: titleFontSize,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {event.name}
-            </Title>
+        <Flex
+          justify="center"
+          align="center"
+          style={{ height: "100%", paddingBlock: "8px" }}
+        >
+          <Burger
+            opened={opened}
+            onClick={toggle}
+            size="sm"
+            color="black"
+            onMouseEnter={() => (opened ? null : toggle())}
+          />
+          <Group style={{ height: "100%", width: "100%" }}>
+            <Group>
+              <img height={40} src={event.styles.event_image} alt="Evento" />
+            </Group>
+            <Group>
+              <FaArrowLeft
+                size={24}
+                style={{ cursor: "pointer" }}
+                onClick={handleBack}
+              />
+              <Title order={4}>{event.name}</Title>
+            </Group>
           </Group>
         </Flex>
       </AppShell.Header>

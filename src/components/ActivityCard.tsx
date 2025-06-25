@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Card, Image, Text, Title, Grid, Flex, Highlight } from "@mantine/core";
 import { Activity } from "../services/types";
 import { useEffect, useState } from "react";
@@ -30,10 +30,17 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   searchQuery,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Extrae organizationId de la URL actual si existe
+  const orgMatch = location.pathname.match(/organizations\/([^/]+)/);
+  const organizationId = orgMatch ? orgMatch[1] : undefined;
+
+  // State para hover y selección de fragmentos
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Obtener imagen del evento si existe (event_id es el objeto del evento)
-  let eventImage: string =
-    "https://via.placeholder.com/160x160?text=No+Video";
+  let eventImage: string = "https://via.placeholder.com/160x160?text=No+Video";
   if (typeof activity.event_id === "object" && activity.event_id !== null) {
     const eventObj = activity.event_id as any;
     eventImage =
@@ -51,7 +58,11 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   }, [activity._id]);
 
   const handleClickCard = (activityId: string) => {
-    navigate(`/activitydetail/${activityId}`);
+    if (organizationId) {
+      navigate(`/organizations/${organizationId}/activitydetail/${activityId}`);
+    } else {
+      navigate(`/activitydetail/${activityId}`);
+    }
   };
 
   return (
@@ -65,13 +76,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
       <Grid gutter="md" align="center">
         <Grid.Col span={4}>
           <Image
-            src={
-              typeof activity.event_id === "object" && activity.event_id !== null
-                ? activity.event_id.picture ||
-                  activity.event_id.styles?.banner_image ||
-                  "https://via.placeholder.com/160x160?text=No+Video"
-                : "https://via.placeholder.com/160x160?text=No+Video"
-            }
+            src={_imgSrc}
             alt={activity.name}
             radius="xs"
             height="auto"
@@ -88,19 +93,28 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
           <Flex direction="column" ta="left" justify="space-between">
             <Title order={4}>{activity.name}</Title>
             <Text size="sm" variant="gradient">
-              Evento:{" "}
+              Evento:{' '}
               {typeof activity.event_id === "object" &&
               activity.event_id !== null &&
-              "name" in activity.event_id ? (
+              'name' in activity.event_id ? (
                 <span
-                  style={{ color: "#228be6", textDecoration: "underline", cursor: "pointer" }}
-                  onClick={e => {
+                  style={{
+                    color: "#228be6",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
+                  onClick={(e) => {
                     e.stopPropagation();
                     const eventId =
                       (activity.event_id as any)._id ||
                       (activity.event_id as any).id ||
                       "";
-                    if (eventId) {
+                    if (eventId && organizationId) {
+                      window.open(
+                        `${window.location.origin}/organizations/${organizationId}/course/${eventId}`,
+                        "_blank"
+                      );
+                    } else if (eventId) {
                       window.open(
                         `${window.location.origin}/course/${eventId}`,
                         "_blank"
@@ -131,23 +145,46 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                   {matchedSegments.map((seg) => (
                     <div
                       key={seg.segmentId}
-                      style={{ marginBottom: 4, cursor: "pointer" }}
+                      style={{
+                        marginBottom: 5,
+                        cursor: "pointer",
+                        padding: 4,
+                        borderRadius: 4,
+                        backgroundColor:
+                          seg.segmentId === selectedId
+                            ? "rgba(45,212,191,0.2)"
+                            : seg.segmentId === hoveredId
+                            ? "rgba(45,212,191,0.1)"
+                            : "transparent",
+                        transition: "background-color 0.2s",
+                      }}
+                      onMouseEnter={() => setHoveredId(seg.segmentId)}
+                      onMouseLeave={() => setHoveredId(null)}
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(
-                          `/activitydetail/${activity._id}?t=${
-                            seg.startTime
-                          }&fragments=${encodeURIComponent(
-                            JSON.stringify(matchedSegments)
-                          )}`
-                        );
+                        setSelectedId(seg.segmentId);
+                        if (organizationId) {
+                          navigate(
+                            `/organizations/${organizationId}/activitydetail/${activity._id}?t=${seg.startTime}` +
+                              `&fragments=${encodeURIComponent(
+                                JSON.stringify(matchedSegments)
+                              )}`
+                          );
+                        } else {
+                          navigate(
+                            `/activitydetail/${activity._id}?t=${seg.startTime}` +
+                              `&fragments=${encodeURIComponent(
+                                JSON.stringify(matchedSegments)
+                              )}`
+                          );
+                        }
                       }}
                     >
                       <Text size="sm">
                         <strong style={{ color: "teal" }}>
-                          {formatTime(seg.startTime)} -{" "}
+                          {formatTime(seg.startTime)} -{' '}
                           {formatTime(seg.endTime)}:
-                        </strong>{" "}
+                        </strong>{' '}
                         <Highlight
                           highlight={searchQuery || ""}
                           component="span"

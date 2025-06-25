@@ -35,7 +35,7 @@ import { Organization, Event, Activity } from "../services/types";
 import ActivityCard from "../components/ActivityCard";
 
 export default function OrganizationDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
   const { userId } = useUser();
   // const { openAuthModal } = useAuthModal();
@@ -48,7 +48,7 @@ export default function OrganizationDetail() {
   const [searching, setSearching] = useState(false); // Nuevo estado para loading de búsqueda
 
   // Estado para PaymentPlan
-  const [, setPaymentPlan] = useState<any>(null);
+  const [paymentPlan, setPaymentPlan] = useState<any>(null);
   const [planLoading, setPlanLoading] = useState(true);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
@@ -79,11 +79,11 @@ export default function OrganizationDetail() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        if (id) {
-          const orgData = await fetchOrganizationById(id);
+        if (organizationId) {
+          const orgData = await fetchOrganizationById(organizationId);
           setOrganization(orgData);
 
-          const eventData = await fetchEventsByOrganizer(id);
+          const eventData = await fetchEventsByOrganizer(organizationId);
           const sortedEvents = eventData.sort(
             (a, b) =>
               new Date(b.created_at).getTime() -
@@ -93,7 +93,7 @@ export default function OrganizationDetail() {
 
           // Obtener actividades de la organización paginadas
           const activityData = await getActivitiesByOrganization(
-            id,
+            organizationId,
             activityPage,
             activityLimit
           );
@@ -113,13 +113,14 @@ export default function OrganizationDetail() {
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, activityPage, activityLimit]);
+  }, [organizationId, activityPage, activityLimit]);
 
   // Obtener PaymentPlan usando el userId
   useEffect(() => {
     const fetchPlan = async () => {
       try {
         if (userId) {
+          console.log
           const planData = await fetchPaymentPlanByUserId(userId);
           setPaymentPlan(planData);
         }
@@ -258,13 +259,13 @@ export default function OrganizationDetail() {
       setActivityPage(1);
 
       // Recargar eventos y actividades completos (paginados)
-      if (id) {
+      if (organizationId) {
         setLoading(true);
         try {
-          const orgData = await fetchOrganizationById(id);
+          const orgData = await fetchOrganizationById(organizationId);
           setOrganization(orgData);
 
-          const eventData = await fetchEventsByOrganizer(id);
+          const eventData = await fetchEventsByOrganizer(organizationId);
           const sortedEvents = eventData.sort(
             (a, b) =>
               new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -273,7 +274,7 @@ export default function OrganizationDetail() {
           setFilteredEvents(sortedEvents);
 
           const activityData = await getActivitiesByOrganization(
-            id,
+            organizationId,
             1, // página 1
             activityLimit
           );
@@ -304,13 +305,13 @@ export default function OrganizationDetail() {
     setActivityPage(1);
 
     // Recargar eventos y actividades completos (paginados)
-    if (id) {
+    if (organizationId) {
       setLoading(true);
       try {
-        const orgData = await fetchOrganizationById(id);
+        const orgData = await fetchOrganizationById(organizationId);
         setOrganization(orgData);
 
-        const eventData = await fetchEventsByOrganizer(id);
+        const eventData = await fetchEventsByOrganizer(organizationId);
         const sortedEvents = eventData.sort(
           (a, b) =>
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -319,7 +320,7 @@ export default function OrganizationDetail() {
         setFilteredEvents(sortedEvents);
 
         const activityData = await getActivitiesByOrganization(
-          id,
+          organizationId,
           1, // página 1
           activityLimit
         );
@@ -357,21 +358,18 @@ export default function OrganizationDetail() {
     );
   if (!organization) return <Text>Organización no encontrada</Text>;
 
-  // Determinar si el plan está activo: si PaymentPlan se obtuvo y la fecha actual es menor o igual a date_until
-  const planIsActive = true;
-
   // Función para manejar click en un evento (curso)
-  const handleCourseClick = (eventId: string) => {
+  const handleCourseClick =async (eventId: string) => {
     if (!userId) {
       setShowSubscriptionModal(true);
       // Si no está autenticado, muestra el modal de autenticación
       // openAuthModal();
-    } else if (!planIsActive) {
+    } else if (!paymentPlan) {
       // Si el plan está vencido, muestra el modal de pago
       openPaymentModal();
     } else {
       // Si está autenticado y el plan activo, navega al curso
-      navigate(`/course/${eventId}`);
+      navigate(`/organizations/${organizationId}/course/${eventId}`);
     }
   };
 
@@ -518,7 +516,7 @@ export default function OrganizationDetail() {
         mt="md"
       />
 
-      {!planIsActive && !planLoading && userId && (
+      {!paymentPlan && !planLoading && userId && (
         <Text
           c="red"
           fw={700}
@@ -578,7 +576,7 @@ export default function OrganizationDetail() {
           La suscripción tiene vigencia de <strong>1 año</strong> a partir de la
           fecha en que se realice el pago.
         </Text>
-        <Button fullWidth onClick={() => navigate(`/pagos/${id}`)}>
+        <Button fullWidth onClick={() => navigate(`/pagos/${organizationId}`)}>
           Comenzar
         </Button>
       </Modal>

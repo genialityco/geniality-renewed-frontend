@@ -168,3 +168,24 @@ export interface PaymentPlan {
   updated_at: string;
 }
 
+export enum PropertyType {
+  TEXT = "text",
+  EMAIL = "email",
+  BOOLEAN = "boolean",
+  LIST = "list",
+  CODEAREA = "codearea",
+  COUNTRY = "country",
+  CITY = "city",
+}
+
+// 2) La interfaz que describe cada propiedad de registro
+export interface UserProperty {
+  name: string;               // clave interna (p. ej. "ID", "pais", "phone"…)
+  label: string;              // etiqueta para mostrar
+  type: PropertyType;         // uno de los valores de PropertyType
+  mandatory: boolean;         // si es obligatorio
+  options?: {                 // solo para type === LIST
+    label: string;
+    value: string;
+  }[];
+}
