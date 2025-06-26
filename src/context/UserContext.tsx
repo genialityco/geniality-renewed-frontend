@@ -99,7 +99,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const result = await signInWithEmailAndPassword(auth, email, password);
     const userData = await fetchUserByFirebaseUid(result.user.uid);
     const organizationUserData = await fetchOrganizationUserByUserId(userData._id);
-    console.log(organizationUserData)
     setUserId(userData._id);
     setOrganizationUserData(organizationUserData);
     setName(userData.name);

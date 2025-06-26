@@ -71,8 +71,6 @@ export default function AuthForm({
     setFormValues((prev) => ({ ...prev, [name]: value }));
   };
 
-  console.log(isPaymentPage)
-
   const handleSignIn = async () => {
     setSubmitting(true);
     if (!organization) return;
@@ -154,7 +152,8 @@ export default function AuthForm({
         return (
           <Checkbox
             key={prop.name}
-            label={prop.label}
+            // Renderiza HTML en el label
+            label={<span dangerouslySetInnerHTML={{ __html: prop.label }} />}
             checked={formValues[prop.name]}
             onChange={(e) =>
               handleFieldChange(prop.name, e.currentTarget.checked)
@@ -181,7 +180,7 @@ export default function AuthForm({
   };
 
   return (
-    <div style={{ maxWidth: 480, margin: "2rem auto", textAlign: "center" }}>
+    <div style={{ maxWidth: 480, margin: "2rem auto", textAlign: "left" }}>
       {organization.styles?.event_image && (
         <Image
           src={organization.styles.event_image}

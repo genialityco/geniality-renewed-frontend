@@ -10,9 +10,10 @@ import {
   Paper,
   TextInput,
   Group,
+  Loader,
 } from "@mantine/core";
 import { useNavigate, useParams } from "react-router-dom";
-import { createPaymentPlan } from "../../services/paymentPlansService";
+import { createPaymentPlan, fetchPaymentPlanByUserId } from "../../services/paymentPlansService";
 import { fetchOrganizationUserByUserId } from "../../services/organizationUserService";
 
 export default function PaymentPage() {
@@ -22,9 +23,48 @@ export default function PaymentPage() {
 
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [loadingPayment, setLoadingPayment] = useState(false);
-
+  const [checkingPlan, setCheckingPlan] = useState(true);
   const [cardName, setCardName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
+
+  // Validar si el usuario ya tiene plan activo
+  useEffect(() => {
+    const checkPlan = async () => {
+      if (!userId) return;
+      setCheckingPlan(true);
+      try {
+        const plan = await fetchPaymentPlanByUserId(userId);
+        // Si tiene plan y está vigente, redirige a la organización
+        if (plan && plan.date_until && new Date(plan.date_until) > new Date()) {
+          navigate(`/organizations/${organizationId}`);
+        }
+      } catch (e) {
+        // Si no tiene plan, se queda en la página de pago
+      } finally {
+        setCheckingPlan(false);
+      }
+    };
+    if (userId && firebaseUser) {
+      checkPlan();
+    }
+  }, [userId, firebaseUser, organizationId, navigate]);
+
+  // Mostrar AuthForm si el usuario no está logueado
+  useEffect(() => {
+    if (!userId || !firebaseUser) {
+      window.location.replace(
+        `/organization/${organizationId}/iniciar-sesion?payment=1`
+      );
+    }
+  }, [userId, firebaseUser, organizationId]);
+
+  if (!userId || !firebaseUser || checkingPlan) {
+    return (
+      <Flex justify="center" align="center" style={{ minHeight: "60vh" }}>
+        <Loader />
+      </Flex>
+    );
+  }
 
   const handlePayment = async () => {
     if (!firebaseUser || !organizationId) return;
@@ -61,18 +101,6 @@ export default function PaymentPage() {
     }
   };
 
-  // Mostrar AuthForm si el usuario no está logueado
-
-  if (!userId || !firebaseUser) {
-    useEffect(() => {
-      window.location.replace(
-        `/organization/${organizationId}/iniciar-sesion?payment=1`
-      );
-    }, [organizationId]);
-
-    return null;
-  }
-
   // Mostrar confirmación si ya pagó
   if (paymentCompleted) {
     return (
@@ -97,7 +125,7 @@ export default function PaymentPage() {
     );
   }
 
-  // Mostrar formulario de pago si está autenticado
+  // Mostrar formulario de pago si está autenticado y no tiene plan
   return (
     <Container size="sm" mt="xl">
       <Card shadow="md" radius="md" padding="xl" withBorder>
