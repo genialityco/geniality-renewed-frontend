@@ -203,7 +203,7 @@ export default function AuthForm({
       />
 
       <PasswordInput
-        label="Contraseña"
+        label="Documento de identidad"
         placeholder="********"
         value={password}
         onChange={(e) => setPassword(e.currentTarget.value)}

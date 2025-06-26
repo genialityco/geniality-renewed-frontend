@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { SetStateAction, useEffect, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   AppShell,
   Text,
@@ -123,6 +123,7 @@ export default function CourseDetail() {
   const { eventId } = useParams<{ eventId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { organizationId } = useParams<{ organizationId: string }>();
+  const navigate = useNavigate();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
@@ -223,14 +224,29 @@ export default function CourseDetail() {
 
     const handleActivitySelection = (activity: Activity) => {
       setSelectedActivity(activity);
-      setSearchParams({ activity: activity._id });
+      if (activity && activity._id) {
+        setSearchParams({ activity: activity._id });
+      }
     };
 
-    // Ordenar actividades por created_at descendente (más recientes primero)
-    const sortedActivities = [...activities].sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
+    // Obtiene la fecha válida del objeto actividad
+    const getCreatedDate = (activity: Activity) => {
+      // Intenta los distintos campos posibles
+      return (
+        activity.create_at ||
+        activity.created_at ||
+        activity.createAt ||
+        activity.createdAt ||
+        null
+      );
+    };
+
+    // Ordena por la fecha encontrada (ascendente)
+    const sortedActivities = [...activities].sort((a, b) => {
+      const dateA = new Date(getCreatedDate(a)).getTime();
+      const dateB = new Date(getCreatedDate(b)).getTime();
+      return dateA - dateB;
+    });
 
     return (
       <Accordion variant="filled">
@@ -255,9 +271,14 @@ export default function CourseDetail() {
   const renderModules = () => {
     if (!modules.length) return <Text size="sm">No hay módulos</Text>;
 
+    // Ordenar por el campo "order" ascendente (de menor a mayor)
+    const orderedModules = [...modules].sort(
+      (a, b) => (a.order ?? 0) - (b.order ?? 0)
+    );
+
     return (
       <Accordion variant="separated" multiple>
-        {modules.map((module) => {
+        {orderedModules.map((module) => {
           const actividadesDelModulo = activities.filter(
             (activity) => activity.module_id === module._id
           );
@@ -324,6 +345,10 @@ export default function CourseDetail() {
 
   // Render principal: si no hay actividad seleccionada, mostramos un mensaje
   const renderMainContent = () => {
+    const sortedActivities = [...activities].sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
     if (!selectedActivity) {
       return (
         <Card shadow="sm" radius="md">
@@ -357,7 +382,12 @@ export default function CourseDetail() {
                   style={{ width: 150, cursor: "pointer" }}
                 >
                   <Stack align="center">
-                    <Avatar src={host.image} alt={host.name} size={80} radius="md" />
+                    <Avatar
+                      src={host.image}
+                      alt={host.name}
+                      size={80}
+                      radius="md"
+                    />
                     <Text size="sm" ta="center">
                       {host.name}
                     </Text>
@@ -379,6 +409,7 @@ export default function CourseDetail() {
           eventId={event._id}
           onStartQuestionnaire={handleStartQuestionnaire}
           shareUrl={selectedActivity ? getShareUrl(selectedActivity) : ""}
+          activities={sortedActivities}
         />
       </div>
     );
@@ -397,6 +428,10 @@ export default function CourseDetail() {
       // Fallback: navega a la raíz de organizaciones
       window.location.href = `${window.location.origin}/organizations`;
     }
+  };
+
+  const handleBackHome = () => {
+    navigate(`/organizations/${organizationId}`);
   };
 
   return (
@@ -423,7 +458,12 @@ export default function CourseDetail() {
           />
           <Group style={{ height: "100%", width: "100%" }}>
             <Group>
-              <img height={40} src={event.styles.event_image} alt="Evento" />
+              <img
+                height={40}
+                src={event.styles.event_image}
+                alt="Evento"
+                onClick={handleBackHome}
+              />
             </Group>
             <Group>
               <FaArrowLeft

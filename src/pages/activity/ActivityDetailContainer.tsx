@@ -110,6 +110,7 @@ export default function ActivityDetailContainer() {
         onStartQuestionnaire={handleStartQuestionnaire}
         videoTime={videoTime}
         formatTime={formatTime}
+        activities={[]}
       />
 
       {/* 8. Renderiza aquí tu QuizDrawer con transcript, que se abre/cierra por el estado */}

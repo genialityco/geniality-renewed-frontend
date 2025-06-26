@@ -43,7 +43,14 @@ export default function AppShellWithAuth() {
   return (
     <div style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>
       <Group justify="space-between" align="center" style={{ height: "100%" }}>
-        <Group>
+        <Group
+          style={{ cursor: orgId ? "pointer" : "default" }}
+          onClick={() => {
+            if (orgId) {
+              navigate(`/organizations/${orgId}`);
+            }
+          }}
+        >
           <Image
             src={
               headerOrg?.image ||

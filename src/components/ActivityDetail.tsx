@@ -27,7 +27,7 @@ import { fetchQuizAttemptsByUserAndQuiz } from "../services/quizAttemptService";
 
 import { useUser } from "../context/UserContext";
 import { Activity, Host, Quiz, QuizAttempt } from "../services/types";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 interface Fragment {
   segmentId: number;
@@ -41,6 +41,7 @@ interface ActivityDetailProps {
   eventId: string; // ID del evento (para enlaces, etc.)
   shareUrl: string; // URL para compartir
   onStartQuestionnaire: () => void; // Callback para abrir el quiz (Drawer)
+  activities: Activity[]; // Lista de actividades
 
   videoTime?: number | null;
   fragments?: Fragment[];
@@ -52,14 +53,32 @@ export default function ActivityDetail({
   // eventId,
   shareUrl,
   // onStartQuestionnaire,
+  activities,
   videoTime: _vt = null,
   fragments: _frags = [],
   formatTime,
 }: ActivityDetailProps) {
   const { userId } = useUser();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const currentIndex = activities.findIndex((act) => act._id === activity?._id);
+  const prevActivity = currentIndex > 0 ? activities[currentIndex - 1] : null;
+  const nextActivity =
+    currentIndex < activities.length - 1 ? activities[currentIndex + 1] : null;
+
+  const handleNavigateActivity = (activityId: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("activity", activityId); // Esto reemplaza el activity actual o lo agrega si no existe
+
+    // Si quieres limpiar otros params (como t o fragments) cada vez que cambias de actividad:
+    params.delete("t");
+    params.delete("fragments");
+
+    navigate(`?${params.toString()}`);
+  };
 
   // ———– LECTURA DE t= DEL QUERY PARAM ———–
-  const [searchParams] = useSearchParams();
   const tParam = parseFloat(searchParams.get("t") || "NaN");
 
   // Lee y decodifica fragments del query param
@@ -256,19 +275,11 @@ export default function ActivityDetail({
   const handleShareActivity = async () => {
     if (!shareUrl) return;
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `Actividad: ${activity.name}`,
-          text: "Mira esta actividad",
-          url: shareUrl,
-        });
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-      }
+      await navigator.clipboard.writeText(shareUrl);
       setShareNotification(true);
       setTimeout(() => setShareNotification(false), 3000);
     } catch (error) {
-      console.error("Error al compartir:", error);
+      console.error("No se pudo copiar al portapapeles:", error);
     }
   };
 
@@ -305,7 +316,6 @@ export default function ActivityDetail({
     return `${mins}:${secsString}`;
   }
 
-
   return (
     <Card shadow="sm" radius="md">
       <Group justify="left">
@@ -324,7 +334,9 @@ export default function ActivityDetail({
                   window.history.length > 1
                     ? window.history.back()
                     : window.location.assign(
-                        `/organizations/${window.location.pathname.split("/")[2]}`
+                        `/organizations/${
+                          window.location.pathname.split("/")[2]
+                        }`
                       );
                 }}
               />
@@ -352,7 +364,9 @@ export default function ActivityDetail({
                   (activity.event_id as any).id ||
                   "";
                 // Extrae organizationId de la URL actual
-                const orgMatch = window.location.pathname.match(/organizations\/([^/]+)/);
+                const orgMatch = window.location.pathname.match(
+                  /organizations\/([^/]+)/
+                );
                 const organizationId = orgMatch ? orgMatch[1] : undefined;
                 if (eventId && organizationId) {
                   window.open(
@@ -414,6 +428,30 @@ export default function ActivityDetail({
         </Text>
       )}
 
+      <Group justify="space-between" my="md">
+        <Button
+          variant="outline"
+          disabled={!prevActivity}
+          onClick={() =>
+            prevActivity && handleNavigateActivity(prevActivity._id)
+          }
+          leftSection="←"
+        >
+          {prevActivity ? prevActivity.name : "Anterior"}
+        </Button>
+
+        <Button
+          variant="outline"
+          disabled={!nextActivity}
+          onClick={() =>
+            nextActivity && handleNavigateActivity(nextActivity._id)
+          }
+          rightSection="→"
+        >
+          {nextActivity ? nextActivity.name : "Siguiente"}
+        </Button>
+      </Group>
+
       {/* Resto de tu componente igual (botones, quiz, conferencistas, fragmentos) */}
       <Divider my="sm" />
       <Group>
@@ -441,7 +479,7 @@ export default function ActivityDetail({
 
       {shareNotification && (
         <Notification color="green" mt="md">
-          Enlace copiado al portapapeles
+          Enlace copiado al portapapeles para que puedas compartirlo.
         </Notification>
       )}
 
@@ -461,7 +499,12 @@ export default function ActivityDetail({
               style={{ width: 150, cursor: "pointer" }}
             >
               <Stack align="center">
-                <Avatar src={host.image} alt={host.name} size={100} radius="md" />
+                <Avatar
+                  src={host.image}
+                  alt={host.name}
+                  size={100}
+                  radius="md"
+                />
                 <Text size="sm" ta="center">
                   {host.name}
                 </Text>

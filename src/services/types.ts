@@ -47,6 +47,9 @@ export interface Module {
 }
 
 export interface Activity {
+  create_at: string | number | Date;
+  createAt: any;
+  createdAt: any;
   created_at: string | number | Date;
   video_progress: number;
   module_id: string;

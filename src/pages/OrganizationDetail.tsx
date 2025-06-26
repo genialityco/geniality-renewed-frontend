@@ -144,7 +144,9 @@ export default function OrganizationDetail() {
       setEventSearchMode(true);
       try {
         const events = await fetchEventByName(query);
-        setEventSearchResults(Array.isArray(events) ? events : events ? [events] : []);
+        setEventSearchResults(
+          Array.isArray(events) ? events : events ? [events] : []
+        );
       } catch (error) {
         setEventSearchResults([]);
       }
@@ -244,7 +246,9 @@ export default function OrganizationDetail() {
   }, [activityPage, activityLimit]);
 
   // Cuando el usuario escribe, solo actualiza el valor, pero si borra todo, recarga la información inicial
-  const handleSearchInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchInputChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const value = e.target.value;
     setSearchQuery(value);
 
@@ -266,7 +270,8 @@ export default function OrganizationDetail() {
           const eventData = await fetchEventsByOrganizer(organizationId);
           const sortedEvents = eventData.sort(
             (a, b) =>
-              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
           );
           setEvents(sortedEvents);
           setFilteredEvents(sortedEvents);
@@ -357,7 +362,7 @@ export default function OrganizationDetail() {
   if (!organization) return <Text>Organización no encontrada</Text>;
 
   // Función para manejar click en un evento (curso)
-  const handleCourseClick =async (eventId: string) => {
+  const handleCourseClick = async (eventId: string) => {
     if (!userId) {
       setShowSubscriptionModal(true);
       // Si no está autenticado, muestra el modal de autenticación
@@ -536,6 +541,9 @@ export default function OrganizationDetail() {
           placeholder="Buscar en actividades y eventos.."
           value={searchQuery}
           onChange={handleSearchInputChange}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSearch();
+          }}
           style={{ width: 250 }}
           rightSection={
             searchQuery ? (
@@ -574,7 +582,10 @@ export default function OrganizationDetail() {
           La suscripción tiene vigencia de <strong>1 año</strong> a partir de la
           fecha en que se realice el pago.
         </Text>
-        <Button fullWidth onClick={() => navigate(`/organizations/${organizationId}/pagos`)}>
+        <Button
+          fullWidth
+          onClick={() => navigate(`/organizations/${organizationId}/pagos`)}
+        >
           Comenzar
         </Button>
       </Modal>
