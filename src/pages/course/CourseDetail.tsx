@@ -229,7 +229,7 @@ export default function CourseDetail() {
     // Ordenar actividades por created_at descendente (más recientes primero)
     const sortedActivities = [...activities].sort(
       (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
 
     return (
