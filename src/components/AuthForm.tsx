@@ -19,8 +19,12 @@ import { useUser } from "../context/UserContext";
 import { fetchOrganizationById } from "../services/organizationService";
 import { UserProperty, PropertyType } from "../services/types"; // asume que defines estos tipos en un archivo común
 
-export default function AuthForm() {
-  const { orgId } = useParams<{ orgId: string }>();
+export default function AuthForm({
+  isPaymentPage
+}: {
+  isPaymentPage?: boolean;
+}) {
+  const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
   const { signIn, signUp } = useUser();
 
@@ -42,8 +46,8 @@ export default function AuthForm() {
 
   // Load organization & init formValues
   useEffect(() => {
-    if (!orgId) return;
-    fetchOrganizationById(orgId)
+    if (!organizationId) return;
+    fetchOrganizationById(organizationId)
       .then((org) => {
         setOrganization({
           _id: org._id,
@@ -61,17 +65,25 @@ export default function AuthForm() {
       })
       .catch(() => setOrganization(null))
       .finally(() => setLoadingOrg(false));
-  }, [orgId]);
+  }, [organizationId]);
 
   const handleFieldChange = (name: string, value: any) => {
     setFormValues((prev) => ({ ...prev, [name]: value }));
   };
 
+  console.log(isPaymentPage)
+
   const handleSignIn = async () => {
     setSubmitting(true);
+    if (!organization) return;
+
     try {
       await signIn(email, password);
-      navigate(`/organizations/${orgId}`);
+      if (isPaymentPage) {
+        navigate(`/organizations/${organization._id}/pagos`);
+      } else {
+        navigate(`/organizations/${organization._id}`);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -91,7 +103,11 @@ export default function AuthForm() {
         positionId: organization.default_position_id,
         rolId: "5c1a59b2f33bd40bb67f2322",
       });
-      navigate(`/organizations/${organization._id}`);
+      if (isPaymentPage) {
+        navigate(`/organizations/${organization._id}/pagos`);
+      } else {
+        navigate(`/organizations/${organization._id}`);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -200,26 +216,15 @@ export default function AuthForm() {
 
       <Group mt="md">
         {isRegister ? (
-          <Button
-            fullWidth
-            onClick={handleSignUp}
-            loading={submitting}
-          >
+          <Button fullWidth onClick={handleSignUp} loading={submitting}>
             Registrarse
           </Button>
         ) : (
-          <Button
-            fullWidth
-            onClick={handleSignIn}
-            loading={submitting}
-          >
+          <Button fullWidth onClick={handleSignIn} loading={submitting}>
             Iniciar sesión
           </Button>
         )}
-        <Button
-          variant="subtle"
-          onClick={() => setIsRegister((p) => !p)}
-        >
+        <Button variant="subtle" onClick={() => setIsRegister((p) => !p)}>
           {isRegister ? "Ya tengo cuenta" : "Crear cuenta"}
         </Button>
       </Group>

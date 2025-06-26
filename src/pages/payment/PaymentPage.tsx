@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useUser } from "../../context/UserContext";
 import {
   Container,
@@ -6,7 +6,6 @@ import {
   Text,
   Button,
   Card,
-  Loader,
   Flex,
   Paper,
   TextInput,
@@ -14,12 +13,11 @@ import {
 } from "@mantine/core";
 import { useNavigate, useParams } from "react-router-dom";
 import { createPaymentPlan } from "../../services/paymentPlansService";
-import AuthForm from "../../components/AuthForm";
 import { fetchOrganizationUserByUserId } from "../../services/organizationUserService";
 
 export default function PaymentPage() {
   const { organizationId } = useParams();
-  const { userId, loading, name, firebaseUser } = useUser();
+  const { userId, name, firebaseUser } = useUser();
   const navigate = useNavigate();
 
   const [paymentCompleted, setPaymentCompleted] = useState(false);
@@ -27,7 +25,6 @@ export default function PaymentPage() {
 
   const [cardName, setCardName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
-  const [isRegister, setIsRegister] = useState(false);
 
   const handlePayment = async () => {
     if (!firebaseUser || !organizationId) return;
@@ -36,8 +33,9 @@ export default function PaymentPage() {
       setLoadingPayment(true);
 
       // Obtener organizationUserId desde la info del usuario
-      const organizationUser = await fetchOrganizationUserByUserId(userId as string);
-
+      const organizationUser = await fetchOrganizationUserByUserId(
+        userId as string
+      );
 
       if (!organizationUser) {
         throw new Error("No estás registrado en esta organización.");
@@ -63,22 +61,16 @@ export default function PaymentPage() {
     }
   };
 
-  // Esperar a que Firebase termine de cargar
-  if (loading) return <Loader />;
-
   // Mostrar AuthForm si el usuario no está logueado
+
   if (!userId || !firebaseUser) {
-    return (
-      <Container size="sm" mt="xl">
-        <Title ta="center" order={2} mb="lg">
-          {isRegister ? "Regístrate para continuar" : "Inicia sesión para continuar"}
-        </Title>
-        <AuthForm
-          isRegister={isRegister}
-          toggleRegister={() => setIsRegister((prev) => !prev)}
-        />
-      </Container>
-    );
+    useEffect(() => {
+      window.location.replace(
+        `/organization/${organizationId}/iniciar-sesion?payment=1`
+      );
+    }, [organizationId]);
+
+    return null;
   }
 
   // Mostrar confirmación si ya pagó
@@ -94,7 +86,9 @@ export default function PaymentPage() {
             ENDOCAMPUS ACE.
           </Text>
           <Flex justify="center">
-            <Button onClick={() => navigate(`/organizations/${organizationId}`)}>
+            <Button
+              onClick={() => navigate(`/organizations/${organizationId}`)}
+            >
               Volver a la organización
             </Button>
           </Flex>

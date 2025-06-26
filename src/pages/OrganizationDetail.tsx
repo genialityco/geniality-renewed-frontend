@@ -574,7 +574,7 @@ export default function OrganizationDetail() {
           La suscripción tiene vigencia de <strong>1 año</strong> a partir de la
           fecha en que se realice el pago.
         </Text>
-        <Button fullWidth onClick={() => navigate(`/pagos/${organizationId}`)}>
+        <Button fullWidth onClick={() => navigate(`/organizations/${organizationId}/pagos`)}>
           Comenzar
         </Button>
       </Modal>

@@ -34,7 +34,7 @@ export default function ActivityDetailContainer() {
   const [videoTime, setVideoTime] = useState<number | null>(null);
 
   // Fragmentos de texto
-  const [fragments, setFragments] = useState<{ startTime: number; text: string }[]>([]);
+  const [_fragments, setFragments] = useState<{ startTime: number; text: string }[]>([]);
 
   // **Estado para el Drawer del Cuestionario**
   const [drawerQuestionnaireOpen, setDrawerQuestionnaireOpen] = useState(false);
@@ -109,7 +109,6 @@ export default function ActivityDetailContainer() {
         shareUrl={getShareUrl(activity)} 
         onStartQuestionnaire={handleStartQuestionnaire}
         videoTime={videoTime}
-        fragments={fragments}
         formatTime={formatTime}
       />
 

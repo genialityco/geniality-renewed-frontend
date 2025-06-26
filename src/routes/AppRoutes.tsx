@@ -25,7 +25,7 @@ export default function AppRoutes() {
 
       {/* Página dedicada de login/registro */}
       <Route
-        path="/organization/:orgId/iniciar-sesion"
+        path="/organization/:organizationId/iniciar-sesion"
         element={<AuthPage />}
       />
 
