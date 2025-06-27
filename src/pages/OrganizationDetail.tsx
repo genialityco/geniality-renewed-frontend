@@ -13,6 +13,7 @@ import {
   Paper,
   Modal,
   Pagination,
+  Card,
 } from "@mantine/core";
 
 import { fetchOrganizationById } from "../services/organizationService";
@@ -33,6 +34,7 @@ import { getActivityById } from "../services/activityService";
 
 import { Organization, Event, Activity } from "../services/types";
 import ActivityCard from "../components/ActivityCard";
+import MembershipPayment from "../components/MembershipPayment";
 
 export default function OrganizationDetail() {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -369,7 +371,8 @@ export default function OrganizationDetail() {
       // openAuthModal();
     } else if (!paymentPlan) {
       // Si el plan está vencido, muestra el modal de pago
-      openPaymentModal();
+      // openPaymentModal();
+      // navigate(`/organizations/${organizationId}/pagos`);
     } else {
       // Si está autenticado y el plan activo, navega al curso
       navigate(`/organizations/${organizationId}/course/${eventId}`);
@@ -520,15 +523,18 @@ export default function OrganizationDetail() {
       />
 
       {!paymentPlan && !planLoading && userId && (
-        <Text
-          c="red"
-          fw={700}
-          mt="md"
-          style={{ textShadow: "0px 2px 4px rgba(0,0,0,0.5)" }}
-        >
-          Tu membresía no está activa. Algunas funcionalidades podrían estar
-          bloqueadas.
-        </Text>
+        <Card>
+          <Text
+            c="red"
+            fw={700}
+            mt="md"
+            style={{ textShadow: "0px 2px 4px rgba(0,0,0,0.5)" }}
+          >
+            Tu membresía no está activa. Algunas funcionalidades podrían estar
+            bloqueadas.
+          </Text>
+          <MembershipPayment />
+        </Card>
       )}
 
       <Flex

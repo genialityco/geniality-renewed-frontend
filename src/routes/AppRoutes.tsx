@@ -15,6 +15,7 @@ import Profile from "../pages/profile";
 import AdminOrganizationEvents from "../pages/admin/AdminOrganizationEvents";
 import AdminEventEdit from "../pages/admin/AdminEventEdit";
 import PaymentPage from "../pages/payment/PaymentPage";
+import MembershipPaymentSuccess from "../pages/payment/MembershipPaymentSuccess";
 
 export default function AppRoutes() {
   return (
@@ -48,6 +49,8 @@ export default function AppRoutes() {
         </Route>
 
         <Route path="pagos" element={<PaymentPage />} />
+
+        <Route path="pago-exitoso"  element={<MembershipPaymentSuccess />} />
       </Route>
 
       {/* Cualquiera otra */}

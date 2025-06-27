@@ -54,14 +54,15 @@ export default function AppShellWithAuth() {
           <Image
             src={
               headerOrg?.image ||
-              "https://firebasestorage.googleapis.com/v0/b/geniality-sas.appspot.com/o/images%2FLOGOS_GEN.iality_web-02.svg?alt=media&token=8290b734-ceb9-456c-b9d2-39b7ce736cb4"
+              "https://storage.googleapis.com/geniality-sas.appspot.com/evius/events/JqzemlKcQEClLYBMFxfSv8fAYX6PwXFZdKf0eNqT.png"
+              // "https://firebasestorage.googleapis.com/v0/b/geniality-sas.appspot.com/o/images%2FLOGOS_GEN.iality_web-02.svg?alt=media&token=8290b734-ceb9-456c-b9d2-39b7ce736cb4"
             }
             w={80}
             radius="sm"
             style={{ boxShadow: "0 0 5px black" }}
           />
           <Text fw="bold" size="xl">
-            {headerOrg?.name || "Geniality SAS"}
+            {headerOrg?.name || "Endocampus"}
           </Text>
         </Group>
 

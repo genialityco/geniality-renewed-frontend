@@ -51,7 +51,8 @@ export default function AdminOrganizationEvents() {
 
   // Informe de la última importación
   const [lastImportReport, setLastImportReport] = useState<{
-    success: any[];
+    created: any[];
+    updated: any[];
     errors: { row: number; error: string; data: any }[];
   } | null>(null);
 
@@ -118,15 +119,20 @@ export default function AdminOrganizationEvents() {
     reader.readAsArrayBuffer(file);
   };
 
+  // Utilidad para delay/espera
+  function delay(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   // ========== CREACIÓN MASIVA ==========
   const handleMassiveCreate = async () => {
     if (!organizationId || !adminCreateUserAndOrganizationUser) return;
     setMassiveLoading(true);
-    let createdCount = 0;
-    let successRows: any[] = [];
+
+    let createdRows: any[] = [];
+    let updatedRows: any[] = [];
     let errorRows: { row: number; error: string; data: any }[] = [];
 
-    // Calcula todos los campos básicos y dinámicos esperados
     const userProperties = organization?.user_properties || [];
 
     try {
@@ -160,8 +166,11 @@ export default function AdminOrganizationEvents() {
               ? row.ID
               : "123456";
 
-          // Crea usuario
-          const { organizationUser } =
+          // Espera 300ms antes de cada intento para evitar rate limit de Firebase
+          if (idx > 0) await delay(800);
+
+          // Crea usuario o actualiza si ya existe
+          const { user, organizationUser } =
             await adminCreateUserAndOrganizationUser({
               email,
               name,
@@ -172,6 +181,7 @@ export default function AdminOrganizationEvents() {
               properties,
             });
 
+            
           // Crea PaymentPlan si corresponde
           if (
             createWithPaymentPlan &&
@@ -194,8 +204,12 @@ export default function AdminOrganizationEvents() {
               payment_plan_id: paymentPlan._id,
             });
           }
-          successRows.push({ row: idx + 2, data: row });
-          createdCount += 1;
+
+          if (user && organizationUser) {
+            createdRows.push({ row: idx + 2, data: row });
+          } else if (!user && organizationUser) {
+            updatedRows.push({ row: idx + 2, data: row });
+          }
         } catch (err) {
           errorRows.push({
             row: idx + 2,
@@ -204,12 +218,13 @@ export default function AdminOrganizationEvents() {
           });
         }
       }
-      setLastImportReport({ success: successRows, errors: errorRows });
+      setLastImportReport({ created: createdRows, updated: updatedRows, errors: errorRows });
       alert(
-        `Usuarios creados: ${createdCount}.\n` +
-          (errorRows.length
-            ? `Errores en ${errorRows.length} filas. Ver detalles abajo.`
-            : "")
+        `Usuarios creados: ${createdRows.length}\n` +
+        `Usuarios actualizados: ${updatedRows.length}\n` +
+        (errorRows.length
+          ? `Errores en ${errorRows.length} filas. Ver detalles abajo.`
+          : "")
       );
       setMassiveUsers([]);
       fetchOrganizationUsersByOrganizationId(
@@ -241,9 +256,7 @@ export default function AdminOrganizationEvents() {
     const orgFields =
       (organization?.user_properties || []).map((prop: any) => {
         let label = prop.label || prop.name;
-        // Marcar obligatorio en label
         if (prop.mandatory) label += " (OBLIGATORIO)";
-        // Si es booleano, agregar instrucción clara
         if (prop.type === "boolean" || prop.type === "BOOLEAN") {
           label +=
             " [checkbox: escriba TRUE/1/SI para marcar, FALSE/0/NO para no marcar]";
@@ -386,6 +399,7 @@ export default function AdminOrganizationEvents() {
               </Button>
             )}
           </Group>
+
           {/* Informe visual de carga masiva */}
           {lastImportReport && (
             <div style={{ marginBottom: 24 }}>
@@ -393,33 +407,92 @@ export default function AdminOrganizationEvents() {
                 Informe de importación masiva
               </Title>
               <Text>
-                Usuarios creados correctamente: <b>{lastImportReport.success.length}</b>
-                <br />
-                Usuarios con error: <b>{lastImportReport.errors.length}</b>
+                Usuarios <b>creados</b>: {lastImportReport.created.length}<br />
+                Usuarios <b>actualizados</b>: {lastImportReport.updated.length}<br />
+                Usuarios <b>con error</b>: {lastImportReport.errors.length}
               </Text>
-              {lastImportReport.errors.length > 0 && (
-                <Table striped highlightOnHover withTableBorder mt="sm">
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Fila</Table.Th>
-                      <Table.Th>Error</Table.Th>
-                      <Table.Th>Datos</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {lastImportReport.errors.map((err, idx) => (
-                      <Table.Tr key={idx}>
-                        <Table.Td>{err.row}</Table.Td>
-                        <Table.Td>{err.error}</Table.Td>
-                        <Table.Td>
-                          <pre style={{ fontSize: 10, maxWidth: 250, overflow: "auto" }}>
-                            {JSON.stringify(err.data, null, 2)}
-                          </pre>
-                        </Table.Td>
+              {lastImportReport.created.length > 0 && (
+                <>
+                  <Text mt="md" mb="xs" c="green">
+                    Creados:
+                  </Text>
+                  <Table striped highlightOnHover withTableBorder>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Fila</Table.Th>
+                        <Table.Th>Datos</Table.Th>
                       </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {lastImportReport.created.map((c, idx) => (
+                        <Table.Tr key={idx}>
+                          <Table.Td>{c.row}</Table.Td>
+                          <Table.Td>
+                            <pre style={{ fontSize: 10, maxWidth: 250, overflow: "auto" }}>
+                              {JSON.stringify(c.data, null, 2)}
+                            </pre>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </>
+              )}
+              {lastImportReport.updated.length > 0 && (
+                <>
+                  <Text mt="md" mb="xs" c="yellow">
+                    Actualizados:
+                  </Text>
+                  <Table striped highlightOnHover withTableBorder>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Fila</Table.Th>
+                        <Table.Th>Datos</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {lastImportReport.updated.map((u, idx) => (
+                        <Table.Tr key={idx}>
+                          <Table.Td>{u.row}</Table.Td>
+                          <Table.Td>
+                            <pre style={{ fontSize: 10, maxWidth: 250, overflow: "auto" }}>
+                              {JSON.stringify(u.data, null, 2)}
+                            </pre>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </>
+              )}
+              {lastImportReport.errors.length > 0 && (
+                <>
+                  <Text mt="md" mb="xs" c="red">
+                    Errores:
+                  </Text>
+                  <Table striped highlightOnHover withTableBorder>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Fila</Table.Th>
+                        <Table.Th>Error</Table.Th>
+                        <Table.Th>Datos</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {lastImportReport.errors.map((err, idx) => (
+                        <Table.Tr key={idx}>
+                          <Table.Td>{err.row}</Table.Td>
+                          <Table.Td>{err.error}</Table.Td>
+                          <Table.Td>
+                            <pre style={{ fontSize: 10, maxWidth: 250, overflow: "auto" }}>
+                              {JSON.stringify(err.data, null, 2)}
+                            </pre>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </>
               )}
             </div>
           )}

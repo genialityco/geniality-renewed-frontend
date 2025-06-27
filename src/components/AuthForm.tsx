@@ -20,7 +20,7 @@ import { fetchOrganizationById } from "../services/organizationService";
 import { UserProperty, PropertyType } from "../services/types"; // asume que defines estos tipos en un archivo común
 
 export default function AuthForm({
-  isPaymentPage
+  isPaymentPage,
 }: {
   isPaymentPage?: boolean;
 }) {
@@ -77,11 +77,8 @@ export default function AuthForm({
 
     try {
       await signIn(email, password);
-      if (isPaymentPage) {
-        navigate(`/organizations/${organization._id}/pagos`);
-      } else {
-        navigate(`/organizations/${organization._id}`);
-      }
+
+      navigate(`/organizations/${organization._id}`);
     } catch (err) {
       console.error(err);
     } finally {
