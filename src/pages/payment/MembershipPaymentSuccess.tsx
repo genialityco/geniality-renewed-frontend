@@ -18,11 +18,17 @@ import { createPaymentPlan } from "../../services/paymentPlansService";
 
 const MEMBERSHIP_DAYS = 365;
 
+// Detecta ambiente sandbox o producción según .env
+const wompiBaseUrl =
+  import.meta.env.VITE_WOMPI_ENV === "production"
+    ? "https://production.wompi.co"
+    : "https://sandbox.wompi.co";
+
 const MembershipPaymentSuccess = () => {
   const { organizationId } = useParams();
   const [searchParams] = useSearchParams();
   const transactionId = searchParams.get("id");
-  const [status, setStatus] = useState("loading");
+  const [status, setStatus] = useState("loading"); // loading | pending | success | fail
   const [message, setMessage] = useState("");
   const [amount, setAmount] = useState<number | null>(null);
 
@@ -36,9 +42,18 @@ const MembershipPaymentSuccess = () => {
     }
     try {
       const resp = await fetch(
-        `https://sandbox.wompi.co/v1/transactions/${transactionId}`
+        `${wompiBaseUrl}/v1/transactions/${transactionId}`
       );
       const data = await resp.json();
+
+      // Manejo de NOT_FOUND_ERROR (no mostrar fallido, mostrar pendiente)
+      if (data.type === "NOT_FOUND_ERROR") {
+        setStatus("pending");
+        setMessage(
+          "Estamos procesando tu pago. Si ya realizaste el pago, por favor espera unos minutos y vuelve a intentar."
+        );
+        return;
+      }
 
       if (data.data.status === "APPROVED") {
         setAmount(data.data.amount_in_cents / 100);
@@ -59,21 +74,17 @@ const MembershipPaymentSuccess = () => {
         });
         setStatus("success");
         setMessage("¡Pago exitoso! Tu membresía ha sido activada.");
-      } else if (data.data.status === "PENDING") {
-        setStatus("pending");
-        setMessage(
-          "Tu pago está en proceso de confirmación bancaria. Esto puede tardar unos minutos. Puedes actualizar el estado más tarde."
-        );
       } else if (["DECLINED", "VOIDED", "ERROR"].includes(data.data.status)) {
         setStatus("fail");
         setMessage("El pago no fue aprobado. Estado: " + data.data.status);
       } else {
-        // Otros estados no definitivos
+        // PENDING u otro estado intermedio: muestra “Procesando”
         setStatus("pending");
-        setMessage("Estado actual: " + data.data.status);
+        setMessage(
+          "Tu pago está en proceso de confirmación bancaria. Esto puede tardar unos minutos. Puedes actualizar el estado más tarde."
+        );
       }
     } catch (e) {
-      // Errores de red: muestra pending, no fail
       setStatus("pending");
       setMessage(
         "Estamos verificando el pago con el banco. Si ya pagaste, puedes intentar actualizar el estado en unos minutos."
@@ -96,15 +107,14 @@ const MembershipPaymentSuccess = () => {
         withBorder
         style={{ maxWidth: 500, width: "100%" }}
       >
-        {status === "loading" ? (
+        {status === "loading" || status === "pending" ? (
           <Stack align="center">
             <Loader />
-            <Text>Verificando el pago y activando tu membresía...</Text>
-          </Stack>
-        ) : status === "pending" ? (
-          <Stack align="center">
-            <Loader />
-            <Text>{message}</Text>
+            <Text>
+              {status === "loading"
+                ? "Verificando el pago y activando tu membresía..."
+                : message}
+            </Text>
             <Button mt="lg" onClick={checkTransaction}>
               Volver a consultar estado
             </Button>
@@ -135,7 +145,7 @@ const MembershipPaymentSuccess = () => {
             <Button
               mt="lg"
               onClick={() =>
-                (window.location.href = `/organizations/${organizationId}`)
+                (window.location.href = `/organizations/${organizationId}/pago`)
               }
             >
               Intentar de nuevo
