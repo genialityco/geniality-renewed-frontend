@@ -44,6 +44,11 @@ const MembershipPaymentSuccess = () => {
       setMessage("No se encontró la transacción o el usuario.");
       return;
     }
+    // Primero muestra pendiente mientras consulta
+    setStatus("pending");
+    setMessage(
+      "Estamos procesando tu pago. Si ya realizaste el pago, por favor espera unos minutos y vuelve a intentar."
+    );
     try {
       const resp = await fetch(
         `${wompiBaseUrl}/v1/transactions/${transactionId}`
