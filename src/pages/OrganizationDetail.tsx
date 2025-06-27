@@ -29,7 +29,7 @@ import {
 import { fetchPaymentPlanByUserId } from "../services/paymentPlansService";
 import { useUser } from "../context/UserContext";
 // import { useAuthModal } from "../context/AuthModalContext";
-import { usePaymentModal } from "../context/PaymentModalContext";
+// import { usePaymentModal } from "../context/PaymentModalContext";
 import { getActivityById } from "../services/activityService";
 
 import { Organization, Event, Activity } from "../services/types";
@@ -41,7 +41,7 @@ export default function OrganizationDetail() {
   const navigate = useNavigate();
   const { userId } = useUser();
   // const { openAuthModal } = useAuthModal();
-  const { openPaymentModal } = usePaymentModal();
+  // const { openPaymentModal } = usePaymentModal();
 
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
