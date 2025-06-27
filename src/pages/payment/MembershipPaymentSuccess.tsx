@@ -18,7 +18,7 @@ import { createPaymentPlan } from "../../services/paymentPlansService";
 
 const MEMBERSHIP_DAYS = 365;
 
-// Detecta ambiente sandbox o producción según .env
+// Detecta ambiente según variable de entorno
 const wompiBaseUrl =
   import.meta.env.VITE_WOMPI_ENV === "production"
     ? "https://production.wompi.co"
@@ -28,7 +28,7 @@ const MembershipPaymentSuccess = () => {
   const { organizationId } = useParams();
   const [searchParams] = useSearchParams();
   const transactionId = searchParams.get("id");
-  const [status, setStatus] = useState("loading"); // loading | pending | success | fail
+  const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("");
   const [amount, setAmount] = useState<number | null>(null);
 
