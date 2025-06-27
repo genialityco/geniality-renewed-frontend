@@ -3,7 +3,7 @@ import { PaymentPlan } from "./types";
 
 export interface PaymentPlanPayload {
   days: number;
-  date_until: string; // Debe estar en formato ISO (string)
+  date_until: string; 
   price: number;
   organization_user_id: string;
 }
@@ -35,6 +35,20 @@ export const fetchPaymentPlanByUserId = async (
 ): Promise<PaymentPlan> => {
   const response = await api.get<PaymentPlan>(
     `/payment-plans/by-user/${userId}`
+  );
+  return response.data;
+};
+
+/**
+ * Actualiza el campo date_until de un PaymentPlan.
+ */
+export const updatePaymentPlanDateUntil = async (
+  paymentPlanId: string,
+  date_until: string
+): Promise<PaymentPlan> => {
+  const response = await api.patch<PaymentPlan>(
+    `/payment-plans/${paymentPlanId}/date-until`,
+    { date_until }
   );
   return response.data;
 };

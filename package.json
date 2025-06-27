@@ -26,7 +26,8 @@
     "react-router-dom": "^7.1.5",
     "recharts": "2",
     "survey-core": "^1.12.24",
-    "survey-react-ui": "^1.12.24"
+    "survey-react-ui": "^1.12.24",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "^19.0.7",

@@ -33,7 +33,7 @@ export default function Organizations() {
               variant="outline"
               size="xs"
               ml="md"
-              onClick={() => navigate(`/admin/organizations/${org._id}`)}
+              onClick={() => navigate(`/organizations/${org._id}/admin`)}
             >
               Admin
             </Button>
