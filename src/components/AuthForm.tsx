@@ -11,7 +11,6 @@ import {
   Textarea,
   Loader,
   Center,
-  Title,
   Image,
   Text,
 } from "@mantine/core";
@@ -98,11 +97,7 @@ export default function AuthForm({
         positionId: organization.default_position_id,
         rolId: "5c1a59b2f33bd40bb67f2322",
       });
-      if (isPaymentPage) {
-        navigate(`/organizations/${organization._id}/pagos`);
-      } else {
-        navigate(`/organizations/${organization._id}`);
-      }
+      navigate(`/organizations/${organization._id}`);
     } catch (err) {
       console.error(err);
     } finally {
@@ -186,9 +181,18 @@ export default function AuthForm({
           radius="sm"
         />
       )}
-      <Title order={2} mb="lg">
-        {organization.name}
-      </Title>
+      <Text>{isPaymentPage && "📚 ¡Activa tu acceso en 2 pasos!"}</Text>
+      <Text>
+        {isPaymentPage &&
+          "🪪 Paso 1: En este primer paso registras la cuenta con la que vas acceder."}
+      </Text>
+      <Text>
+        {isPaymentPage &&
+          "💳 Paso 2: Luego Realiza el pago para activar la cuenta."}
+      </Text>
+      <Text >
+        {isPaymentPage && "👉 ¡Te tomará menos de 2 minutos comenzar!"}
+      </Text>
 
       <TextInput
         label="Correo"

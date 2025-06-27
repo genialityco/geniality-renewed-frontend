@@ -36,6 +36,21 @@ import { Organization, Event, Activity } from "../services/types";
 import ActivityCard from "../components/ActivityCard";
 import MembershipPayment from "../components/MembershipPayment";
 
+function isMembershipExpired(paymentPlan: {
+  date_until: string | number | Date;
+}) {
+  if (!paymentPlan || !paymentPlan.date_until) return true;
+  const now = new Date();
+  let until;
+  // Puede ser string (ISO) o Date
+  if (typeof paymentPlan.date_until === "string") {
+    until = new Date(paymentPlan.date_until);
+  } else {
+    until = paymentPlan.date_until; // Date
+  }
+  return until < now;
+}
+
 export default function OrganizationDetail() {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
@@ -369,7 +384,7 @@ export default function OrganizationDetail() {
       setShowSubscriptionModal(true);
       // Si no está autenticado, muestra el modal de autenticación
       // openAuthModal();
-    } else if (!paymentPlan) {
+    } else if (!paymentPlan || isMembershipExpired(paymentPlan)) {
       // Si el plan está vencido, muestra el modal de pago
       // openPaymentModal();
       // navigate(`/organizations/${organizationId}/pagos`);
@@ -378,6 +393,35 @@ export default function OrganizationDetail() {
       navigate(`/organizations/${organizationId}/course/${eventId}`);
     }
   };
+
+  // --- Mensaje de membresía según estado ---
+
+  let membershipStatus = null;
+
+  if (!planLoading && userId) {
+    if (!paymentPlan) {
+      membershipStatus = (
+        <Card>
+          <Text fw={700} mt="md">
+            📚 Bienvenido, solo te falta un paso para empezar a disfrutar de
+            contenidos exclusivos, cursos, conferencias y herramientas diseñadas
+            para llevar tu conocimiento al siguiente nivel.
+          </Text>
+          <MembershipPayment />
+        </Card>
+      );
+    } else if (isMembershipExpired(paymentPlan)) {
+      membershipStatus = (
+        <Card>
+          <Text c="red" fw={700} mt="md">
+            Tu membresía está vencida. Para acceder al contenido debes renovar
+            tu pago.
+          </Text>
+          <MembershipPayment />
+        </Card>
+      );
+    }
+  }
 
   // Función para renderizar las pestañas
   const renderTabs = () => (
@@ -522,20 +566,7 @@ export default function OrganizationDetail() {
         mt="md"
       />
 
-      {!paymentPlan && !planLoading && userId && (
-        <Card>
-          <Text
-            c="red"
-            fw={700}
-            mt="md"
-            style={{ textShadow: "0px 2px 4px rgba(0,0,0,0.5)" }}
-          >
-            Tu membresía no está activa. Algunas funcionalidades podrían estar
-            bloqueadas.
-          </Text>
-          <MembershipPayment />
-        </Card>
-      )}
+      {membershipStatus}
 
       <Flex
         justify="center"

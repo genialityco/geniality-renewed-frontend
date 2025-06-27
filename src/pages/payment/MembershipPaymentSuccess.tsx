@@ -14,7 +14,11 @@ import {
   fetchOrganizationUserByUserId,
   createOrUpdateOrganizationUser,
 } from "../../services/organizationUserService";
-import { createPaymentPlan } from "../../services/paymentPlansService";
+import {
+  createPaymentPlan,
+  fetchPaymentPlanByUserId,
+  updatePaymentPlanDateUntil,
+} from "../../services/paymentPlansService";
 
 const MEMBERSHIP_DAYS = 365;
 
@@ -58,22 +62,50 @@ const MembershipPaymentSuccess = () => {
       if (data.data.status === "APPROVED") {
         setAmount(data.data.amount_in_cents / 100);
         const organizationUser = await fetchOrganizationUserByUserId(userId);
-        const now = new Date();
-        const date_until = new Date(
-          now.setDate(now.getDate() + MEMBERSHIP_DAYS)
+        // const now = new Date();
+        const newDateUntil = new Date(
+          Date.now() + MEMBERSHIP_DAYS * 24 * 60 * 60 * 1000
         ).toISOString();
-        const paymentPlan = await createPaymentPlan({
-          days: MEMBERSHIP_DAYS,
-          date_until,
-          price: data.data.amount_in_cents / 100,
-          organization_user_id: organizationUser._id,
-        });
+
+        // 1. ¿El usuario ya tiene PaymentPlan?
+        let paymentPlan = null;
+        try {
+          paymentPlan = await fetchPaymentPlanByUserId(userId);
+        } catch (e) {
+          paymentPlan = null; // Si falla es porque no tiene
+        }
+
+        let updatedPaymentPlan;
+        if (paymentPlan && paymentPlan._id) {
+          // Opcional: Si el plan aún está activo, puedes sumar días a la fecha actual
+          // const currentUntil = new Date(paymentPlan.date_until);
+          // const baseDate = currentUntil > new Date() ? currentUntil : new Date();
+          // const date_until = new Date(baseDate.getTime() + MEMBERSHIP_DAYS * 24 * 60 * 60 * 1000).toISOString();
+          // updatedPaymentPlan = await updatePaymentPlanDateUntil(paymentPlan._id, date_until);
+
+          // En este ejemplo, siempre pone un año desde hoy:
+          updatedPaymentPlan = await updatePaymentPlanDateUntil(
+            paymentPlan._id,
+            newDateUntil
+          );
+          // Si quieres actualizar el precio también, crea/usa otro endpoint y pásalo aquí
+        } else {
+          updatedPaymentPlan = await createPaymentPlan({
+            days: MEMBERSHIP_DAYS,
+            date_until: newDateUntil,
+            price: data.data.amount_in_cents / 100,
+            organization_user_id: organizationUser._id,
+          });
+        }
+
+        // 2. Asociar el paymentPlan al usuario, siempre (si ya lo tiene, lo sobreescribe igual)
         await createOrUpdateOrganizationUser({
           ...organizationUser,
-          payment_plan_id: paymentPlan._id,
+          payment_plan_id: updatedPaymentPlan._id,
         });
+
         setStatus("success");
-        setMessage("¡Pago exitoso! Tu membresía ha sido activada.");
+        setMessage("Tu membresía ha sido activada por un año.");
       } else if (["DECLINED", "VOIDED", "ERROR"].includes(data.data.status)) {
         setStatus("fail");
         setMessage("El pago no fue aprobado. Estado: " + data.data.status);
