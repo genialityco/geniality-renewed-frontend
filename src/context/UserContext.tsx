@@ -17,9 +17,19 @@ import {
   setPersistence,
   browserLocalPersistence,
 } from "firebase/auth";
-import { createOrUpdateUser, fetchUserByFirebaseUid } from "../services/userService";
-import { fetchOrganizationUserByEmail, fetchOrganizationUserByUserId, createOrUpdateOrganizationUser } from "../services/organizationUserService";
-import { fetchPaymentPlanByUserId, updatePaymentPlanDateUntil } from "../services/paymentPlansService";
+import {
+  createOrUpdateUser,
+  fetchUserByFirebaseUid,
+} from "../services/userService";
+import {
+  fetchOrganizationUserByEmail,
+  fetchOrganizationUserByUserId,
+  createOrUpdateOrganizationUser,
+} from "../services/organizationUserService";
+import {
+  fetchPaymentPlanByUserId,
+  updatePaymentPlanDateUntil,
+} from "../services/paymentPlansService";
 
 interface SignUpData {
   email: string;
@@ -64,13 +74,17 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
 
   try {
     // 1) Intenta crear el usuario en Firebase Auth
-    firebaseUser = await createUserWithEmailAndPassword(auth, data.email, data.password);
+    firebaseUser = await createUserWithEmailAndPassword(
+      auth,
+      data.email,
+      data.password
+    );
 
     // 2) Crea el usuario en el backend
     userRecord = await createOrUpdateUser({
       uid: firebaseUser.user.uid,
       email: data.email,
-      name: data.name,
+      names: data.name,
       ...data.properties,
     });
 
@@ -89,11 +103,16 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
       // Busca el organizationUser por email
       const organizationUser = await fetchOrganizationUserByEmail(data.email);
       if (!organizationUser) {
-        throw new Error("El usuario ya existe pero no se encontró su registro en la organización.");
+        throw new Error(
+          "El usuario ya existe pero no se encontró su registro en la organización."
+        );
       }
 
       // Merge de properties: prioriza los nuevos datos
-      const mergedProperties = { ...organizationUser.properties, ...data.properties };
+      const mergedProperties = {
+        ...organizationUser.properties,
+        ...data.properties,
+      };
 
       // Actualiza el organization-user (mantiene los campos existentes, reemplaza los nuevos)
       const updatedOrganizationUser = await createOrUpdateOrganizationUser({
@@ -116,7 +135,10 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
           if (paymentPlan && paymentPlan._id) {
             const newDate = new Date();
             newDate.setDate(newDate.getDate() + 365);
-            await updatePaymentPlanDateUntil(paymentPlan._id, newDate.toISOString());
+            await updatePaymentPlanDateUntil(
+              paymentPlan._id,
+              newDate.toISOString()
+            );
           }
         } catch {
           // Si no tiene paymentPlan, no hacer nada
@@ -131,9 +153,11 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
   }
 }
 
-const UserContext = createContext<UserContextValue & {
-  adminCreateUserAndOrganizationUser?: typeof adminCreateUserAndOrganizationUser;
-}>({
+const UserContext = createContext<
+  UserContextValue & {
+    adminCreateUserAndOrganizationUser?: typeof adminCreateUserAndOrganizationUser;
+  }
+>({
   firebaseUser: null,
   userId: null,
   organizationUserData: null,
@@ -191,7 +215,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     const result = await signInWithEmailAndPassword(auth, email, password);
     const userData = await fetchUserByFirebaseUid(result.user.uid);
-    const organizationUserData = await fetchOrganizationUserByUserId(userData._id);
+    const organizationUserData = await fetchOrganizationUserByUserId(
+      userData._id
+    );
     setUserId(userData._id);
     setOrganizationUserData(organizationUserData);
     setName(userData.name);
@@ -201,7 +227,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // signUp: Firebase + /users + /organization-users
   const signUp = useCallback(async (data: SignUpData) => {
-    const { email, password, properties, organizationId, positionId, rolId } = data;
+    const { email, password, properties, organizationId, positionId, rolId } =
+      data;
+
+    // Asegura que siempre uses 'names'
+    const names =
+      properties.names ||
+      properties["Nombres Y Apellidos"] ||
+      properties["nombres y apellidos"] ||
+      properties["nombre"] ||
+      "";
+
+    if (!email || !names) {
+      throw new Error("Faltan datos requeridos: nombres y/o correo.");
+    }
 
     // 1) Firebase Auth
     const result = await createUserWithEmailAndPassword(auth, email, password);
@@ -211,8 +250,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const userRecord = await createOrUpdateUser({
       uid,
       email,
-      ...properties,
-      name: properties.names || properties.name || "",
+      names, // ¡Envíalo así!
+      // ...otros (no sobrescribir names con properties)
     });
 
     // 3) /organization-users
@@ -224,9 +263,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       properties,
     });
 
-    // 4) Estado y localStorage
+    // Estado y localStorage
     setUserId(userRecord._id);
-    setName(userRecord.name);
+    setName(userRecord.names); // <- usar 'names' aquí también
     setEmail(userRecord.email);
     localStorage.setItem("myUserInfo", JSON.stringify(userRecord));
   }, []);
@@ -242,18 +281,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <UserContext.Provider value={{
-      firebaseUser,
-      userId,
-      organizationUserData,
-      name,
-      email,
-      loading,
-      signIn,
-      signUp,
-      signOut,
-      adminCreateUserAndOrganizationUser,
-    }}>
+    <UserContext.Provider
+      value={{
+        firebaseUser,
+        userId,
+        organizationUserData,
+        name,
+        email,
+        loading,
+        signIn,
+        signUp,
+        signOut,
+        adminCreateUserAndOrganizationUser,
+      }}
+    >
       {children}
     </UserContext.Provider>
   );

@@ -16,7 +16,7 @@ import {
 } from "@mantine/core";
 import { useUser } from "../context/UserContext";
 import { fetchOrganizationById } from "../services/organizationService";
-import { UserProperty, PropertyType } from "../services/types"; // asume que defines estos tipos en un archivo común
+import { UserProperty, PropertyType } from "../services/types";
 
 export default function AuthForm({
   isPaymentPage,
@@ -58,7 +58,11 @@ export default function AuthForm({
         // initialize dynamic fields
         const init: Record<string, any> = {};
         org.user_properties.forEach((prop: UserProperty) => {
-          init[prop.name] = prop.type === PropertyType.BOOLEAN ? false : "";
+          if (prop.type === PropertyType.BOOLEAN) {
+            init[prop.name] = false;
+          } else {
+            init[prop.name] = "";
+          }
         });
         setFormValues(init);
       })
@@ -73,10 +77,8 @@ export default function AuthForm({
   const handleSignIn = async () => {
     setSubmitting(true);
     if (!organization) return;
-
     try {
       await signIn(email, password);
-
       navigate(`/organizations/${organization._id}`);
     } catch (err) {
       console.error(err);
@@ -120,31 +122,67 @@ export default function AuthForm({
     );
   }
 
+  // Función para renderizar campos dependientes
+  const shouldRenderProperty = (prop: UserProperty) => {
+    if (
+      prop.dependency &&
+      prop.dependency.fieldName &&
+      Array.isArray(prop.dependency.triggerValues) &&
+      prop.dependency.triggerValues.length > 0
+    ) {
+      const depValue = formValues[prop.dependency.fieldName];
+      return prop.dependency.triggerValues.includes(depValue);
+    }
+    return true;
+  };
+
   const renderField = (prop: UserProperty) => {
+    if (!shouldRenderProperty(prop)) return null;
+
+    // Detectar campo teléfono
+    const isPhoneField =
+      prop.name?.toLowerCase().includes("phone") ||
+      prop.name?.toLowerCase().includes("cel") ||
+      prop.label?.toLowerCase().includes("contacto") ||
+      prop.label?.toLowerCase().includes("tel");
+
+    // Placeholder personalizado
+    const placeholder = isPhoneField ? "+57 3121234567" : prop.label;
+
     const common = {
       key: prop.name,
       label: prop.label,
-      placeholder: prop.label,
+      placeholder,
       required: prop.mandatory,
       value: formValues[prop.name],
       onChange: (e: any) =>
         handleFieldChange(
           prop.name,
-          e.currentTarget ? e.currentTarget.value : e
+          e?.currentTarget ? e.currentTarget.value : e
         ),
       mb: "sm" as const,
     };
+
     switch (prop.type) {
       case PropertyType.TEXT:
+        return (
+          <TextInput
+            {...common}
+            type={isPhoneField ? "tel" : "text"}
+            inputMode={isPhoneField ? "tel" : "text"}
+            // pattern solo si quieres forzar números y "+"
+            // pattern={isPhoneField ? "[+0-9 ]*" : undefined}
+          />
+        );
+      // ... el resto igual
       case PropertyType.EMAIL:
-        return <TextInput {...common} />;
+        return <TextInput {...common} type="email" inputMode="email" />;
       case PropertyType.CODEAREA:
         return <Textarea {...common} />;
       case PropertyType.BOOLEAN:
         return (
           <Checkbox
             key={prop.name}
-            // Renderiza HTML en el label
             label={<span dangerouslySetInnerHTML={{ __html: prop.label }} />}
             checked={formValues[prop.name]}
             onChange={(e) =>
@@ -154,16 +192,18 @@ export default function AuthForm({
           />
         );
       case PropertyType.LIST:
+        const options = Array.isArray(prop.options) ? prop.options : [];
         return (
           <Select
             key={prop.name}
             label={prop.label}
-            data={prop.options || []}
+            data={options}
             placeholder={prop.label}
             required={prop.mandatory}
             value={formValues[prop.name]}
             onChange={(val) => handleFieldChange(prop.name, val)}
             mb="sm"
+            searchable
           />
         );
       default:
@@ -190,7 +230,7 @@ export default function AuthForm({
         {isPaymentPage &&
           "💳 Paso 2: Luego Realiza el pago para activar la cuenta."}
       </Text>
-      <Text >
+      <Text>
         {isPaymentPage && "👉 ¡Te tomará menos de 2 minutos comenzar!"}
       </Text>
 
@@ -204,7 +244,7 @@ export default function AuthForm({
       />
 
       <PasswordInput
-        label="Documento de identidad"
+        label="Documento de identidad / Contraseña"
         placeholder="********"
         value={password}
         onChange={(e) => setPassword(e.currentTarget.value)}
@@ -212,7 +252,20 @@ export default function AuthForm({
         required
       />
 
-      {isRegister && organization.user_properties.map(renderField)}
+      {isRegister &&
+        organization.user_properties
+          .filter(
+            (prop) =>
+              ![
+                "email",
+                "correo",
+                "correo electrónico",
+                "id",
+                "documento",
+                "password",
+              ].includes(prop.name?.toLowerCase?.() || "")
+          )
+          .map((prop) => renderField(prop))}
 
       <Group mt="md">
         {isRegister ? (

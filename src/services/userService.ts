@@ -35,7 +35,7 @@ export const fetchUserById = async (id: string): Promise<User> => {
  */
 export const createOrUpdateUser = async (payload: {
   uid: string;
-  name: string;
+  names: string;
   email: string;
 }): Promise<User> => {
   const response = await api.post<User>("/users", payload);

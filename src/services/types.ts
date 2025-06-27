@@ -183,6 +183,7 @@ export enum PropertyType {
 
 // 2) La interfaz que describe cada propiedad de registro
 export interface UserProperty {
+  dependency: any;
   name: string;               // clave interna (p. ej. "ID", "pais", "phone"…)
   label: string;              // etiqueta para mostrar
   type: PropertyType;         // uno de los valores de PropertyType
