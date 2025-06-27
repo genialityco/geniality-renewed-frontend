@@ -25,7 +25,7 @@ const PersonalInfo = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
 
-  const [name, setName] = useState("");
+  const [names, setNames] = useState("");
   const [email, setEmail] = useState("");
 
   useEffect(() => {
@@ -33,7 +33,7 @@ const PersonalInfo = () => {
       try {
         const userData = await fetchUserById(userId as string);
         setUser(userData);
-        setName(userData.name || "");
+        setNames(userData.name || "");
         setEmail(userData.email || "");
       } catch (err: any) {
         console.error("Error al cargar usuario:", err);
@@ -54,7 +54,7 @@ const PersonalInfo = () => {
     try {
       await createOrUpdateUser({
         uid: userId as string,
-        name,
+        names,
         email,
       });
       setSuccess(true);
@@ -77,8 +77,8 @@ const PersonalInfo = () => {
       <TextInput
         label="Nombre"
         placeholder="Tu nombre"
-        value={name}
-        onChange={(e) => setName(e.currentTarget.value)}
+        value={names}
+        onChange={(e) => setNames(e.currentTarget.value)}
       />
 
       <TextInput

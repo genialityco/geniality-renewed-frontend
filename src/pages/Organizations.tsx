@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Container, Title, List, Loader, Button } from "@mantine/core";
+import { Container, Title, List, Loader, Button, Modal, PasswordInput, Group, Text } from "@mantine/core";
 import { fetchOrganizations } from "../services/organizationService";
 import { Organization } from "../services/types";
 import { Link, useNavigate } from "react-router-dom";
@@ -7,6 +7,10 @@ import { Link, useNavigate } from "react-router-dom";
 export default function Organizations() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [adminOrgId, setAdminOrgId] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -15,6 +19,22 @@ export default function Organizations() {
       setLoading(false);
     });
   }, []);
+
+  const handleAdminClick = (orgId: string) => {
+    setAdminOrgId(orgId);
+    setPassword("");
+    setError("");
+    setModalOpen(true);
+  };
+
+  const handlePasswordConfirm = () => {
+    if (password === "ace2040") {
+      setModalOpen(false);
+      navigate(`/organizations/${adminOrgId}/admin`);
+    } else {
+      setError("Contraseña incorrecta");
+    }
+  };
 
   if (loading) return <Loader />;
 
@@ -25,21 +45,39 @@ export default function Organizations() {
       <List>
         {organizations.map((org) => (
           <List.Item key={org._id}>
-            {/* Este link puede ir hacia la "landing" o detalle público */}
             <Link to={`/organizations/${org._id}`}>{org.name}</Link>
-
-            {/* Botón o link adicional que lleve a la sección admin de esa organización */}
             <Button
               variant="outline"
               size="xs"
               ml="md"
-              onClick={() => navigate(`/organizations/${org._id}/admin`)}
+              onClick={() => handleAdminClick(org._id)}
             >
               Admin
             </Button>
           </List.Item>
         ))}
       </List>
+
+      <Modal
+        opened={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Acceso a administración"
+        centered
+      >
+        <PasswordInput
+          label="Contraseña de admin"
+          placeholder="Ingresa la contraseña"
+          value={password}
+          onChange={(e) => setPassword(e.currentTarget.value)}
+          onKeyDown={e => { if (e.key === "Enter") handlePasswordConfirm(); }}
+          error={error}
+        />
+        <Group mt="md" justify="right">
+          <Button variant="default" onClick={() => setModalOpen(false)}>Cancelar</Button>
+          <Button onClick={handlePasswordConfirm}>Entrar</Button>
+        </Group>
+        {error && <Text color="red" mt="sm">{error}</Text>}
+      </Modal>
     </Container>
   );
 }
