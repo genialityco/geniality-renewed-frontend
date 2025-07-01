@@ -42,13 +42,17 @@ export const createOrUpdateOrganizationUser = async (
 export const fetchOrganizationUsersByOrganizationId = async (
   organizationId: string,
   page = 1,
-  limit = 20
+  limit = 20,
+  search = ""
 ): Promise<{ results: OrganizationUser[]; total: number }> => {
-  const response = await api.get<{ results: OrganizationUser[]; total: number }>(
-    `/organization-users/by-organization/${organizationId}?page=${page}&limit=${limit}`
-  );
+  let url = `/organization-users/by-organization/${organizationId}?page=${page}&limit=${limit}`;
+  if (search && search.trim()) {
+    url += `&search=${encodeURIComponent(search)}`;
+  }
+  const response = await api.get<{ results: OrganizationUser[]; total: number }>(url);
   return response.data;
 };
+
 
 /**
  * Obtiene un organization-user por su email (en properties.email)

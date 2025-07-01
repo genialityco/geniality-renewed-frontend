@@ -42,6 +42,7 @@ export default function AuthForm({
   const [password, setPassword] = useState("");
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Load organization & init formValues
   useEffect(() => {
@@ -76,12 +77,23 @@ export default function AuthForm({
 
   const handleSignIn = async () => {
     setSubmitting(true);
+    setFormError(null);
     if (!organization) return;
     try {
       await signIn(email, password);
       navigate(`/organizations/${organization._id}`);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.log(err);
+      // Manejo de errores de Firebase Auth
+      let msg = "Error al iniciar sesión. Intenta de nuevo.";
+      if (err?.code === "auth/user-not-found") {
+        msg = "No existe una cuenta con este correo.";
+      } else if (err?.code === "auth/invalid-credential") {
+        msg = "Email o contraseña incorrecta.";
+      } else if (err?.code === "auth/too-many-requests") {
+        msg = "Demasiados intentos fallidos. Intenta más tarde.";
+      }
+      setFormError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -266,6 +278,12 @@ export default function AuthForm({
               ].includes(prop.name?.toLowerCase?.() || "")
           )
           .map((prop) => renderField(prop))}
+
+      {formError && (
+        <Text color="red" mb="sm">
+          {formError}
+        </Text>
+      )}
 
       <Group mt="md">
         {isRegister ? (

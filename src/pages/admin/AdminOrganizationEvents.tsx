@@ -12,6 +12,8 @@ import {
   Pagination,
   Group,
   Checkbox,
+  TextInput,
+  Modal,
 } from "@mantine/core";
 import * as XLSX from "xlsx";
 
@@ -25,6 +27,7 @@ import { fetchOrganizationById } from "../../services/organizationService";
 import { createPaymentPlan } from "../../services/paymentPlansService";
 import { Event, OrganizationUser } from "../../services/types";
 import { useUser } from "../../context/UserContext";
+import api from "../../services/api";
 
 export default function AdminOrganizationEvents() {
   const { organizationId } = useParams();
@@ -56,6 +59,16 @@ export default function AdminOrganizationEvents() {
     errors: { row: number; error: string; data: any }[];
   } | null>(null);
 
+  const [searchText, setSearchText] = useState("");
+  const [searching, setSearching] = useState(false);
+
+  // Estado para cambiar contraseña
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordChangeMsg, setPasswordChangeMsg] = useState<string | null>(null);
+
   const { adminCreateUserAndOrganizationUser } = useUser();
 
   // Cargar organización y users_properties
@@ -78,13 +91,14 @@ export default function AdminOrganizationEvents() {
     fetchOrganizationUsersByOrganizationId(
       organizationId,
       userPage,
-      userLimit
+      userLimit,
+      searchText
     ).then((data) => {
       setUsers(data.results);
       setUserTotal(data.total);
       setLoadingUsers(false);
     });
-  }, [organizationId, userPage, userLimit]);
+  }, [organizationId, userPage, userLimit, searchText]);
 
   // ========== FUNCIONES AUXILIARES PARA BOOLEAN ==========
   function parseBool(value: any) {
@@ -103,6 +117,22 @@ export default function AdminOrganizationEvents() {
     }
     return false;
   }
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearching(true);
+    fetchOrganizationUsersByOrganizationId(
+      organizationId as string,
+      1, // reinicia a la página 1
+      userLimit,
+      searchText
+    ).then((data) => {
+      setUsers(data.results);
+      setUserTotal(data.total);
+      setUserPage(1);
+      setSearching(false);
+    });
+  };
 
   // ========== CARGA Y AJUSTE DE ARCHIVO ==========
   const handleMassiveFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,17 +184,16 @@ export default function AdminOrganizationEvents() {
 
           // CAMPOS BÁSICOS TAMBIÉN: SI NO ESTÁ, VACÍO O VALOR SEGURO
           const email = row.hasOwnProperty("email") ? row.email : "";
-          const name =
-            row.hasOwnProperty("name")
-              ? row.name
-              : row.hasOwnProperty("names")
-                ? row.names
-                : "";
+          const name = row.hasOwnProperty("name")
+            ? row.name
+            : row.hasOwnProperty("names")
+            ? row.names
+            : "";
           const password = row.hasOwnProperty("password")
             ? row.password
             : row.hasOwnProperty("ID")
-              ? row.ID
-              : "123456";
+            ? row.ID
+            : "123456";
 
           // Espera 300ms antes de cada intento para evitar rate limit de Firebase
           if (idx > 0) await delay(800);
@@ -181,7 +210,6 @@ export default function AdminOrganizationEvents() {
               properties,
             });
 
-            
           // Crea PaymentPlan si corresponde
           if (
             createWithPaymentPlan &&
@@ -218,13 +246,17 @@ export default function AdminOrganizationEvents() {
           });
         }
       }
-      setLastImportReport({ created: createdRows, updated: updatedRows, errors: errorRows });
+      setLastImportReport({
+        created: createdRows,
+        updated: updatedRows,
+        errors: errorRows,
+      });
       alert(
         `Usuarios creados: ${createdRows.length}\n` +
-        `Usuarios actualizados: ${updatedRows.length}\n` +
-        (errorRows.length
-          ? `Errores en ${errorRows.length} filas. Ver detalles abajo.`
-          : "")
+          `Usuarios actualizados: ${updatedRows.length}\n` +
+          (errorRows.length
+            ? `Errores en ${errorRows.length} filas. Ver detalles abajo.`
+            : "")
       );
       setMassiveUsers([]);
       fetchOrganizationUsersByOrganizationId(
@@ -287,13 +319,15 @@ export default function AdminOrganizationEvents() {
       name: "Nombre Apellido",
       password: "123456",
     };
-    orgFields.forEach((f: { type: string; name: string | number; mandatory: any }) => {
-      if (f.type === "boolean" || f.type === "BOOLEAN") {
-        example[f.name] = f.mandatory ? "TRUE" : "FALSE";
-      } else if (!example[f.name]) {
-        example[f.name] = "";
+    orgFields.forEach(
+      (f: { type: string; name: string | number; mandatory: any }) => {
+        if (f.type === "boolean" || f.type === "BOOLEAN") {
+          example[f.name] = f.mandatory ? "TRUE" : "FALSE";
+        } else if (!example[f.name]) {
+          example[f.name] = "";
+        }
       }
-    });
+    );
 
     const worksheet = XLSX.utils.aoa_to_sheet([
       labels,
@@ -307,6 +341,24 @@ export default function AdminOrganizationEvents() {
 
   // Opcional: limpiar el informe manualmente
   const handleClearImportReport = () => setLastImportReport(null);
+
+  // Cambiar contraseña usando el endpoint backend
+  const handleChangePassword = async () => {
+    if (!selectedUserEmail || !newPassword) return;
+    setChangingPassword(true);
+    setPasswordChangeMsg(null);
+    try {
+      await api.post("/users/change-password-by-email", {
+        email: selectedUserEmail,
+        newPassword,
+      });
+      setPasswordChangeMsg("Contraseña cambiada correctamente.");
+    } catch (err: any) {
+      setPasswordChangeMsg("Error cambiando contraseña: " + (err?.response?.data?.message || err.message));
+    } finally {
+      setChangingPassword(false);
+    }
+  };
 
   return (
     <Container>
@@ -400,6 +452,35 @@ export default function AdminOrganizationEvents() {
             )}
           </Group>
 
+          <form onSubmit={handleSearch} style={{ display: "flex", gap: 8 }}>
+            <input
+              type="text"
+              placeholder="Buscar nombre o email"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              disabled={loadingUsers || searching}
+              style={{ padding: 4, borderRadius: 4, border: "1px solid #ddd" }}
+            />
+            <Button
+              type="submit"
+              loading={searching}
+              disabled={loadingUsers || searching}
+            >
+              Buscar
+            </Button>
+            {searchText && (
+              <Button
+                variant="subtle"
+                onClick={() => {
+                  setSearchText("");
+                  setUserPage(1);
+                }}
+              >
+                Limpiar
+              </Button>
+            )}
+          </form>
+
           {/* Informe visual de carga masiva */}
           {lastImportReport && (
             <div style={{ marginBottom: 24 }}>
@@ -407,8 +488,10 @@ export default function AdminOrganizationEvents() {
                 Informe de importación masiva
               </Title>
               <Text>
-                Usuarios <b>creados</b>: {lastImportReport.created.length}<br />
-                Usuarios <b>actualizados</b>: {lastImportReport.updated.length}<br />
+                Usuarios <b>creados</b>: {lastImportReport.created.length}
+                <br />
+                Usuarios <b>actualizados</b>: {lastImportReport.updated.length}
+                <br />
                 Usuarios <b>con error</b>: {lastImportReport.errors.length}
               </Text>
               {lastImportReport.created.length > 0 && (
@@ -428,7 +511,13 @@ export default function AdminOrganizationEvents() {
                         <Table.Tr key={idx}>
                           <Table.Td>{c.row}</Table.Td>
                           <Table.Td>
-                            <pre style={{ fontSize: 10, maxWidth: 250, overflow: "auto" }}>
+                            <pre
+                              style={{
+                                fontSize: 10,
+                                maxWidth: 250,
+                                overflow: "auto",
+                              }}
+                            >
                               {JSON.stringify(c.data, null, 2)}
                             </pre>
                           </Table.Td>
@@ -455,7 +544,13 @@ export default function AdminOrganizationEvents() {
                         <Table.Tr key={idx}>
                           <Table.Td>{u.row}</Table.Td>
                           <Table.Td>
-                            <pre style={{ fontSize: 10, maxWidth: 250, overflow: "auto" }}>
+                            <pre
+                              style={{
+                                fontSize: 10,
+                                maxWidth: 250,
+                                overflow: "auto",
+                              }}
+                            >
                               {JSON.stringify(u.data, null, 2)}
                             </pre>
                           </Table.Td>
@@ -484,7 +579,13 @@ export default function AdminOrganizationEvents() {
                           <Table.Td>{err.row}</Table.Td>
                           <Table.Td>{err.error}</Table.Td>
                           <Table.Td>
-                            <pre style={{ fontSize: 10, maxWidth: 250, overflow: "auto" }}>
+                            <pre
+                              style={{
+                                fontSize: 10,
+                                maxWidth: 250,
+                                overflow: "auto",
+                              }}
+                            >
                               {JSON.stringify(err.data, null, 2)}
                             </pre>
                           </Table.Td>
@@ -531,6 +632,7 @@ export default function AdminOrganizationEvents() {
                     <Table.Th>Profesión</Table.Th>
                     <Table.Th>Especialidad</Table.Th>
                     <Table.Th>Fecha registro</Table.Th>
+                    <Table.Th>Acciones</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -547,6 +649,20 @@ export default function AdminOrganizationEvents() {
                             ? new Date(user.created_at).toLocaleDateString()
                             : ""}
                         </Table.Td>
+                        <Table.Td>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedUserEmail(props.email || "");
+                              setShowPasswordModal(true);
+                              setNewPassword("");
+                              setPasswordChangeMsg(null);
+                            }}
+                          >
+                            Cambiar contraseña
+                          </Button>
+                        </Table.Td>
                       </Table.Tr>
                     );
                   })}
@@ -562,6 +678,42 @@ export default function AdminOrganizationEvents() {
           )}
         </Tabs.Panel>
       </Tabs>
+
+      <Modal
+        opened={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        title={`Cambiar contraseña para: ${selectedUserEmail || ""}`}
+        centered
+      >
+        <TextInput
+          type="password"
+          label="Nueva contraseña"
+          placeholder="Nueva contraseña"
+          value={newPassword}
+          onChange={e => setNewPassword(e.target.value)}
+          mb="md"
+        />
+        <Group>
+          <Button
+            onClick={handleChangePassword}
+            loading={changingPassword}
+            disabled={!newPassword}
+          >
+            Cambiar contraseña
+          </Button>
+          <Button
+            variant="subtle"
+            onClick={() => setShowPasswordModal(false)}
+          >
+            Cancelar
+          </Button>
+        </Group>
+        {passwordChangeMsg && (
+          <Text mt="sm" color={passwordChangeMsg.includes("correctamente") ? "green" : "red"}>
+            {passwordChangeMsg}
+          </Text>
+        )}
+      </Modal>
     </Container>
   );
 }
