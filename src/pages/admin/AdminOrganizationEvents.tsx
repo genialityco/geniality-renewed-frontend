@@ -64,10 +64,14 @@ export default function AdminOrganizationEvents() {
 
   // Estado para cambiar contraseña
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [selectedUserEmail, setSelectedUserEmail] = useState<string | null>(null);
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string | null>(
+    null
+  );
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
-  const [passwordChangeMsg, setPasswordChangeMsg] = useState<string | null>(null);
+  const [passwordChangeMsg, setPasswordChangeMsg] = useState<string | null>(
+    null
+  );
 
   const { adminCreateUserAndOrganizationUser } = useUser();
 
@@ -354,7 +358,10 @@ export default function AdminOrganizationEvents() {
       });
       setPasswordChangeMsg("Contraseña cambiada correctamente.");
     } catch (err: any) {
-      setPasswordChangeMsg("Error cambiando contraseña: " + (err?.response?.data?.message || err.message));
+      setPasswordChangeMsg(
+        "Error cambiando contraseña: " +
+          (err?.response?.data?.message || err.message)
+      );
     } finally {
       setChangingPassword(false);
     }
@@ -629,8 +636,7 @@ export default function AdminOrganizationEvents() {
                   <Table.Tr>
                     <Table.Th>Usuario</Table.Th>
                     <Table.Th>Email</Table.Th>
-                    <Table.Th>Profesión</Table.Th>
-                    <Table.Th>Especialidad</Table.Th>
+                    <Table.Th>Número de identificación</Table.Th>
                     <Table.Th>Fecha registro</Table.Th>
                     <Table.Th>Acciones</Table.Th>
                   </Table.Tr>
@@ -642,8 +648,7 @@ export default function AdminOrganizationEvents() {
                       <Table.Tr key={user._id as any}>
                         <Table.Td>{props.names || props.name || ""}</Table.Td>
                         <Table.Td>{props.email || ""}</Table.Td>
-                        <Table.Td>{props.perfilProfesional || ""}</Table.Td>
-                        <Table.Td>{props.especialidad || ""}</Table.Td>
+                        <Table.Td>{props.ID || ""}</Table.Td>
                         <Table.Td>
                           {user.created_at
                             ? new Date(user.created_at).toLocaleDateString()
@@ -690,7 +695,7 @@ export default function AdminOrganizationEvents() {
           label="Nueva contraseña"
           placeholder="Nueva contraseña"
           value={newPassword}
-          onChange={e => setNewPassword(e.target.value)}
+          onChange={(e) => setNewPassword(e.target.value)}
           mb="md"
         />
         <Group>
@@ -701,15 +706,17 @@ export default function AdminOrganizationEvents() {
           >
             Cambiar contraseña
           </Button>
-          <Button
-            variant="subtle"
-            onClick={() => setShowPasswordModal(false)}
-          >
+          <Button variant="subtle" onClick={() => setShowPasswordModal(false)}>
             Cancelar
           </Button>
         </Group>
         {passwordChangeMsg && (
-          <Text mt="sm" color={passwordChangeMsg.includes("correctamente") ? "green" : "red"}>
+          <Text
+            mt="sm"
+            color={
+              passwordChangeMsg.includes("correctamente") ? "green" : "red"
+            }
+          >
             {passwordChangeMsg}
           </Text>
         )}

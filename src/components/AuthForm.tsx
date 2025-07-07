@@ -17,6 +17,8 @@ import {
 import { useUser } from "../context/UserContext";
 import { fetchOrganizationById } from "../services/organizationService";
 import { UserProperty, PropertyType } from "../services/types";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "../firebase/firebaseConfig";
 
 export default function AuthForm({
   isPaymentPage,
@@ -43,6 +45,13 @@ export default function AuthForm({
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Restablecer contraseña
+  const [isResetPassword, setIsResetPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   // Load organization & init formValues
   useEffect(() => {
@@ -231,6 +240,8 @@ export default function AuthForm({
           alt={organization.name}
           mb="md"
           radius="sm"
+          style={{ cursor: "pointer" }}
+          onClick={() => navigate(`/organizations/${organization._id}`)}
         />
       )}
       <Text>{isPaymentPage && "📚 ¡Activa tu acceso en 2 pasos!"}</Text>
@@ -246,59 +257,127 @@ export default function AuthForm({
         {isPaymentPage && "👉 ¡Te tomará menos de 2 minutos comenzar!"}
       </Text>
 
-      <TextInput
-        label="Correo"
-        placeholder="tucorreo@ejemplo.com"
-        value={email}
-        onChange={(e) => setEmail(e.currentTarget.value)}
-        mb="sm"
-        required
-      />
+      {isResetPassword ? (
+        <div>
+          <TextInput
+            label="Ingresa tu correo"
+            placeholder="tucorreo@ejemplo.com"
+            value={resetEmail}
+            onChange={(e) => setResetEmail(e.currentTarget.value)}
+            required
+            mb="sm"
+          />
+          <Group>
+            <Button
+              onClick={async () => {
+                setResetLoading(true);
+                setResetMessage("");
+                setResetError("");
+                try {
+                  auth.languageCode = "es";
+                  await sendPasswordResetEmail(auth, resetEmail, {
+                    url: `${window.location.origin}/organizations/${organizationId}`,
+                  });
+                  setResetMessage(
+                    "¡Revisa tu correo para restablecer tu contraseña!"
+                  );
+                } catch (err: any) {
+                  setResetError(
+                    err.code === "auth/user-not-found"
+                      ? "No existe una cuenta con ese correo."
+                      : "Error enviando el correo. Intenta más tarde."
+                  );
+                } finally {
+                  setResetLoading(false);
+                }
+              }}
+              loading={resetLoading}
+            >
+              Enviar enlace de recuperación
+            </Button>
+            <Button variant="subtle" onClick={() => setIsResetPassword(false)}>
+              Cancelar
+            </Button>
+          </Group>
+          {resetMessage && (
+            <Text color="green" mt="sm">
+              {resetMessage}
+            </Text>
+          )}
+          {resetError && (
+            <Text color="red" mt="sm">
+              {resetError}
+            </Text>
+          )}
+        </div>
+      ) : (
+        <>
+          <TextInput
+            label="Correo"
+            placeholder="tucorreo@ejemplo.com"
+            value={email}
+            onChange={(e) => setEmail(e.currentTarget.value)}
+            mb="sm"
+            required
+          />
 
-      <PasswordInput
-        label="Documento de identidad / Contraseña"
-        placeholder="********"
-        value={password}
-        onChange={(e) => setPassword(e.currentTarget.value)}
-        mb="sm"
-        required
-      />
+          <PasswordInput
+            label="Documento de identidad / Contraseña"
+            placeholder="********"
+            value={password}
+            onChange={(e) => setPassword(e.currentTarget.value)}
+            mb="sm"
+            required
+          />
 
-      {isRegister &&
-        organization.user_properties
-          .filter(
-            (prop) =>
-              ![
-                "email",
-                "correo",
-                "correo electrónico",
-                "id",
-                "documento",
-                "password",
-              ].includes(prop.name?.toLowerCase?.() || "")
-          )
-          .map((prop) => renderField(prop))}
+          {isRegister &&
+            organization.user_properties
+              .filter(
+                (prop) =>
+                  ![
+                    "email",
+                    "correo",
+                    "correo electrónico",
+                    "id",
+                    "documento",
+                    "password",
+                  ].includes(prop.name?.toLowerCase?.() || "")
+              )
+              .map((prop) => renderField(prop))}
 
-      {formError && (
-        <Text color="red" mb="sm">
-          {formError}
-        </Text>
+          {formError && (
+            <Text c="red" mb="sm">
+              {formError}
+            </Text>
+          )}
+
+          <Group mt="md">
+            {isRegister ? (
+              <Button fullWidth onClick={handleSignUp} loading={submitting}>
+                Registrarse
+              </Button>
+            ) : (
+              <Button fullWidth onClick={handleSignIn} loading={submitting}>
+                Iniciar sesión
+              </Button>
+            )}
+            <Button variant="subtle" onClick={() => setIsRegister((p) => !p)}>
+              {isRegister ? "Ya tengo cuenta" : "Crear cuenta"}
+            </Button>
+
+            {!isRegister && (
+              <Button
+                variant="light"
+                fullWidth
+                mt="xs"
+                onClick={() => setIsResetPassword(true)}
+              >
+                ¿Olvidaste tu contraseña?
+              </Button>
+            )}
+          </Group>
+        </>
       )}
-
-      <Group mt="md">
-        {isRegister ? (
-          <Button fullWidth onClick={handleSignUp} loading={submitting}>
-            Registrarse
-          </Button>
-        ) : (
-          <Button fullWidth onClick={handleSignIn} loading={submitting}>
-            Iniciar sesión
-          </Button>
-        )}
-        <Button variant="subtle" onClick={() => setIsRegister((p) => !p)}>
-          {isRegister ? "Ya tengo cuenta" : "Crear cuenta"}
-        </Button>
-      </Group>
     </div>
   );
 }
