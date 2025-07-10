@@ -27,6 +27,7 @@
     "recharts": "2",
     "survey-core": "^1.12.24",
     "survey-react-ui": "^1.12.24",
+    "uuid": "^11.1.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

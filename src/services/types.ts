@@ -193,3 +193,9 @@ export interface UserProperty {
     value: string;
   }[];
 }
+
+export type ImportReportType = {
+  created: any[];
+  updated: any[];
+  errors: any[];
+};

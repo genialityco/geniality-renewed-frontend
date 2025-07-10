@@ -12,9 +12,8 @@ import CourseDetail from "../pages/course/CourseDetail";
 import ActivityDetailContainer from "../pages/activity/ActivityDetailContainer";
 import Profile from "../pages/profile";
 
-import AdminOrganizationEvents from "../pages/admin/AdminOrganizationEvents";
+import AdminOrganizationEvents from "../pages/admin/index";
 import AdminEventEdit from "../pages/admin/AdminEventEdit";
-import PaymentPage from "../pages/payment/PaymentPage";
 import MembershipPaymentSuccess from "../pages/payment/MembershipPaymentSuccess";
 
 export default function AppRoutes() {
@@ -47,8 +46,6 @@ export default function AppRoutes() {
           <Route index element={<AdminOrganizationEvents />} />
           <Route path="events/:eventId" element={<AdminEventEdit />} />
         </Route>
-
-        <Route path="pagos" element={<PaymentPage />} />
 
         <Route path="pago-exitoso"  element={<MembershipPaymentSuccess />} />
       </Route>

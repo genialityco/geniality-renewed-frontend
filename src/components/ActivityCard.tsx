@@ -1,8 +1,7 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Card, Image, Text, Title, Grid, Flex, Highlight } from "@mantine/core";
 import { Activity } from "../services/types";
 import { useEffect, useState } from "react";
-import { fetchEventById } from "../services/eventService";
 
 interface MatchedSegment {
   segmentId: string;
@@ -25,79 +24,37 @@ function formatTime(seconds: number): string {
   return `${mins}:${secsString}`;
 }
 
-const PLACEHOLDER_IMAGE = "https://via.placeholder.com/160x160?text=No+Video";
-
-// --- EXTRAER ID DE VIMEO DE UNA URL ---
-function getVimeoIdFromUrl(url: string): string | null {
-  if (!url) return null;
-  const regex = /vimeo\.com\/(?:video\/)?(\d+)/;
-  const match = url.match(regex);
-  return match ? match[1] : null;
-}
-
-// --- OBTENER MINIATURA DE VIMEO SI EXISTE ---
-function getVimeoThumbnail(url: string) {
-  const id = getVimeoIdFromUrl(url);
-  if (id) {
-    return `https://vumbnail.com/${id}.jpg`;
-  }
-  return null;
-}
-
 const ActivityCard: React.FC<ActivityCardProps> = ({
   activity,
   matchedSegments = [],
   searchQuery,
 }) => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const orgMatch = location.pathname.match(/organizations\/([^/]+)/);
-  const organizationId = orgMatch ? orgMatch[1] : undefined;
 
+  // State para hover y selección de fragmentos
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [imgSrc, setImgSrc] = useState<string>(PLACEHOLDER_IMAGE);
 
-  // Función local para obtener la imagen del evento, priorizando miniatura de Vimeo
-  const getEventImage = async () => {
-    if (typeof activity.event_id === "object" && activity.event_id !== null) {
-      const eventObj = activity.event_id as any;
-      const event = await fetchEventById(eventObj._id || eventObj.id);
+  // Obtener imagen del evento si existe (event_id es el objeto del evento)
+  let eventImage: string = "https://via.placeholder.com/160x160?text=No+Video";
+  if (typeof activity.event_id === "object" && activity.event_id !== null) {
+    const eventObj = activity.event_id as any;
+    eventImage =
+      eventObj.picture ||
+      eventObj.styles?.event_image ||
+      eventObj.styles?.banner_image ||
+      eventImage;
+  }
 
-      // 1. Miniatura Vimeo si hay url
-      if (activity.video) {
-        const thumb = getVimeoThumbnail(activity.video);
-        if (thumb) return thumb;
-      }
-
-      // 2. Imagenes "normales"
-      return (
-        event.picture ||
-        event.styles?.event_image ||
-        event.styles?.banner_image ||
-        PLACEHOLDER_IMAGE
-      );
-    }
-    return PLACEHOLDER_IMAGE;
-  };
+  const [_imgSrc, setImgSrc] = useState<string>(eventImage);
 
   useEffect(() => {
-    let isMounted = true;
-    getEventImage().then((url) => {
-      if (isMounted) setImgSrc(url);
-    });
-    return () => {
-      isMounted = false;
-    };
+    setImgSrc(eventImage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activity._id]);
 
   const handleClickCard = (activityId: string) => {
-    if (organizationId) {
-      navigate(`/organizations/${organizationId}/activitydetail/${activityId}`);
-    } else {
-      navigate(`/activitydetail/${activityId}`);
-    }
+    navigate(`/activitydetail/${activityId}`);
   };
 
   return (
@@ -111,7 +68,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
       <Grid gutter="md" align="center">
         <Grid.Col span={4}>
           <Image
-            src={imgSrc}
+            src={_imgSrc}
             alt={activity.name}
             radius="xs"
             height="auto"
@@ -119,7 +76,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
             fit="contain"
             loading="lazy"
             onError={() => {
-              setImgSrc(PLACEHOLDER_IMAGE);
+              setImgSrc("https://via.placeholder.com/160x160?text=No+Video");
             }}
           />
         </Grid.Col>
@@ -128,10 +85,10 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
           <Flex direction="column" ta="left" justify="space-between">
             <Title order={4}>{activity.name}</Title>
             <Text size="sm" variant="gradient">
-              Evento:{" "}
+              Evento:{' '}
               {typeof activity.event_id === "object" &&
               activity.event_id !== null &&
-              "name" in activity.event_id ? (
+              'name' in activity.event_id ? (
                 <span
                   style={{
                     color: "#228be6",
@@ -144,12 +101,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                       (activity.event_id as any)._id ||
                       (activity.event_id as any).id ||
                       "";
-                    if (eventId && organizationId) {
-                      window.open(
-                        `${window.location.origin}/organizations/${organizationId}/course/${eventId}`,
-                        "_blank"
-                      );
-                    } else if (eventId) {
+                    if (eventId) {
                       window.open(
                         `${window.location.origin}/course/${eventId}`,
                         "_blank"
@@ -198,28 +150,19 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedId(seg.segmentId);
-                        if (organizationId) {
-                          navigate(
-                            `/organizations/${organizationId}/activitydetail/${activity._id}?t=${seg.startTime}` +
-                              `&fragments=${encodeURIComponent(
-                                JSON.stringify(matchedSegments)
-                              )}`
-                          );
-                        } else {
-                          navigate(
-                            `/activitydetail/${activity._id}?t=${seg.startTime}` +
-                              `&fragments=${encodeURIComponent(
-                                JSON.stringify(matchedSegments)
-                              )}`
-                          );
-                        }
+                        navigate(
+                          `/activitydetail/${activity._id}?t=${seg.startTime}` +
+                            `&fragments=${encodeURIComponent(
+                              JSON.stringify(matchedSegments)
+                            )}`
+                        );
                       }}
                     >
                       <Text size="sm">
                         <strong style={{ color: "teal" }}>
-                          {formatTime(seg.startTime)} -{" "}
+                          {formatTime(seg.startTime)} -{' '}
                           {formatTime(seg.endTime)}:
-                        </strong>{" "}
+                        </strong>{' '}
                         <Highlight
                           highlight={searchQuery || ""}
                           component="span"

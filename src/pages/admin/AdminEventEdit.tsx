@@ -1,12 +1,12 @@
-// pages/admin/AdminEventEdit.tsx
+// src/pages/admin/AdminEventEdit.tsx
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
 import {
   Container,
-  Title,
   Tabs,
   Loader,
-  // otros componentes de Mantine
+  Text,
+  Button,
+  Group,
 } from "@mantine/core";
 
 import { Event } from "../../services/types";
@@ -16,16 +16,24 @@ import BasicEventData from "./components/BasicEventData";
 import AdminModules from "./components/AdminModules";
 import AdminActivities from "./components/AdminActivities";
 
-export default function AdminEventEdit() {
-  const { organizationId, eventId } = useParams();
+interface Props {
+  organizationId: string;
+  eventId: string; // puede ser "new" o un id real
+  onFinish: (newEventId?: string) => void;
+}
+
+export default function AdminEventEdit({
+  organizationId,
+  eventId,
+  onFinish,
+}: Props) {
   const [formData, setFormData] = useState<Partial<Event>>({});
   const [loading, setLoading] = useState(false);
 
   const isEditing = eventId !== "new";
 
   useEffect(() => {
-    // Si estamos editando, obtenemos la data del evento
-    if (isEditing && eventId) {
+    if (isEditing) {
       setLoading(true);
       fetchEventById(eventId).then((data) => {
         setFormData(data);
@@ -40,18 +48,13 @@ export default function AdminEventEdit() {
 
   return (
     <Container fluid>
-      <Title order={2}>
-        {isEditing ? "Editar Evento" : "Crear Nuevo Evento"}
-      </Title>
-
-      <Tabs defaultValue="basicos" mt="md">
+      <Tabs defaultValue="basicos">
         <Tabs.List>
-          <Tabs.Tab value="basicos">Datos del Curso</Tabs.Tab>
+          <Tabs.Tab value="basicos">Datos Curso</Tabs.Tab>
           <Tabs.Tab value="modulos">Módulos</Tabs.Tab>
           <Tabs.Tab value="actividades">Actividades</Tabs.Tab>
         </Tabs.List>
 
-        {/* PANEL 1: Datos Básicos */}
         <Tabs.Panel value="basicos" pt="md">
           <BasicEventData
             formData={formData}
@@ -59,22 +62,20 @@ export default function AdminEventEdit() {
             organizationId={organizationId}
             eventId={eventId}
             isEditing={isEditing}
+            onSaved={onFinish}
           />
         </Tabs.Panel>
 
-        {/* PANEL 2: Módulos */}
         <Tabs.Panel value="modulos" pt="md">
           {isEditing ? (
-            <AdminModules
-              organizationId={organizationId}
-              eventId={eventId}
-            />
+            <AdminModules organizationId={organizationId} eventId={eventId} />
           ) : (
-            <p>Guarda primero el evento para gestionar módulos.</p>
+            <Text mb="md">
+              Guarda primero el evento para gestionar módulos.
+            </Text>
           )}
         </Tabs.Panel>
 
-        {/* PANEL 3: Actividades */}
         <Tabs.Panel value="actividades" pt="md">
           {isEditing ? (
             <AdminActivities
@@ -82,10 +83,18 @@ export default function AdminEventEdit() {
               eventId={eventId}
             />
           ) : (
-            <p>Guarda primero el evento para gestionar actividades.</p>
+            <Text mb="md">
+              Guarda primero el evento para gestionar actividades.
+            </Text>
           )}
         </Tabs.Panel>
       </Tabs>
+
+      <Group mt="lg">
+        <Button variant="default" onClick={() => onFinish()}>
+          Cancelar
+        </Button>
+      </Group>
     </Container>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useParams } from "react-router-dom";
 import {
   Stack,
@@ -10,53 +10,41 @@ import {
   Button,
 } from "@mantine/core";
 import { useUser } from "../../context/UserContext";
-import {
-  fetchOrganizationUserByUserId,
-  createOrUpdateOrganizationUser,
-} from "../../services/organizationUserService";
-import {
-  createPaymentPlan,
-  fetchPaymentPlanByUserId,
-  updatePaymentPlanDateUntil,
-} from "../../services/paymentPlansService";
-
-const MEMBERSHIP_DAYS = 365;
-
-// Detecta ambiente según variable de entorno
-const wompiBaseUrl =
-  import.meta.env.VITE_WOMPI_ENV === "production"
-    ? "https://production.wompi.co"
-    : "https://sandbox.wompi.co";
+import { fetchPaymentRequestByReference, fetchPaymentRequestByTransactionId } from "../../services/paymentRequestsService";
 
 const MembershipPaymentSuccess = () => {
   const { organizationId } = useParams();
   const [searchParams] = useSearchParams();
   const transactionId = searchParams.get("id");
-  const [status, setStatus] = useState("loading");
+  const reference = searchParams.get("reference");
+  const [status, setStatus] = useState<"loading" | "pending" | "success" | "fail">("loading");
   const [message, setMessage] = useState("");
   const [amount, setAmount] = useState<number | null>(null);
 
   const { userId } = useUser();
 
-  const checkTransaction = async () => {
-    if (!transactionId || !userId) {
+  // Puedes usar reference o transactionId para consultar
+  const checkTransaction = useCallback(async () => {
+    if (!userId || (!reference && !transactionId)) {
       setStatus("fail");
       setMessage("No se encontró la transacción o el usuario.");
       return;
     }
-    // Primero muestra pendiente mientras consulta
+
     setStatus("pending");
     setMessage(
       "Estamos procesando tu pago. Si ya realizaste el pago, por favor espera unos minutos y vuelve a intentar."
     );
-    try {
-      const resp = await fetch(
-        `${wompiBaseUrl}/v1/transactions/${transactionId}`
-      );
-      const data = await resp.json();
 
-      // Manejo de NOT_FOUND_ERROR (no mostrar fallido, mostrar pendiente)
-      if (data.type === "NOT_FOUND_ERROR") {
+    try {
+      let payment = null;
+      if (reference) {
+        payment = await fetchPaymentRequestByReference(reference);
+      }
+      if (!payment && transactionId) {
+        payment = await fetchPaymentRequestByTransactionId(transactionId);
+      }
+      if (!payment) {
         setStatus("pending");
         setMessage(
           "Estamos procesando tu pago. Si ya realizaste el pago, por favor espera unos minutos y vuelve a intentar."
@@ -64,58 +52,15 @@ const MembershipPaymentSuccess = () => {
         return;
       }
 
-      if (data.data.status === "APPROVED") {
-        setAmount(data.data.amount_in_cents / 100);
-        const organizationUser = await fetchOrganizationUserByUserId(userId);
-        // const now = new Date();
-        const newDateUntil = new Date(
-          Date.now() + MEMBERSHIP_DAYS * 24 * 60 * 60 * 1000
-        ).toISOString();
+      setAmount(payment.amount);
 
-        // 1. ¿El usuario ya tiene PaymentPlan?
-        let paymentPlan = null;
-        try {
-          paymentPlan = await fetchPaymentPlanByUserId(userId);
-        } catch (e) {
-          paymentPlan = null; // Si falla es porque no tiene
-        }
-
-        let updatedPaymentPlan;
-        if (paymentPlan && paymentPlan._id) {
-          // Opcional: Si el plan aún está activo, puedes sumar días a la fecha actual
-          // const currentUntil = new Date(paymentPlan.date_until);
-          // const baseDate = currentUntil > new Date() ? currentUntil : new Date();
-          // const date_until = new Date(baseDate.getTime() + MEMBERSHIP_DAYS * 24 * 60 * 60 * 1000).toISOString();
-          // updatedPaymentPlan = await updatePaymentPlanDateUntil(paymentPlan._id, date_until);
-
-          // En este ejemplo, siempre pone un año desde hoy:
-          updatedPaymentPlan = await updatePaymentPlanDateUntil(
-            paymentPlan._id,
-            newDateUntil
-          );
-          // Si quieres actualizar el precio también, crea/usa otro endpoint y pásalo aquí
-        } else {
-          updatedPaymentPlan = await createPaymentPlan({
-            days: MEMBERSHIP_DAYS,
-            date_until: newDateUntil,
-            price: data.data.amount_in_cents / 100,
-            organization_user_id: organizationUser._id,
-          });
-        }
-
-        // 2. Asociar el paymentPlan al usuario, siempre (si ya lo tiene, lo sobreescribe igual)
-        await createOrUpdateOrganizationUser({
-          ...organizationUser,
-          payment_plan_id: updatedPaymentPlan._id,
-        });
-
+      if (payment.status === "APPROVED") {
         setStatus("success");
         setMessage("Tu membresía ha sido activada por un año.");
-      } else if (["DECLINED", "VOIDED", "ERROR"].includes(data.data.status)) {
+      } else if (["DECLINED", "VOIDED", "ERROR"].includes(payment.status)) {
         setStatus("fail");
-        setMessage("El pago no fue aprobado. Estado: " + data.data.status);
+        setMessage("El pago no fue aprobado. Estado: " + payment.status);
       } else {
-        // PENDING u otro estado intermedio: muestra “Procesando”
         setStatus("pending");
         setMessage(
           "Tu pago está en proceso de confirmación bancaria. Esto puede tardar unos minutos. Puedes actualizar el estado más tarde."
@@ -127,12 +72,25 @@ const MembershipPaymentSuccess = () => {
         "Estamos verificando el pago con el banco. Si ya pagaste, puedes intentar actualizar el estado en unos minutos."
       );
     }
-  };
+  }, [reference, transactionId, userId]);
 
   useEffect(() => {
     checkTransaction();
     // eslint-disable-next-line
-  }, [transactionId, userId]);
+  }, [checkTransaction]);
+
+  // Polling para actualizar cada 7 segundos si está pendiente
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (status === "pending") {
+      interval = setInterval(() => {
+        checkTransaction();
+      }, 7000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [status, checkTransaction]);
 
   return (
     <Stack align="center" p="md" pt="xl" px="md">

@@ -1,17 +1,28 @@
-// pages/admin/components/BasicEventData.tsx
+// src/pages/admin/components/BasicEventData.tsx
 import React, { useState } from "react";
-import { TextInput, Button, Image, Loader } from "@mantine/core";
-import { useNavigate } from "react-router-dom";
-
+import {
+  TextInput,
+  Button,
+  Image,
+  Loader,
+  Group,
+  Box,
+} from "@mantine/core";
 import { createEvent, updateEvent } from "../../../services/eventService";
-import { Event } from "../../../services/types";
+import type { Event } from "../../../services/types";
 
 interface Props {
   formData: Partial<Event>;
   setFormData: React.Dispatch<React.SetStateAction<Partial<Event>>>;
-  organizationId?: string;
-  eventId?: string;
+  organizationId: string;
+  eventId: string;
   isEditing: boolean;
+  /** 
+   * Callback que se invoca una vez el evento se ha creado o actualizado.
+   * Si es creación, newEventId contiene el _id generado.
+   * Si es edición, se pasa el mismo eventId.
+   */
+  onSaved: (newEventId?: string) => void;
 }
 
 export default function BasicEventData({
@@ -20,93 +31,81 @@ export default function BasicEventData({
   organizationId,
   eventId,
   isEditing,
+  onSaved,
 }: Props) {
-  const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Ejemplo si usas FileInput o Subida de archivos:
-  // const handleFileChange = (file: File | null) => {
-  //   // Manejar subida o guardar el link en formData.picture
-  // };
-
   const handleSave = async () => {
-    if (!organizationId) return;
+    if (saving) return;
     setSaving(true);
     try {
-      if (isEditing && eventId) {
-        // EDITAR
+      if (isEditing) {
         await updateEvent(organizationId, eventId, formData);
+        onSaved(eventId!);
       } else {
-        // CREAR
         const newEvent = await createEvent(organizationId, formData);
-        // Podrías redirigir a la pantalla de edición con el nuevo ID
-        navigate(
-          `/admin/organizations/${organizationId}/events/${newEvent._id}`
-        );
+        onSaved(newEvent._id);
       }
     } catch (error) {
-      console.error(error);
+      console.error("Error saving event:", error);
     } finally {
       setSaving(false);
     }
   };
 
-  if (saving) return <Loader />;
+  if (saving) {
+    return (
+      <Box style={{ textAlign: "center", margin: 20 }}>
+        <Loader size="lg" />
+      </Box>
+    );
+  }
 
   return (
-    <>
+    <Box>
       <TextInput
-        label="Nombre del Curso"
+        label="Nombre del Evento"
         name="name"
         value={formData.name || ""}
         onChange={handleChange}
         mb="sm"
+        required
       />
 
       <TextInput
-        label="Imagen del Curso (URL)"
+        label="URL de la imagen"
         name="picture"
         value={formData.picture || ""}
         onChange={handleChange}
         mb="sm"
+        placeholder="https://..."
       />
 
       {formData.picture && (
         <Image
           src={formData.picture}
-          alt="preview"
+          alt="Preview"
           width={200}
           height={120}
           mb="sm"
         />
       )}
 
-      {/* <Select
-        label="Visibilidad"
-        name="visibility"
-        placeholder="Selecciona..."
-        data={[
-          { value: "PUBLIC", label: "Público" },
-          { value: "PRIVATE", label: "Privado" },
-        ]}
-        value={formData.visibility || "PUBLIC"}
-        onChange={(val) =>
-          setFormData((prev) => ({ ...prev, visibility: val }))
-        }
-        mb="sm"
-      /> */}
+      {/* Aquí puedes agregar más campos según tu modelo Event,
+          p.ej. fechas, descripción, visibilidad, etc. */}
 
-      {/* Aquí podrías añadir más campos: type_event, datetime_from, etc. */}
-
-      <Button onClick={handleSave} mt="md">
-        {isEditing ? "Guardar Cambios" : "Crear Evento"}
-      </Button>
-    </>
+      <Group justify="right" mt="md">
+        <Button onClick={handleSave}>
+          {isEditing ? "Guardar Cambios" : "Crear Evento"}
+        </Button>
+      </Group>
+    </Box>
   );
 }

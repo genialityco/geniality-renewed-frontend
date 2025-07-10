@@ -1,13 +1,14 @@
 import { useParams } from "react-router-dom";
 import { Card, Stack, Text, Title, Button, Group } from "@mantine/core";
+import { useUser } from "../context/UserContext";
+import { createPaymentRequest } from "../services/paymentRequestsService"; 
+import { v4 as uuidv4 } from "uuid";
 
 const MembershipPayment = () => {
-  // Calcular la fecha de vigencia: hoy + 365 días
   const today = new Date();
   const dateUntil = new Date(today);
   dateUntil.setDate(today.getDate() + 365);
 
-  // Datos simulados para el plan
   const plan = {
     name: "Plan Premium",
     price: 50000, // en pesos colombianos
@@ -15,27 +16,40 @@ const MembershipPayment = () => {
     date_until: dateUntil.toISOString(),
   };
 
-  // Obtener la organización desde la URL
   const { organizationId } = useParams();
+  const { userId } = useUser(); // Ajusta según tu contexto
 
-  // Obtener la public key de Wompi desde las variables de entorno
   const PUBLIC_KEY = import.meta.env.VITE_WOMPI_PUBLIC_KEY;
 
-  const handlePayment = () => {
-    // Calcular el valor en centavos
+  const handlePayment = async () => {
     const amountInCents = plan.price * 100;
-    // Generar una referencia única para el pago
-    const reference = `membresia-${organizationId}-${Date.now()}`;
-    // Redireccionar al usuario a esta URL después del pago
+    // Genera una referencia robusta única (preferible con uuid)
+    const reference = `membresia-${organizationId}-${userId}-${uuidv4()}`;
     const redirectUrl = encodeURIComponent(
       `${window.location.origin}/organizations/${organizationId}/pago-exitoso`
     );
 
-    // Construir la URL de Wompi Checkout Web
-    const wompiUrl = `https://checkout.wompi.co/p/?public-key=${PUBLIC_KEY}&currency=COP&amount-in-cents=${amountInCents}&reference=${reference}&redirect-url=${redirectUrl}`;
+    // **1. Crea el paymentRequest en el backend antes de ir a Wompi**
+    try {
+      if (!userId) {
+        alert("No se pudo obtener el usuario. Por favor inicia sesión nuevamente.");
+        return;
+      }
+      await createPaymentRequest({
+        reference,
+        userId,
+        organizationId: organizationId!,
+        amount: plan.price,
+      });
 
-    // Redirigir al usuario al checkout de Wompi
-    window.location.href = wompiUrl;
+      // **2. Construye la URL de checkout y redirige**
+      const wompiUrl = `https://checkout.wompi.co/p/?public-key=${PUBLIC_KEY}&currency=COP&amount-in-cents=${amountInCents}&reference=${reference}&redirect-url=${redirectUrl}`;
+      window.location.href = wompiUrl;
+    } catch (e) {
+      console.log("Error al iniciar el pago:", e);
+      alert("No fue posible iniciar el pago. Intenta de nuevo.");
+      // Manejo de error (opcional: muestra un notification bonito)
+    }
   };
 
   return (
