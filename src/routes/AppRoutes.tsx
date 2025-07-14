@@ -14,6 +14,7 @@ import Profile from "../pages/profile";
 import AdminOrganizationEvents from "../pages/admin/index";
 import MembershipPaymentSuccess from "../pages/payment/MembershipPaymentSuccess";
 import OrganizationLanding from "../pages/organizationLanding";
+import SuperAdmin from "../pages/superadmin";
 
 export default function AppRoutes() {
   return (
@@ -27,6 +28,8 @@ export default function AppRoutes() {
         path="/organization/:organizationId/iniciar-sesion"
         element={<AuthPage />}
       />
+
+      <Route path="/superadmin" element={<SuperAdmin />} />
 
       {/* TODO lo que dependa de una orgId */}
       <Route
