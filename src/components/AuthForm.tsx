@@ -361,7 +361,7 @@ export default function AuthForm({
               setSmsLoading(true);
               setSmsError("");
               try {
-                const result = await confirmationResult.confirm(smsCode);
+                await confirmationResult.confirm(smsCode);
                 setResetStep(3);
               } catch (err: any) {
                 setSmsError("Código incorrecto o expirado.");
