@@ -315,9 +315,6 @@ export default function AuthForm({
           />
           <div id="recaptcha-container" />
           <Group>
-            <Button variant="subtle" onClick={() => setResetMethod(null)}>
-              Volver
-            </Button>
             <Button
               onClick={async () => {
                 setSmsLoading(true);
@@ -363,6 +360,9 @@ export default function AuthForm({
               mb="sm"
             >
               Enviar código SMS
+            </Button>
+            <Button variant="subtle" onClick={() => setResetMethod(null)}>
+              Volver
             </Button>
           </Group>
         </>
@@ -523,8 +523,13 @@ export default function AuthForm({
       )}
       <Group mb="md" justify="space-between" align="center">
         <Text fw={700} fz={24} mb="md">
-          {isRegister ? "Crear cuenta" : "Iniciar sesión"}
+          {isRegister
+            ? "Crear cuenta"
+            : isResetPassword
+            ? "Recuperar contraseña"
+            : "Iniciar sesión"}
         </Text>
+
         <Button
           variant="subtle"
           leftSection={<FaArrowLeft size={18} />}
