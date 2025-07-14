@@ -7,13 +7,13 @@ import AuthPage from "../pages/AuthPage";
 import NotFound from "../pages/NotFound";
 
 import OrganizationLayout from "../layouts/OrganizationLayout";
-import OrganizationDetail from "../pages/OrganizationDetail";
 import CourseDetail from "../pages/course/CourseDetail";
 import ActivityDetailContainer from "../pages/activity/ActivityDetailContainer";
 import Profile from "../pages/profile";
 
 import AdminOrganizationEvents from "../pages/admin/index";
 import MembershipPaymentSuccess from "../pages/payment/MembershipPaymentSuccess";
+import OrganizationLanding from "../pages/organizationLanding";
 
 export default function AppRoutes() {
   return (
@@ -30,10 +30,10 @@ export default function AppRoutes() {
 
       {/* TODO lo que dependa de una orgId */}
       <Route
-        path="/organizations/:organizationId/*"
+        path="/organization/:organizationId/*"
         element={<OrganizationLayout />}
       >
-        <Route index element={<OrganizationDetail />} />
+        <Route index element={<OrganizationLanding />} />
         <Route path="course/:eventId" element={<CourseDetail />} />
         <Route
           path="activitydetail/:activityId"

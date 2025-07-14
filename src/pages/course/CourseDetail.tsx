@@ -215,7 +215,7 @@ export default function CourseDetail() {
   };
 
   function getShareUrl(activity: Activity) {
-    return `${window.location.origin}/organizations/${organizationId}/course/${eventId}?activity=${activity._id}`;
+    return `${window.location.origin}/organization/${organizationId}/course/${eventId}?activity=${activity._id}`;
   }
 
   // Función para renderizar las actividades en la barra lateral
@@ -422,16 +422,16 @@ export default function CourseDetail() {
       setSearchParams({});
       setSelectedActivity(null);
     } else if (organizationId && eventId) {
-      // Si está en /organizations/:organizationId/course/:eventId sin query, navega a la lista de organizaciones
-      window.location.href = `${window.location.origin}/organizations/${organizationId}`;
+      // Si está en /organization/:organizationId/course/:eventId sin query, navega a la lista de organizaciones
+      window.location.href = `${window.location.origin}/organization/${organizationId}`;
     } else {
       // Fallback: navega a la raíz de organizaciones
-      window.location.href = `${window.location.origin}/organizations`;
+      window.location.href = `${window.location.origin}/organization`;
     }
   };
 
   const handleBackHome = () => {
-    navigate(`/organizations/${organizationId}`);
+    navigate(`/organization/${organizationId}`);
   };
 
   return (

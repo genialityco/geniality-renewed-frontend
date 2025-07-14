@@ -33,10 +33,10 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Las rutas que queremos "escuchar"
     const patterns = [
-      "/organizations/:orgId", // la raíz de la organización
-      "/organizations/:orgId/*", // cualquier subruta, incluido /admin
-      "/organizations/:orgId/admin", // exactamente /admin
-      "/organizations/:orgId/admin/*", // subrutas de admin
+      "/organization/:orgId", // la raíz de la organización
+      "/organization/:orgId/*", // cualquier subruta, incluido /admin
+      "/organization/:orgId/admin", // exactamente /admin
+      "/organization/:orgId/admin/*", // subrutas de admin
     ];
 
     let match: ReturnType<typeof matchPath> = null;

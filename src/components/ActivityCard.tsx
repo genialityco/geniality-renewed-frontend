@@ -15,6 +15,7 @@ interface ActivityCardProps {
   activity: Activity;
   matchedSegments?: MatchedSegment[];
   searchQuery?: string;
+  organizationId: string;
 }
 
 function formatTime(seconds: number): string {
@@ -28,6 +29,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   activity,
   matchedSegments = [],
   searchQuery,
+  organizationId
 }) => {
   const navigate = useNavigate();
 
@@ -54,7 +56,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   }, [activity._id]);
 
   const handleClickCard = (activityId: string) => {
-    navigate(`/activitydetail/${activityId}`);
+    navigate(`/organization/${organizationId}/activitydetail/${activityId}`);
   };
 
   return (

@@ -22,9 +22,9 @@ import {
 } from "../../services/eventService";
 import type { Event } from "../../services/types";
 
-import EventsTab from "./EventsTab";
-import AdminEventEdit from "./AdminEventEdit";
-import MembersTab from "./MembersTab";
+import EventsTab from "./events/EventsTab";
+import AdminEventEdit from "./events/AdminEventEdit";
+import MembersTab from "./members/MembersTab";
 
 export default function AdminOrganizationEvents() {
   const { organization } = useOrganization();

@@ -128,7 +128,7 @@ const MembershipPaymentSuccess = () => {
             <Button
               mt="lg"
               onClick={() =>
-                (window.location.href = `/organizations/${organizationId}`)
+                (window.location.href = `/organization/${organizationId}`)
               }
             >
               Ir al inicio
@@ -140,7 +140,7 @@ const MembershipPaymentSuccess = () => {
             <Button
               mt="lg"
               onClick={() =>
-                (window.location.href = `/organizations/${organizationId}/pago`)
+                (window.location.href = `/organization/${organizationId}/pago`)
               }
             >
               Intentar de nuevo

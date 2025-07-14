@@ -1,7 +1,7 @@
 // src/pages/AdminOrganizationEvents/MembersTable.tsx
 import { ScrollArea, Table, Button, Text, Tooltip } from "@mantine/core";
-import { useOrganization } from "../../context/OrganizationContext";
-import { OrganizationUser, PaymentPlan } from "../../services/types";
+import { useOrganization } from "../../../context/OrganizationContext";
+import { OrganizationUser, PaymentPlan } from "../../../services/types";
 
 interface Props {
   users: OrganizationUser[];

@@ -18,7 +18,7 @@ const auth = getAuth(app);
 // 2) Hack: Forzar la propiedad para testing
 // (tempAuth as any).settings.appVerificationDisabledForTesting = true;
 
-auth.languageCode = 'it';
+auth.languageCode = 'es';
 
 // 3) Exportas esa misma instancia como "auth"
 export { auth, RecaptchaVerifier}

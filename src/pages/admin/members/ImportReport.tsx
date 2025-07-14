@@ -1,5 +1,5 @@
 import { Table, Text, Button, Title } from "@mantine/core";
-import { ImportReportType } from "../../services/types";
+import { ImportReportType } from "../../../services/types";
 
 interface Props {
   report: ImportReportType;

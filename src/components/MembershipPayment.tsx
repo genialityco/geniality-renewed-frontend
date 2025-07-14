@@ -26,7 +26,7 @@ const MembershipPayment = () => {
     // Genera una referencia robusta única (preferible con uuid)
     const reference = `membresia-${organizationId}-${userId}-${uuidv4()}`;
     const redirectUrl = encodeURIComponent(
-      `${window.location.origin}/organizations/${organizationId}/pago-exitoso`
+      `${window.location.origin}/organization/${organizationId}/pago-exitoso`
     );
 
     // **1. Crea el paymentRequest en el backend antes de ir a Wompi**

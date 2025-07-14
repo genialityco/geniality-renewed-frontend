@@ -1,4 +1,3 @@
-// src/components/AuthForm.tsx
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -13,12 +12,26 @@ import {
   Center,
   Image,
   Text,
+  Container,
 } from "@mantine/core";
 import { useUser } from "../context/UserContext";
 import { fetchOrganizationById } from "../services/organizationService";
 import { UserProperty, PropertyType } from "../services/types";
-import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "../firebase/firebaseConfig";
+import { auth, RecaptchaVerifier } from "../firebase/firebaseConfig";
+import {
+  sendPasswordResetEmail,
+  signInWithPhoneNumber,
+  updatePassword,
+  User,
+} from "firebase/auth";
+import { FaArrowLeft } from "react-icons/fa6";
+
+// Esto le dice a TypeScript que window.recaptchaVerifier puede existir
+declare global {
+  interface Window {
+    recaptchaVerifier?: RecaptchaVerifier;
+  }
+}
 
 export default function AuthForm({
   isPaymentPage,
@@ -46,12 +59,23 @@ export default function AuthForm({
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Restablecer contraseña
+  // Recuperación de contraseña
   const [isResetPassword, setIsResetPassword] = useState(false);
-  const [resetEmail, setResetEmail] = useState("");
+  const [resetMethod, setResetMethod] = useState<"email" | "sms" | null>(null);
+
+  // Email reset
+  const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState("");
   const [resetError, setResetError] = useState("");
-  const [resetLoading, setResetLoading] = useState(false);
+
+  // SMS reset
+  const [resetPhone, setResetPhone] = useState("");
+  const [confirmationResult, setConfirmationResult] = useState<any>(null);
+  const [smsCode, setSmsCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [resetStep, setResetStep] = useState<1 | 2 | 3>(1);
+  const [smsLoading, setSmsLoading] = useState(false);
+  const [smsError, setSmsError] = useState("");
 
   // Load organization & init formValues
   useEffect(() => {
@@ -80,20 +104,22 @@ export default function AuthForm({
       .finally(() => setLoadingOrg(false));
   }, [organizationId]);
 
+  useEffect(() => {
+    if (isRegister && formError) setFormError(null);
+  }, [email]);
+
   const handleFieldChange = (name: string, value: any) => {
     setFormValues((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSignIn = async () => {
+    if (!organization) return;
     setSubmitting(true);
     setFormError(null);
-    if (!organization) return;
     try {
       await signIn(email, password);
-      navigate(`/organizations/${organization._id}`);
+      navigate(`/organization/${organization._id}`);
     } catch (err: any) {
-      console.log(err);
-      // Manejo de errores de Firebase Auth
       let msg = "Error al iniciar sesión. Intenta de nuevo.";
       if (err?.code === "auth/user-not-found") {
         msg = "No existe una cuenta con este correo.";
@@ -111,21 +137,50 @@ export default function AuthForm({
   const handleSignUp = async () => {
     if (!organization) return;
     setSubmitting(true);
+    setFormError(null);
+    // Construye el objeto properties incluyendo todo lo necesario
+    const propsToSend = {
+      ...formValues,
+      email,
+      ID: formValues.ID || password || "",
+      especialidad: formValues.especialidad || "",
+      // Puedes agregar más si lo necesitas (ej: "names": formValues.names)
+    };
+
     try {
       await signUp({
         email,
         password,
-        properties: formValues,
+        properties: propsToSend,
         organizationId: organization._id,
         positionId: organization.default_position_id,
         rolId: "5c1a59b2f33bd40bb67f2322",
       });
-      navigate(`/organizations/${organization._id}`);
-    } catch (err) {
-      console.error(err);
+      navigate(`/organization/${organization._id}`);
+    } catch (err: any) {
+      if (err?.code === "auth/email-already-in-use") {
+        setFormError("Ya existe una cuenta con ese correo.");
+      } else {
+        setFormError("Error al registrarse. Intenta de nuevo.");
+      }
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Para limpiar todos los estados del reset
+  const cleanResetStates = () => {
+    setResetLoading(false);
+    setResetMessage("");
+    setResetError("");
+    setResetPhone("");
+    setConfirmationResult(null);
+    setSmsCode("");
+    setNewPassword("");
+    setResetStep(1);
+    setSmsLoading(false);
+    setSmsError("");
+    setResetMethod(null);
   };
 
   if (loadingOrg) {
@@ -138,7 +193,7 @@ export default function AuthForm({
   if (!organization) {
     return (
       <Center style={{ height: "60vh" }}>
-        <Text color="red">Organización no encontrada</Text>
+        <Text c="red">Organización no encontrada</Text>
       </Center>
     );
   }
@@ -171,7 +226,6 @@ export default function AuthForm({
     const placeholder = isPhoneField ? "+57 3121234567" : prop.label;
 
     const common = {
-      key: prop.name,
       label: prop.label,
       placeholder,
       required: prop.mandatory,
@@ -188,18 +242,23 @@ export default function AuthForm({
       case PropertyType.TEXT:
         return (
           <TextInput
+            key={prop.name}
             {...common}
             type={isPhoneField ? "tel" : "text"}
             inputMode={isPhoneField ? "tel" : "text"}
-            // pattern solo si quieres forzar números y "+"
-            // pattern={isPhoneField ? "[+0-9 ]*" : undefined}
           />
         );
-      // ... el resto igual
       case PropertyType.EMAIL:
-        return <TextInput {...common} type="email" inputMode="email" />;
+        return (
+          <TextInput
+            key={prop.name}
+            {...common}
+            type="email"
+            inputMode="email"
+          />
+        );
       case PropertyType.CODEAREA:
-        return <Textarea {...common} />;
+        return <Textarea key={prop.name} {...common} />;
       case PropertyType.BOOLEAN:
         return (
           <Checkbox
@@ -232,8 +291,206 @@ export default function AuthForm({
     }
   };
 
+  // --- Flujo de recuperación por SMS ---
+  const smsRecoverBlock = (
+    <div style={{ margin: "1rem 0" }}>
+      {resetStep === 1 && (
+        <>
+          <TextInput
+            label="Número de teléfono"
+            placeholder="+573001234567"
+            value={resetPhone}
+            onChange={(e) => setResetPhone(e.currentTarget.value)}
+            mb="sm"
+            required
+          />
+          <div id="recaptcha-container" />
+          <Button
+            onClick={async () => {
+              setSmsLoading(true);
+              setSmsError("");
+              try {
+                // Borra cualquier recaptcha anterior
+                if (window.recaptchaVerifier) {
+                  window.recaptchaVerifier.clear();
+                  window.recaptchaVerifier = undefined;
+                }
+                // El orden correcto: primero auth, luego id del div, luego opciones
+                window.recaptchaVerifier = new RecaptchaVerifier(
+                  auth,
+                  "recaptcha-container",
+                  { size: "invisible" }
+                );
+                // El div debe estar montado antes de esto
+                const result = await signInWithPhoneNumber(
+                  auth,
+                  resetPhone,
+                  window.recaptchaVerifier
+                );
+                setConfirmationResult(result);
+                setResetStep(2);
+              } catch (error: any) {
+                setSmsError(
+                  error.message?.includes("blocked")
+                    ? "Demasiados intentos. Intenta más tarde."
+                    : error.message || "No se pudo enviar el SMS."
+                );
+              } finally {
+                setSmsLoading(false);
+              }
+            }}
+            loading={smsLoading}
+            fullWidth
+            mb="sm"
+          >
+            Enviar código SMS
+          </Button>
+        </>
+      )}
+      {resetStep === 2 && (
+        <>
+          <TextInput
+            label="Código recibido"
+            placeholder="123456"
+            value={smsCode}
+            onChange={(e) => setSmsCode(e.currentTarget.value)}
+            mb="sm"
+          />
+          <Button
+            onClick={async () => {
+              setSmsLoading(true);
+              setSmsError("");
+              try {
+                const result = await confirmationResult.confirm(smsCode);
+                setResetStep(3);
+              } catch (err: any) {
+                setSmsError("Código incorrecto o expirado.");
+              } finally {
+                setSmsLoading(false);
+              }
+            }}
+            loading={smsLoading}
+            fullWidth
+            mb="sm"
+          >
+            Validar código
+          </Button>
+        </>
+      )}
+      {resetStep === 3 && (
+        <>
+          <PasswordInput
+            label="Nueva contraseña"
+            placeholder="********"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.currentTarget.value)}
+            mb="sm"
+          />
+          <Button
+            onClick={async () => {
+              setSmsLoading(true);
+              setSmsError("");
+              try {
+                await updatePassword(auth.currentUser as User, newPassword);
+                setResetMessage("¡Contraseña restablecida con éxito!");
+                cleanResetStates();
+                setIsResetPassword(false);
+              } catch (err: any) {
+                setSmsError("Error cambiando la contraseña. Intenta de nuevo.");
+              } finally {
+                setSmsLoading(false);
+              }
+            }}
+            loading={smsLoading}
+            fullWidth
+            mb="sm"
+          >
+            Cambiar contraseña
+          </Button>
+        </>
+      )}
+      {smsError && (
+        <Text color="red" mt="sm">
+          {smsError}
+        </Text>
+      )}
+      {resetStep > 1 && (
+        <Button
+          variant="subtle"
+          size="xs"
+          mt="sm"
+          onClick={() => {
+            setResetStep(1);
+            setSmsCode("");
+            setConfirmationResult(null);
+            setSmsError("");
+          }}
+        >
+          Volver
+        </Button>
+      )}
+    </div>
+  );
+
+  // --- Flujo de recuperación por Email ---
+  const emailRecoverBlock = (
+    <>
+      <TextInput
+        label="Correo"
+        placeholder="tucorreo@ejemplo.com"
+        value={email}
+        onChange={(e) => setEmail(e.currentTarget.value)}
+        mb="sm"
+        required
+      />
+      <Group>
+        <Button
+          onClick={async () => {
+            setResetLoading(true);
+            setResetMessage("");
+            setResetError("");
+            try {
+              auth.languageCode = "es";
+              await sendPasswordResetEmail(auth, email, {
+                url: `${window.location.origin}/organization/${organizationId}`,
+              });
+              setResetMessage(
+                "¡Revisa tu correo para restablecer tu contraseña!"
+              );
+            } catch (err: any) {
+              setResetError(
+                err.code === "auth/user-not-found"
+                  ? "No existe una cuenta con ese correo."
+                  : "Error enviando el correo. Intenta más tarde."
+              );
+            } finally {
+              setResetLoading(false);
+            }
+          }}
+          loading={resetLoading}
+        >
+          Enviar enlace de recuperación
+        </Button>
+        <Button variant="subtle" onClick={() => setResetMethod(null)}>
+          Volver
+        </Button>
+      </Group>
+      {resetMessage && (
+        <Text color="green" mt="sm">
+          {resetMessage}
+        </Text>
+      )}
+      {resetError && (
+        <Text color="red" mt="sm">
+          {resetError}
+        </Text>
+      )}
+    </>
+  );
+
+  // --- Render ---
   return (
-    <div style={{ maxWidth: 480, margin: "2rem auto", textAlign: "left" }}>
+    <Container size="xs" p="md" style={{ maxWidth: 480 }}>
       {organization.styles?.event_image && (
         <Image
           src={organization.styles.event_image}
@@ -241,9 +498,22 @@ export default function AuthForm({
           mb="md"
           radius="sm"
           style={{ cursor: "pointer" }}
-          onClick={() => navigate(`/organizations/${organization._id}`)}
+          onClick={() => navigate(`/organization/${organization._id}`)}
         />
       )}
+      <Group mb="md" justify="space-between" align="center">
+        <Text fw={700} fz={24} mb="md">
+          {isRegister ? "Crear cuenta" : "Iniciar sesión"}
+        </Text>
+        <Button
+          variant="subtle"
+          leftSection={<FaArrowLeft size={18} />}
+          onClick={() => navigate(`/organization/${organization._id}`)}
+          size="xs"
+        >
+          Ir al inicio
+        </Button>
+      </Group>
       <Text>{isPaymentPage && "📚 ¡Activa tu acceso en 2 pasos!"}</Text>
       <Text>
         {isPaymentPage &&
@@ -257,58 +527,39 @@ export default function AuthForm({
         {isPaymentPage && "👉 ¡Te tomará menos de 2 minutos comenzar!"}
       </Text>
 
+      {/* --- Recuperación de contraseña (ambos métodos) --- */}
       {isResetPassword ? (
         <div>
-          <TextInput
-            label="Ingresa tu correo"
-            placeholder="tucorreo@ejemplo.com"
-            value={resetEmail}
-            onChange={(e) => setResetEmail(e.currentTarget.value)}
-            required
-            mb="sm"
-          />
-          <Group>
-            <Button
-              onClick={async () => {
-                setResetLoading(true);
-                setResetMessage("");
-                setResetError("");
-                try {
-                  auth.languageCode = "es";
-                  await sendPasswordResetEmail(auth, resetEmail, {
-                    url: `${window.location.origin}/organizations/${organizationId}`,
-                  });
-                  setResetMessage(
-                    "¡Revisa tu correo para restablecer tu contraseña!"
-                  );
-                } catch (err: any) {
-                  setResetError(
-                    err.code === "auth/user-not-found"
-                      ? "No existe una cuenta con ese correo."
-                      : "Error enviando el correo. Intenta más tarde."
-                  );
-                } finally {
-                  setResetLoading(false);
-                }
-              }}
-              loading={resetLoading}
-            >
-              Enviar enlace de recuperación
-            </Button>
-            <Button variant="subtle" onClick={() => setIsResetPassword(false)}>
-              Cancelar
-            </Button>
-          </Group>
-          {resetMessage && (
-            <Text color="green" mt="sm">
-              {resetMessage}
-            </Text>
+          {/* Selección del método */}
+          {!resetMethod && (
+            <Group grow mb="md">
+              <Button variant="light" onClick={() => setResetMethod("email")}>
+                Recuperar por Email
+              </Button>
+              <Button
+                variant="light"
+                color="teal"
+                onClick={() => setResetMethod("sms")}
+              >
+                Recuperar por SMS
+              </Button>
+            </Group>
           )}
-          {resetError && (
-            <Text color="red" mt="sm">
-              {resetError}
-            </Text>
-          )}
+
+          {resetMethod === "email" && emailRecoverBlock}
+          {resetMethod === "sms" && smsRecoverBlock}
+
+          <Button
+            variant="light"
+            mt="lg"
+            fullWidth
+            onClick={() => {
+              setIsResetPassword(false);
+              cleanResetStates();
+            }}
+          >
+            Cancelar
+          </Button>
         </div>
       ) : (
         <>
@@ -370,7 +621,10 @@ export default function AuthForm({
                 variant="light"
                 fullWidth
                 mt="xs"
-                onClick={() => setIsResetPassword(true)}
+                onClick={() => {
+                  setIsResetPassword(true);
+                  cleanResetStates();
+                }}
               >
                 ¿Olvidaste tu contraseña?
               </Button>
@@ -378,6 +632,6 @@ export default function AuthForm({
           </Group>
         </>
       )}
-    </div>
+    </Container>
   );
 }

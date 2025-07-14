@@ -42,8 +42,8 @@ export async function updateModule(
 }
 
 // Eliminar un módulo
-export async function deleteModule(id: string, _moduleId: string): Promise<Module> {
-  const response = await api.delete<Module>(`${BASE_URL}/${id}`);
+export async function deleteModule(moduleId: string): Promise<Module> {
+  const response = await api.delete<Module>(`${BASE_URL}/${moduleId}`);
   return response.data;
 }
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Modal, TextInput, Group, Button, Text } from "@mantine/core";
-import api from "../../services/api";
+import api from "../../../services/api";
 
 interface Props {
   opened: boolean;

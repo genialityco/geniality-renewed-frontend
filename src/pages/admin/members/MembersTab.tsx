@@ -12,19 +12,19 @@ import ChangePaymentPlanModal from "./ChangePaymentPlanModal";
 import {
   createOrUpdateOrganizationUser,
   fetchOrganizationUsersByOrganizationId,
-} from "../../services/organizationUserService";
+} from "../../../services/organizationUserService";
 
 import {
   createPaymentPlan,
   updatePaymentPlanDateUntil,
-} from "../../services/paymentPlansService";
+} from "../../../services/paymentPlansService";
 
 import type {
   OrganizationUser,
   ImportReportType,
-} from "../../services/types";
+} from "../../../services/types";
 
-import { useOrganization } from "../../context/OrganizationContext";
+import { useOrganization } from "../../../context/OrganizationContext";
 
 export default function MembersTab() {
   const { organization } = useOrganization();

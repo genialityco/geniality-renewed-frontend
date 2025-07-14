@@ -9,12 +9,12 @@ import {
   Group,
 } from "@mantine/core";
 
-import { Event } from "../../services/types";
-import { fetchEventById } from "../../services/eventService";
+import { Event } from "../../../services/types";
+import { fetchEventById } from "../../../services/eventService";
 
-import BasicEventData from "./components/BasicEventData";
-import AdminModules from "./components/AdminModules";
-import AdminActivities from "./components/AdminActivities";
+import BasicEventData from "./BasicEventData";
+import AdminModules from "./AdminModules";
+import AdminActivities from "./AdminActivities";
 
 interface Props {
   organizationId: string;

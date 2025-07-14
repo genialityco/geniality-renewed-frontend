@@ -30,7 +30,7 @@ export default function Organizations() {
   const handlePasswordConfirm = () => {
     if (password === "ace2040") {
       setModalOpen(false);
-      navigate(`/organizations/${adminOrgId}/admin`);
+      navigate(`/organization/${adminOrgId}/admin`);
     } else {
       setError("Contraseña incorrecta");
     }
@@ -45,7 +45,7 @@ export default function Organizations() {
       <List>
         {organizations.map((org) => (
           <List.Item key={org._id}>
-            <Link to={`/organizations/${org._id}`}>{org.name}</Link>
+            <Link to={`/organization/${org._id}`}>{org.name}</Link>
             <Button
               variant="outline"
               size="xs"

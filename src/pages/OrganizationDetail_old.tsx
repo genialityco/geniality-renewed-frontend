@@ -387,10 +387,10 @@ export default function OrganizationDetail() {
     } else if (!paymentPlan || isMembershipExpired(paymentPlan)) {
       // Si el plan está vencido, muestra el modal de pago
       // openPaymentModal();
-      // navigate(`/organizations/${organizationId}/pagos`);
+      // navigate(`/organization/${organizationId}/pagos`);
     } else {
       // Si está autenticado y el plan activo, navega al curso
-      navigate(`/organizations/${organizationId}/course/${eventId}`);
+      navigate(`/organization/${organizationId}/course/${eventId}`);
     }
   };
 
@@ -512,6 +512,7 @@ export default function OrganizationDetail() {
                       activity={foundActivity}
                       matchedSegments={result.matchedSegments}
                       searchQuery={searchQuery}
+                      organizationId={organizationId as string}
                     />
                   </Grid.Col>
                 );
@@ -539,7 +540,7 @@ export default function OrganizationDetail() {
                     key={activity._id}
                     span={{ xs: 12, sm: 6, md: 6, lg: 6 }}
                   >
-                    <ActivityCard activity={activity} />
+                    <ActivityCard activity={activity} organizationId={organizationId as string} />
                   </Grid.Col>
                 ))
               )}
@@ -621,7 +622,7 @@ export default function OrganizationDetail() {
         </Text>
         <Button
           fullWidth
-          onClick={() => navigate(`/organizations/${organizationId}/pagos`)}
+          onClick={() => navigate(`/organization/${organizationId}/pagos`)}
         >
           Comenzar
         </Button>

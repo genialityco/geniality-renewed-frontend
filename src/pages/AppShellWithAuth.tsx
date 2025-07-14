@@ -10,10 +10,10 @@ export default function AppShellWithAuth() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  // extrae el orgId de la URL: espera rutas que empiecen "/organizations/:orgId"
+  // extrae el orgId de la URL: espera rutas que empiecen "/organization/:orgId"
   const segments = pathname.split("/").filter(Boolean);
   const orgId =
-    segments[0] === "organizations" && segments[1] ? segments[1] : null;
+    segments[0] === "organization" && segments[1] ? segments[1] : null;
 
   const handleLogout = async () => {
     try {
@@ -25,7 +25,7 @@ export default function AppShellWithAuth() {
 
   const handleNavigate = (tab: string) => {
     if (orgId) {
-      navigate(`/organizations/${orgId}/profile?tab=${tab}`);
+      navigate(`/organization/${orgId}/profile?tab=${tab}`);
     } else {
       navigate(`/profile?tab=${tab}`);
     }
@@ -47,7 +47,7 @@ export default function AppShellWithAuth() {
           style={{ cursor: orgId ? "pointer" : "default" }}
           onClick={() => {
             if (orgId) {
-              navigate(`/organizations/${orgId}`);
+              navigate(`/organization/${orgId}`);
             }
           }}
         >
