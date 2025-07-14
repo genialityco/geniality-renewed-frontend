@@ -8,6 +8,7 @@ import {
 } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { createOrUpdateOrganizationUser } from "../services/organizationUserService";
+import { createOrUpdateUser } from "../services/userService";
 
 declare global {
   interface Window {
@@ -90,6 +91,13 @@ export default function VincularTelefonoModal({
           console.log(error);
         }
       }
+
+      await createOrUpdateUser({
+        uid: auth.currentUser!.uid,
+        names: organizationUser.properties.names,
+        email: organizationUser.properties.email,
+        phone,
+      });
 
       setStep(1);
       setPhone("");

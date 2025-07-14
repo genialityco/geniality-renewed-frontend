@@ -52,6 +52,7 @@ export const createOrUpdateUser = async (payload: {
   uid: string;
   names: string;
   email: string;
+  phone?: string;
 }): Promise<User> => {
   const response = await api.post<User>("/users", payload);
   return response.data;
