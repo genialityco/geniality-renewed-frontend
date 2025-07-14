@@ -5,11 +5,26 @@ import { User } from "./types";
 /**
  * Obtiene un usuario por su firebase_uid (GET /users/firebase/:uid)
  */
-export const fetchUserByFirebaseUid = async (
-  uid: string
-): Promise<User> => {
+export const fetchUserByFirebaseUid = async (uid: string): Promise<User> => {
   const response = await api.get<User>(`/users/firebase/${uid}`);
   return response.data;
+};
+
+/**
+ * Obtiene un usuario por su teléfono (GET /users/phone/:phone)
+ */
+
+export const getUserByPhone = async (phone: string): Promise<User | null> => {
+  try {
+    const response = await api.get<User>(`/users/phone/${phone}`);
+    return response.data;
+  } catch (error: any) {
+    // Si el backend responde 404, axios pone status aquí
+    if (error.response && error.response.status === 404) {
+      return null; // No existe usuario
+    }
+    throw error; // Otros errores (red, 500, etc.)
+  }
 };
 
 /**

@@ -25,6 +25,8 @@ import {
   User,
 } from "firebase/auth";
 import { FaArrowLeft } from "react-icons/fa6";
+import VincularTelefonoModal from "./VincularTelefonoModal";
+import { getUserByPhone } from "../services/userService";
 
 // Esto le dice a TypeScript que window.recaptchaVerifier puede existir
 declare global {
@@ -40,7 +42,7 @@ export default function AuthForm({
 }) {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
-  const { signIn, signUp } = useUser();
+  const { signIn, signUp, organizationUserData } = useUser();
 
   const [organization, setOrganization] = useState<{
     _id: string;
@@ -76,6 +78,9 @@ export default function AuthForm({
   const [resetStep, setResetStep] = useState<1 | 2 | 3>(1);
   const [smsLoading, setSmsLoading] = useState(false);
   const [smsError, setSmsError] = useState("");
+
+  // Modal de vinculac telefono
+  const [modalOpen, setModalOpen] = useState(false);
 
   // Load organization & init formValues
   useEffect(() => {
@@ -118,7 +123,11 @@ export default function AuthForm({
     setFormError(null);
     try {
       await signIn(email, password);
-      navigate(`/organization/${organization._id}`);
+      if (auth.currentUser && !auth.currentUser.phoneNumber) {
+        setModalOpen(true);
+      } else {
+        navigate(`/organization/${organization._id}`);
+      }
     } catch (err: any) {
       let msg = "Error al iniciar sesión. Intenta de nuevo.";
       if (err?.code === "auth/user-not-found") {
@@ -305,46 +314,57 @@ export default function AuthForm({
             required
           />
           <div id="recaptcha-container" />
-          <Button
-            onClick={async () => {
-              setSmsLoading(true);
-              setSmsError("");
-              try {
-                // Borra cualquier recaptcha anterior
-                if (window.recaptchaVerifier) {
-                  window.recaptchaVerifier.clear();
-                  window.recaptchaVerifier = undefined;
+          <Group>
+            <Button variant="subtle" onClick={() => setResetMethod(null)}>
+              Volver
+            </Button>
+            <Button
+              onClick={async () => {
+                setSmsLoading(true);
+                setSmsError("");
+                try {
+                  const userByPhone = await getUserByPhone(resetPhone);
+                  if (!userByPhone) {
+                    setSmsError(
+                      "No existe un usuario con este número de teléfono, prueba recuperar con email."
+                    );
+                    return;
+                  }
+                  // Borra cualquier recaptcha anterior
+                  if (window.recaptchaVerifier) {
+                    window.recaptchaVerifier.clear();
+                    window.recaptchaVerifier = undefined;
+                  }
+                  // El orden correcto: primero auth, luego id del div, luego opciones
+                  window.recaptchaVerifier = new RecaptchaVerifier(
+                    auth,
+                    "recaptcha-container",
+                    { size: "invisible" }
+                  );
+                  // El div debe estar montado antes de esto
+                  const result = await signInWithPhoneNumber(
+                    auth,
+                    resetPhone,
+                    window.recaptchaVerifier
+                  );
+                  setConfirmationResult(result);
+                  setResetStep(2);
+                } catch (error: any) {
+                  setSmsError(
+                    error.message?.includes("blocked")
+                      ? "Demasiados intentos. Intenta más tarde."
+                      : error.message || "No se pudo enviar el SMS."
+                  );
+                } finally {
+                  setSmsLoading(false);
                 }
-                // El orden correcto: primero auth, luego id del div, luego opciones
-                window.recaptchaVerifier = new RecaptchaVerifier(
-                  auth,
-                  "recaptcha-container",
-                  { size: "invisible" }
-                );
-                // El div debe estar montado antes de esto
-                const result = await signInWithPhoneNumber(
-                  auth,
-                  resetPhone,
-                  window.recaptchaVerifier
-                );
-                setConfirmationResult(result);
-                setResetStep(2);
-              } catch (error: any) {
-                setSmsError(
-                  error.message?.includes("blocked")
-                    ? "Demasiados intentos. Intenta más tarde."
-                    : error.message || "No se pudo enviar el SMS."
-                );
-              } finally {
-                setSmsLoading(false);
-              }
-            }}
-            loading={smsLoading}
-            fullWidth
-            mb="sm"
-          >
-            Enviar código SMS
-          </Button>
+              }}
+              loading={smsLoading}
+              mb="sm"
+            >
+              Enviar código SMS
+            </Button>
+          </Group>
         </>
       )}
       {resetStep === 2 && (
@@ -410,7 +430,7 @@ export default function AuthForm({
         </>
       )}
       {smsError && (
-        <Text color="red" mt="sm">
+        <Text c="red" mt="sm">
           {smsError}
         </Text>
       )}
@@ -476,12 +496,12 @@ export default function AuthForm({
         </Button>
       </Group>
       {resetMessage && (
-        <Text color="green" mt="sm">
+        <Text c="green" mt="sm">
           {resetMessage}
         </Text>
       )}
       {resetError && (
-        <Text color="red" mt="sm">
+        <Text c="red" mt="sm">
           {resetError}
         </Text>
       )}
@@ -632,6 +652,12 @@ export default function AuthForm({
           </Group>
         </>
       )}
+      <VincularTelefonoModal
+        opened={modalOpen}
+        organizationId={organization._id}
+        organizationUser={organizationUserData}
+        onClose={() => setModalOpen(false)}
+      />
     </Container>
   );
 }
