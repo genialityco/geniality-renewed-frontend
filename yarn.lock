@@ -1582,6 +1582,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/react-phone-number-input@npm:^3.1.37":
+  version: 3.1.37
+  resolution: "@types/react-phone-number-input@npm:3.1.37"
+  dependencies:
+    react-phone-number-input: "npm:*"
+  checksum: 10c0/ac5a14da70f69740615131a6c91e509e795aabe1d2181d2a7af0efbf936be492fa5ca947226d6ab5b7ef92702a4156395fd087a35faa746b0da2f4a2b4cda554
+  languageName: node
+  linkType: hard
+
 "@types/react@npm:^19.1.8":
   version: 19.1.8
   resolution: "@types/react@npm:19.1.8"
@@ -1793,6 +1802,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"classnames@npm:^2.5.1":
+  version: 2.5.1
+  resolution: "classnames@npm:2.5.1"
+  checksum: 10c0/afff4f77e62cea2d79c39962980bf316bacb0d7c49e13a21adaadb9221e1c6b9d3cdb829d8bb1b23c406f4e740507f37e1dcf506f7e3b7113d17c5bab787aa69
+  languageName: node
+  linkType: hard
+
 "cliui@npm:^8.0.1":
   version: 8.0.1
   resolution: "cliui@npm:8.0.1"
@@ -1854,6 +1870,13 @@ __metadata:
   version: 1.0.2
   resolution: "cookie@npm:1.0.2"
   checksum: 10c0/fd25fe79e8fbcfcaf6aa61cd081c55d144eeeba755206c058682257cb38c4bd6795c6620de3f064c740695bb65b7949ebb1db7a95e4636efb8357a335ad3f54b
+  languageName: node
+  linkType: hard
+
+"country-flag-icons@npm:^1.5.17":
+  version: 1.5.19
+  resolution: "country-flag-icons@npm:1.5.19"
+  checksum: 10c0/f6adeadd7a406c593c8cfe4b3f0630d937188f79854755677448bd89024d404307b7a38b03612d5310c77c45ea535e0c409f24dc80d787673f1e3b35ddae43de
   languageName: node
   linkType: hard
 
@@ -2597,6 +2620,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"input-format@npm:^0.3.10":
+  version: 0.3.14
+  resolution: "input-format@npm:0.3.14"
+  dependencies:
+    prop-types: "npm:^15.8.1"
+  peerDependencies:
+    react: ">=18.1.0"
+    react-dom: ">=18.1.0"
+  peerDependenciesMeta:
+    react:
+      optional: true
+    react-dom:
+      optional: true
+  checksum: 10c0/37bb23e0dd15223b2ac8a25b09bc26e4d613cbd93c040dcdb490a1661dd0782c2742ad819b9dbd4b154a9e09ce1a69046a78e4ee943171b7ec86b07b50324ad6
+  languageName: node
+  linkType: hard
+
 "internmap@npm:1 - 2":
   version: 2.0.3
   resolution: "internmap@npm:2.0.3"
@@ -2707,6 +2747,13 @@ __metadata:
   version: 2.0.6
   resolution: "klona@npm:2.0.6"
   checksum: 10c0/94eed2c6c2ce99f409df9186a96340558897b3e62a85afdc1ee39103954d2ebe1c1c4e9fe2b0952771771fa96d70055ede8b27962a7021406374fdb695fd4d01
+  languageName: node
+  linkType: hard
+
+"libphonenumber-js@npm:^1.11.20":
+  version: 1.12.10
+  resolution: "libphonenumber-js@npm:1.12.10"
+  checksum: 10c0/c348aee275c4161e289b14f2ffd0c00f2923dcd5b2cfd99415b2f5ea15fa0632adffb78c51373b3a2839416223b65452bee11cc5386d2352782e1b064aaaf0ce
   languageName: node
   linkType: hard
 
@@ -3240,6 +3287,22 @@ __metadata:
     react: ^0.14 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
     react-dom: ^0.14 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
   checksum: 10c0/e55cd16d9f7379a717e77d519db06ed455cc2df9842cd23499b60bc2ba1179df580742e27867a4ae84e0d308b18c0773b7e8943f9162e853f97bd194d15b0de7
+  languageName: node
+  linkType: hard
+
+"react-phone-number-input@npm:*, react-phone-number-input@npm:^3.4.12":
+  version: 3.4.12
+  resolution: "react-phone-number-input@npm:3.4.12"
+  dependencies:
+    classnames: "npm:^2.5.1"
+    country-flag-icons: "npm:^1.5.17"
+    input-format: "npm:^0.3.10"
+    libphonenumber-js: "npm:^1.11.20"
+    prop-types: "npm:^15.8.1"
+  peerDependencies:
+    react: ">=16.8"
+    react-dom: ">=16.8"
+  checksum: 10c0/96724e10c18c410602a1d03a93dfa9688b72a1f242891a1d565c4f77718f37463603b390360b8499320d5c5853feddb489bc17129c804a548f0c050f1bdef7e2
   languageName: node
   linkType: hard
 
@@ -3965,6 +4028,7 @@ __metadata:
     "@types/node": "npm:^24.0.13"
     "@types/react": "npm:^19.1.8"
     "@types/react-dom": "npm:^19.1.6"
+    "@types/react-phone-number-input": "npm:^3.1.37"
     "@types/vimeo__player": "npm:^2"
     "@vimeo/player": "npm:^2.25.1"
     "@vitejs/plugin-react": "npm:^4.3.4"
@@ -3977,6 +4041,7 @@ __metadata:
     react: "npm:^19.0.0"
     react-dom: "npm:^19.0.0"
     react-icons: "npm:^5.5.0"
+    react-phone-number-input: "npm:^3.4.12"
     react-player: "npm:^2.16.0"
     react-router-dom: "npm:^7.1.5"
     recharts: "npm:2"

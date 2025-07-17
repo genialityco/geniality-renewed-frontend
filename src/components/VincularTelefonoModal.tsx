@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Modal, TextInput, Button, Text, Group } from "@mantine/core";
 import { auth, RecaptchaVerifier } from "../firebase/firebaseConfig";
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 import {
   PhoneAuthProvider,
   linkWithCredential,
@@ -133,27 +135,28 @@ export default function VincularTelefonoModal({
           Si no lo vinculas, solo podrás recuperar la cuenta por email.
         </span>
       </Text>
-      {step === 1 && (
-        <>
-          <TextInput
-            label="Número de teléfono"
-            placeholder="+573001234567"
-            value={phone}
-            onChange={(e) => setPhone(e.currentTarget.value)}
-            mb="sm"
-            required
-          />
-          <div id="recaptcha-link-container" />
-          <Group>
-            <Button variant="subtle" color="gray" onClick={onCancelGoHome}>
-              No, prefiero solo email
-            </Button>
-            <Button loading={loading} onClick={handleSendCode}>
-              Enviar código
-            </Button>
-          </Group>
-        </>
-      )}
+{step === 1 && (
+  <>
+    <Text size="sm" mb={4}>Número de teléfono</Text>
+    <PhoneInput
+      defaultCountry="CO"
+      value={phone}
+      onChange={(value) => setPhone(value || "")}
+      international
+      countryCallingCodeEditable={false}
+    />
+    <div id="recaptcha-link-container" />
+    <Group mt="md">
+      <Button variant="subtle" color="gray" onClick={onCancelGoHome}>
+        No, prefiero solo email
+      </Button>
+      <Button loading={loading} onClick={handleSendCode}>
+        Enviar código
+      </Button>
+    </Group>
+  </>
+)}
+
       {step === 2 && (
         <>
           <TextInput
