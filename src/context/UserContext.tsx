@@ -197,18 +197,35 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Carga user info de localStorage
   useEffect(() => {
     if (!loading && firebaseUser) {
-      const localData = localStorage.getItem("myUserInfo");
-      if (localData) {
-        try {
-          const parsed = JSON.parse(localData);
-          setUserId(parsed._id);
-          setName(parsed.name);
-          setEmail(parsed.email);
-        } catch {
-          console.error("Error parsing localStorage user info");
+      (async () => {
+        const localData = localStorage.getItem("myUserInfo");
+        if (localData) {
+          try {
+            const parsed = JSON.parse(localData);
+            const userData = await fetchUserByFirebaseUid(firebaseUser.uid);
+            // Si el sessionToken cambió, otra sesión inició después
+            if (userData.sessionToken !== parsed.sessionToken) {
+              alert(
+                "Tu sesión fue cerrada porque se inició en otro dispositivo."
+              );
+              await signOut();
+            } else {
+              // Si no ha cambiado, sincroniza datos como siempre
+              setUserId(userData._id);
+              setName(userData.name || userData.names);
+              setEmail(userData.email);
+              setOrganizationUserData(
+                await fetchOrganizationUserByUserId(userData._id)
+              );
+            }
+          } catch {
+            console.error("Error validando sesión única");
+            await signOut();
+          }
         }
-      }
+      })();
     }
+    // eslint-disable-next-line
   }, [loading, firebaseUser]);
 
   // signIn: Firebase + carga user desde backend
@@ -220,9 +237,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
     );
     setUserId(userData._id);
     setOrganizationUserData(organizationUserData);
-    setName(userData.name);
+    setName(userData.name || userData.names); // por si usas 'names'
     setEmail(userData.email);
-    localStorage.setItem("myUserInfo", JSON.stringify(userData));
+    // ¡Guarda también el sessionToken!
+    localStorage.setItem(
+      "myUserInfo",
+      JSON.stringify({
+        ...userData,
+        sessionToken: userData.sessionToken,
+      })
+    );
   }, []);
 
   // signUp: Firebase + /users + /organization-users
@@ -267,7 +291,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setUserId(userRecord._id);
     setName(userRecord.names); // <- usar 'names' aquí también
     setEmail(userRecord.email);
-    localStorage.setItem("myUserInfo", JSON.stringify(userRecord));
+    localStorage.setItem(
+      "myUserInfo",
+      JSON.stringify({
+        ...userRecord,
+        sessionToken: userRecord.sessionToken,
+      })
+    );
   }, []);
 
   // signOut: Firebase + limpiar estado
