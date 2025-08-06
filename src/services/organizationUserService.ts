@@ -49,10 +49,12 @@ export const fetchOrganizationUsersByOrganizationId = async (
   if (search && search.trim()) {
     url += `&search=${encodeURIComponent(search)}`;
   }
-  const response = await api.get<{ results: OrganizationUser[]; total: number }>(url);
+  const response = await api.get<{
+    results: OrganizationUser[];
+    total: number;
+  }>(url);
   return response.data;
 };
-
 
 /**
  * Obtiene un organization-user por su email (en properties.email)
@@ -63,5 +65,17 @@ export const fetchOrganizationUserByEmail = async (
   const response = await api.get<OrganizationUser | null>(
     `/organization-users/by-email/${encodeURIComponent(email)}`
   );
+  return response.data;
+};
+
+export const fetchAllOrganizationUsersByOrganizationId = async (
+  organizationId: string,
+  search = ""
+): Promise<OrganizationUser[]> => {
+  let url = `/organization-users/all-by-organization/${organizationId}`;
+  if (search && search.trim()) {
+    url += `?search=${encodeURIComponent(search)}`;
+  }
+  const response = await api.get<OrganizationUser[]>(url);
   return response.data;
 };
