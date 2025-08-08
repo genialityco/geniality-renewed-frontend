@@ -27,7 +27,7 @@ import { fetchQuizAttemptsByUserAndQuiz } from "../services/quizAttemptService";
 
 import { useUser } from "../context/UserContext";
 import { Activity, Host, Quiz, QuizAttempt } from "../services/types";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 interface Fragment {
   segmentId: number;
@@ -61,6 +61,7 @@ export default function ActivityDetail({
   const { userId } = useUser();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { organizationId } = useParams<{ organizationId: string }>();
 
   const currentIndex = activities.findIndex((act) => act._id === activity?._id);
   const prevActivity = currentIndex > 0 ? activities[currentIndex - 1] : null;
@@ -322,7 +323,7 @@ export default function ActivityDetail({
         {/* Mostrar flecha solo si la URL es organizations/:orgId/activitydetail/:activityId */}
         {(() => {
           const match = window.location.pathname.match(
-            /^\/organizations\/[^/]+\/activitydetail\/[^/]+/
+            /^\/organization\/[^/]+\/activitydetail\/[^/]+/
           );
           if (match) {
             return (
@@ -330,11 +331,10 @@ export default function ActivityDetail({
                 size={22}
                 style={{ cursor: "pointer", marginRight: 12 }}
                 onClick={() => {
-                  // Navega hacia atrás o a la lista de actividades de la organización
                   window.history.length > 1
                     ? window.history.back()
                     : window.location.assign(
-                        `/organizations/${
+                        `/organization/${
                           window.location.pathname.split("/")[2]
                         }`
                       );
@@ -342,8 +342,10 @@ export default function ActivityDetail({
               />
             );
           }
+
           return null;
         })()}
+
         <Title order={3}>{activity.name}</Title>
       </Group>
       {typeof activity.event_id === "object" &&
@@ -363,21 +365,8 @@ export default function ActivityDetail({
                   (activity.event_id as any)._id ||
                   (activity.event_id as any).id ||
                   "";
-                // Extrae organizationId de la URL actual
-                const orgMatch = window.location.pathname.match(
-                  /organizations\/([^/]+)/
-                );
-                const organizationId = orgMatch ? orgMatch[1] : undefined;
                 if (eventId && organizationId) {
-                  window.open(
-                    `${window.location.origin}/organizations/${organizationId}/course/${eventId}`,
-                    "_blank"
-                  );
-                } else if (eventId) {
-                  window.open(
-                    `${window.location.origin}/course/${eventId}`,
-                    "_blank"
-                  );
+                  navigate(`/organization/${organizationId}/course/${eventId}`);
                 }
               }}
             >

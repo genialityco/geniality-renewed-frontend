@@ -20,6 +20,7 @@ import {
 import {
   createOrUpdateUser,
   fetchUserByFirebaseUid,
+  refreshSessionToken,
 } from "../services/userService";
 import {
   fetchOrganizationUserByEmail,
@@ -229,25 +230,31 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, [loading, firebaseUser]);
 
   // signIn: Firebase + carga user desde backend
-  const signIn = useCallback(async (email: string, password: string) => {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    const userData = await fetchUserByFirebaseUid(result.user.uid);
-    const organizationUserData = await fetchOrganizationUserByUserId(
-      userData._id
-    );
-    setUserId(userData._id);
-    setOrganizationUserData(organizationUserData);
-    setName(userData.name || userData.names); // por si usas 'names'
-    setEmail(userData.email);
-    // ¡Guarda también el sessionToken!
-    localStorage.setItem(
-      "myUserInfo",
-      JSON.stringify({
-        ...userData,
-        sessionToken: userData.sessionToken,
-      })
-    );
-  }, []);
+const signIn = useCallback(async (email: string, password: string) => {
+  // 1. Login en Firebase
+  const result = await signInWithEmailAndPassword(auth, email, password);
+
+  // 2. REFRESCA EL TOKEN en tu backend (esto invalida otros tokens y genera uno nuevo)
+  await refreshSessionToken(result.user.uid);
+
+  // 3. Trae ahora el usuario con el nuevo token
+  const userData = await fetchUserByFirebaseUid(result.user.uid);
+  const organizationUserData = await fetchOrganizationUserByUserId(userData._id);
+
+  setUserId(userData._id);
+  setOrganizationUserData(organizationUserData);
+  setName(userData.name || userData.names);
+  setEmail(userData.email);
+
+  localStorage.setItem(
+    "myUserInfo",
+    JSON.stringify({
+      ...userData,
+      sessionToken: userData.sessionToken,
+    })
+  );
+}, []);
+
 
   // signUp: Firebase + /users + /organization-users
   const signUp = useCallback(async (data: SignUpData) => {

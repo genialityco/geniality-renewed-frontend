@@ -29,7 +29,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   activity,
   matchedSegments = [],
   searchQuery,
-  organizationId
+  organizationId,
 }) => {
   const navigate = useNavigate();
 
@@ -87,10 +87,10 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
           <Flex direction="column" ta="left" justify="space-between">
             <Title order={4}>{activity.name}</Title>
             <Text size="sm" variant="gradient">
-              Evento:{' '}
+              Evento:{" "}
               {typeof activity.event_id === "object" &&
               activity.event_id !== null &&
-              'name' in activity.event_id ? (
+              "name" in activity.event_id ? (
                 <span
                   style={{
                     color: "#228be6",
@@ -103,11 +103,13 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                       (activity.event_id as any)._id ||
                       (activity.event_id as any).id ||
                       "";
-                    if (eventId) {
-                      window.open(
-                        `${window.location.origin}/course/${eventId}`,
-                        "_blank"
-                      );
+                    if (eventId && organizationId) {
+                      // window.open(
+                      //   `${window.location.origin}/organization/${organizationId}/course/${eventId}`,
+                      //   "_blank"
+                      // );
+                      // O en la misma pestaña:
+                      navigate(`/organization/${organizationId}/course/${eventId}`);
                     }
                   }}
                 >
@@ -153,7 +155,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                         e.stopPropagation();
                         setSelectedId(seg.segmentId);
                         navigate(
-                          `/activitydetail/${activity._id}?t=${seg.startTime}` +
+                          `/organization/${organizationId}/activitydetail/${activity._id}?t=${seg.startTime}` +
                             `&fragments=${encodeURIComponent(
                               JSON.stringify(matchedSegments)
                             )}`
@@ -162,9 +164,9 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                     >
                       <Text size="sm">
                         <strong style={{ color: "teal" }}>
-                          {formatTime(seg.startTime)} -{' '}
+                          {formatTime(seg.startTime)} -{" "}
                           {formatTime(seg.endTime)}:
-                        </strong>{' '}
+                        </strong>{" "}
                         <Highlight
                           highlight={searchQuery || ""}
                           component="span"

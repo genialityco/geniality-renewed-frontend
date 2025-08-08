@@ -25,7 +25,7 @@ import {
   User,
 } from "firebase/auth";
 import { FaArrowLeft } from "react-icons/fa6";
-import VincularTelefonoModal from "./VincularTelefonoModal";
+// import VincularTelefonoModal from "./VincularTelefonoModal";
 import { getUserByPhone } from "../services/userService";
 
 // Esto le dice a TypeScript que window.recaptchaVerifier puede existir
@@ -42,7 +42,7 @@ export default function AuthForm({
 }) {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
-  const { signIn, signUp, organizationUserData } = useUser();
+  const { signIn, signUp } = useUser();
 
   const [organization, setOrganization] = useState<{
     _id: string;
@@ -80,7 +80,7 @@ export default function AuthForm({
   const [smsError, setSmsError] = useState("");
 
   // Modal de vinculac telefono
-  const [modalOpen, setModalOpen] = useState(false);
+  // const [modalOpen, setModalOpen] = useState(false);
 
   // Load organization & init formValues
   useEffect(() => {
@@ -124,7 +124,8 @@ export default function AuthForm({
     try {
       await signIn(email, password);
       if (auth.currentUser && !auth.currentUser.phoneNumber) {
-        setModalOpen(true);
+        // setModalOpen(true);
+        navigate(`/organization/${organization._id}`);
       } else {
         navigate(`/organization/${organization._id}`);
       }
@@ -657,12 +658,12 @@ export default function AuthForm({
           </Group>
         </>
       )}
-      <VincularTelefonoModal
+      {/* <VincularTelefonoModal
         opened={modalOpen}
         organizationId={organization._id}
         organizationUser={organizationUserData}
         onClose={() => setModalOpen(false)}
-      />
+      /> */}
     </Container>
   );
 }

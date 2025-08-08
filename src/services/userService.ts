@@ -57,3 +57,11 @@ export const createOrUpdateUser = async (payload: {
   const response = await api.post<User>("/users", payload);
   return response.data;
 };
+
+/**
+ * Refresca el sessionToken del usuario (POST /users/refresh-session)
+ * Invalida las sesiones anteriores y genera un nuevo token.
+ */
+export const refreshSessionToken = async (uid: string): Promise<void> => {
+  await api.post("/users/refresh-session", { uid });
+};
