@@ -202,23 +202,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const localData = localStorage.getItem("myUserInfo");
         if (localData) {
           try {
-            const parsed = JSON.parse(localData);
+            // const parsed = JSON.parse(localData);
             const userData = await fetchUserByFirebaseUid(firebaseUser.uid);
-            // Si el sessionToken cambió, otra sesión inició después
-            if (userData.sessionToken !== parsed.sessionToken) {
-              alert(
-                "Tu sesión fue cerrada porque se inició en otro dispositivo."
-              );
-              await signOut();
-            } else {
-              // Si no ha cambiado, sincroniza datos como siempre
-              setUserId(userData._id);
-              setName(userData.name || userData.names);
-              setEmail(userData.email);
-              setOrganizationUserData(
-                await fetchOrganizationUserByUserId(userData._id)
-              );
-            }
+            // ----------- COMENTAR ESTO -----------
+            // if (userData.sessionToken !== parsed.sessionToken) {
+            //   alert(
+            //     "Tu sesión fue cerrada porque se inició en otro dispositivo."
+            //   );
+            //   await signOut();
+            // } else {
+            // Si no ha cambiado, sincroniza datos como siempre
+            setUserId(userData._id);
+            setName(userData.name || userData.names);
+            setEmail(userData.email);
+            setOrganizationUserData(
+              await fetchOrganizationUserByUserId(userData._id)
+            );
+            // }
+            // ----------- FIN COMENTAR -----------
           } catch {
             console.error("Error validando sesión única");
             await signOut();
@@ -230,31 +231,32 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, [loading, firebaseUser]);
 
   // signIn: Firebase + carga user desde backend
-const signIn = useCallback(async (email: string, password: string) => {
-  // 1. Login en Firebase
-  const result = await signInWithEmailAndPassword(auth, email, password);
+  const signIn = useCallback(async (email: string, password: string) => {
+    // 1. Login en Firebase
+    const result = await signInWithEmailAndPassword(auth, email, password);
 
-  // 2. REFRESCA EL TOKEN en tu backend (esto invalida otros tokens y genera uno nuevo)
-  await refreshSessionToken(result.user.uid);
+    // 2. REFRESCA EL TOKEN en tu backend (esto invalida otros tokens y genera uno nuevo)
+    await refreshSessionToken(result.user.uid);
 
-  // 3. Trae ahora el usuario con el nuevo token
-  const userData = await fetchUserByFirebaseUid(result.user.uid);
-  const organizationUserData = await fetchOrganizationUserByUserId(userData._id);
+    // 3. Trae ahora el usuario con el nuevo token
+    const userData = await fetchUserByFirebaseUid(result.user.uid);
+    const organizationUserData = await fetchOrganizationUserByUserId(
+      userData._id
+    );
 
-  setUserId(userData._id);
-  setOrganizationUserData(organizationUserData);
-  setName(userData.name || userData.names);
-  setEmail(userData.email);
+    setUserId(userData._id);
+    setOrganizationUserData(organizationUserData);
+    setName(userData.name || userData.names);
+    setEmail(userData.email);
 
-  localStorage.setItem(
-    "myUserInfo",
-    JSON.stringify({
-      ...userData,
-      sessionToken: userData.sessionToken,
-    })
-  );
-}, []);
-
+    localStorage.setItem(
+      "myUserInfo",
+      JSON.stringify({
+        ...userData,
+        sessionToken: userData.sessionToken,
+      })
+    );
+  }, []);
 
   // signUp: Firebase + /users + /organization-users
   const signUp = useCallback(async (data: SignUpData) => {
