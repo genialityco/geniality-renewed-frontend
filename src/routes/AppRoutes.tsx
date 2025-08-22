@@ -3,8 +3,8 @@ import { Routes, Route } from "react-router-dom";
 
 import Home from "../pages/Home";
 import Organizations from "../pages/Organizations";
-import AuthPage from "../pages/AuthPage";
-import NotFound from "../pages/NotFound";
+import AuthPage from "../pages/auth/AuthPage";
+import NotFound from "../components/NotFound";
 
 import OrganizationLayout from "../layouts/OrganizationLayout";
 import CourseDetail from "../pages/course/CourseDetail";

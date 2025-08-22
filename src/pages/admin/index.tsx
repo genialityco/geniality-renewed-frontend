@@ -14,17 +14,18 @@ import {
   Divider,
   Paper,
 } from "@mantine/core";
-import { FaList, FaUsers } from "react-icons/fa6";
+import { FaList, FaUsers, FaGear } from "react-icons/fa6";
 
 import { useOrganization } from "../../context/OrganizationContext";
-import {
-  fetchEventsByOrganizer,
-} from "../../services/eventService";
+import { fetchEventsByOrganizer } from "../../services/eventService";
 import type { Event } from "../../services/types";
 
 import EventsTab from "./events/EventsTab";
 import AdminEventEdit from "./events/AdminEventEdit";
 import MembersTab from "./members/MembersTab";
+import AdminOrganizationSettings from "./org/AdminOrganizationSettings";
+
+type Section = "events" | "members" | "org";
 
 export default function AdminOrganizationEvents() {
   const { organization } = useOrganization();
@@ -34,15 +35,14 @@ export default function AdminOrganizationEvents() {
 
   // Drawer
   const [drawerOpened, setDrawerOpened] = useState(false);
-  // Sección activa: 'events' o 'members'
-  const [activeSection, setActiveSection] = useState<"events" | "members">(
-    "events"
-  );
+  // Sección activa
+  const [activeSection, setActiveSection] = useState<Section>("events");
   // Si estamos editando/creando un evento, guardamos su ID
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
   // Carga inicial y reload
   const loadEvents = () => {
+    if (!orgId) return;
     setLoadingEvents(true);
     fetchEventsByOrganizer(orgId)
       .then(setEvents)
@@ -58,9 +58,13 @@ export default function AdminOrganizationEvents() {
   const headerTitle =
     activeSection === "events"
       ? editingEventId
-        ? (editingEventId === "new" ? "Crear Evento" : "Editar Evento")
+        ? editingEventId === "new"
+          ? "Crear Evento"
+          : "Editar Evento"
         : "Eventos"
-      : "Miembros";
+      : activeSection === "members"
+      ? "Miembros"
+      : "Mi Organización";
 
   return (
     <>
@@ -129,6 +133,26 @@ export default function AdminOrganizationEvents() {
               <FaUsers /> Ver Miembros
             </UnstyledButton>
 
+            {/* Mi Organización */}
+            <UnstyledButton
+              onClick={() => {
+                setActiveSection("org");
+                setEditingEventId(null);
+                setDrawerOpened(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: 8,
+                borderRadius: 4,
+                backgroundColor:
+                  activeSection === "org" ? "#F0F4FF" : "transparent",
+              }}
+            >
+              <FaGear /> Mi Organización
+            </UnstyledButton>
+
             <Divider my="sm" />
           </Stack>
         </ScrollArea>
@@ -137,7 +161,6 @@ export default function AdminOrganizationEvents() {
       {/* CONTENIDO */}
       <Container fluid>
         {activeSection === "events" ? (
-          // Si editingEventId está definido, mostramos el formulario
           editingEventId ? (
             <AdminEventEdit
               organizationId={orgId}
@@ -156,8 +179,10 @@ export default function AdminOrganizationEvents() {
               onEdit={(id) => setEditingEventId(id)}
             />
           )
-        ) : (
+        ) : activeSection === "members" ? (
           <MembersTab />
+        ) : (
+          <AdminOrganizationSettings organizationId={orgId} />
         )}
       </Container>
     </>

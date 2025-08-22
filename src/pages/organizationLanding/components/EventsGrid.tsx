@@ -19,7 +19,7 @@ export default function EventsGrid({ events, onClick }: { events: Event[]; onCli
               {event.name}
             </Title>
             <Text size="sm" c="gray" style={{ textAlign: "left" }}>
-              {event.created_at ? new Date(event.created_at).toLocaleDateString("es-ES") : "Fecha no disponible"}
+              {event.createdAt ? new Date(event.createdAt).toLocaleDateString("es-ES") : "Fecha no disponible"}
             </Text>
           </Paper>
         </Grid.Col>

@@ -85,8 +85,8 @@ export default function OrganizationLanding() {
           const eventData = await fetchEventsByOrganizer(organizationId);
           const sortedEvents = eventData.sort(
             (a, b) =>
-              new Date(b.created_at).getTime() -
-              new Date(a.created_at).getTime()
+              new Date(b.createdAt).getTime() -
+              new Date(a.createdAt).getTime()
           );
           setEvents(sortedEvents);
 
@@ -260,8 +260,8 @@ export default function OrganizationLanding() {
           const eventData = await fetchEventsByOrganizer(organizationId);
           const sortedEvents = eventData.sort(
             (a, b) =>
-              new Date(b.created_at).getTime() -
-              new Date(a.created_at).getTime()
+              new Date(b.createdAt).getTime() -
+              new Date(a.createdAt).getTime()
           );
           setEvents(sortedEvents);
           setFilteredEvents(sortedEvents);
@@ -305,7 +305,7 @@ export default function OrganizationLanding() {
         const eventData = await fetchEventsByOrganizer(organizationId);
         const sortedEvents = eventData.sort(
           (a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
         setEvents(sortedEvents);
         setFilteredEvents(sortedEvents);

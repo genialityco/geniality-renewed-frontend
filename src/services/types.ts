@@ -16,6 +16,7 @@ export interface Organization {
 
 export interface Event {
   created_at: string | number | Date;
+  createdAt: any;
   styles: any;
   _id: string;
   name: string;
@@ -185,13 +186,17 @@ export enum PropertyType {
 export interface UserProperty {
   dependency: any;
   name: string;               // clave interna (p. ej. "ID", "pais", "phone"…)
-  label: string;              // etiqueta para mostrar
+  label: string;     
+  unique: boolean,         // etiqueta para mostrar
   type: PropertyType;         // uno de los valores de PropertyType
   mandatory: boolean;         // si es obligatorio
   options?: {                 // solo para type === LIST
     label: string;
     value: string;
   }[];
+  order_weight: number;
+  index: number;
+  visible: boolean;
 }
 
 export type ImportReportType = {

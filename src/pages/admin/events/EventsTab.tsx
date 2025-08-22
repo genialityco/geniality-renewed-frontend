@@ -74,8 +74,10 @@ export default function EventsTab({ events, onCreate, onEdit }: Props) {
                   {/* Fecha de creación */}
                   <Table.Td>
                     <Badge variant="outline" color="blue">
-                      {event.created_at
-                        ? new Date(event.created_at).toLocaleDateString("es-ES")
+                      {event.created_at || event.createdAt
+                        ? new Date(
+                            event.created_at || event.createdAt
+                          ).toLocaleDateString("es-ES")
                         : "—"}
                     </Badge>
                   </Table.Td>

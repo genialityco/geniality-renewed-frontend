@@ -1,4 +1,4 @@
-import AuthForm from "../components/AuthForm";
+import AuthForm from "./components/AuthForm";
 import { useSearchParams } from "react-router-dom";
 
 export default function AuthPage({

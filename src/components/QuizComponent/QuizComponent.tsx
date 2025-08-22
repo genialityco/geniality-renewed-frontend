@@ -8,9 +8,9 @@ import {
   convertToSurveyJson,
   getTextHtml,
 } from "../../helpers/surveyHelpers";
-import LoadingSpinner from "./../LoadingSpinner";
 import { createQuizAttempt } from "../../services/quizAttemptService";
 import { useUser } from "../../context/UserContext";
+import LoadingSpinner from "../LoadingSpinner";
 
 interface QuizComponentProps {
   quizJson: any; // Puede ser el objeto con { pages: [...], ... } o un array plano

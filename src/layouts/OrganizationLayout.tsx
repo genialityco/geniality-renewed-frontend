@@ -1,6 +1,6 @@
 // src/layouts/OrganizationLayout.tsx
 import { Outlet } from "react-router-dom";
-import AppShellWithAuth from "../pages/AppShellWithAuth";
+import AppShellWithAuth from "./AppShellWithAuth";
 
 export default function OrganizationLayout() {
   return (

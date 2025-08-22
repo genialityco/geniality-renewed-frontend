@@ -264,37 +264,43 @@ export function UserProvider({ children }: { children: ReactNode }) {
       data;
 
     // Asegura que siempre uses 'names'
-    const names =
-      properties.names ||
-      properties["Nombres Y Apellidos"] ||
-      properties["nombres y apellidos"] ||
-      properties["nombre"] ||
+    const nombres =
+      properties.names || properties.nombres || properties["nombre"] || "";
+    const apellidos =
+      properties.surnames ||
+      properties.apellidos ||
+      properties["apellido"] ||
       "";
 
-    if (!email || !names) {
+    const fullName = [nombres, apellidos].filter(Boolean).join(" ").trim();
+
+    if (!email || !fullName) {
       throw new Error("Faltan datos requeridos: nombres y/o correo.");
     }
 
     // 1) Firebase Auth
     const result = await createUserWithEmailAndPassword(auth, email, password);
     const uid = result.user.uid;
+    console.log(uid);
 
     // 2) /users
     const userRecord = await createOrUpdateUser({
       uid,
       email,
-      names, // ¡Envíalo así!
+      names: fullName, // ¡Envíalo así!
       // ...otros (no sobrescribir names con properties)
     });
 
     // 3) /organization-users
-    await createOrUpdateOrganizationUser({
+    const response = await createOrUpdateOrganizationUser({
       user_id: userRecord._id,
       organization_id: organizationId,
       position_id: positionId,
       rol_id: rolId,
       properties,
     });
+
+    console.log(response);
 
     // Estado y localStorage
     setUserId(userRecord._id);

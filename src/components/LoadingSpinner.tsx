@@ -1,3 +1,4 @@
+
 const LoadingSpinner = ({ message }: { message: string }) => (
   <div className="loading-spinner">
     <div className="spinner"></div>

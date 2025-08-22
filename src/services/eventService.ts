@@ -31,12 +31,8 @@ export const createEvent = async (
 };
 
 /** Actualizar un evento existente (id) */
-export const updateEvent = async (
-  id: string,
-  _eventId: string,
-  data: Partial<Event>
-): Promise<Event> => {
-  const response = await api.patch<Event>(`/events/${id}`, data);
+export const updateEvent = async (eventId: string, data: Partial<Event>) => {
+  const response = await api.patch<Event>(`/events/${eventId}`, data);
   return response.data;
 };
 
