@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Modal, TextInput, Button, Text, Group } from "@mantine/core";
-import { auth, RecaptchaVerifier } from "../firebase/firebaseConfig";
+import { auth, RecaptchaVerifier } from "../../../firebase/firebaseConfig";
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import {
@@ -9,8 +9,8 @@ import {
   signInWithPhoneNumber,
 } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { createOrUpdateOrganizationUser } from "../services/organizationUserService";
-import { createOrUpdateUser } from "../services/userService";
+import { createOrUpdateOrganizationUser } from "../../../services/organizationUserService";
+import { createOrUpdateUser } from "../../../services/userService";
 
 declare global {
   interface Window {

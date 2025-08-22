@@ -65,9 +65,9 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
         // default visible=true si no viene
         setPropsList(
           normalized.map((p) => ({
+            ...p,
             visible: p.visible !== false,
             description: (p as any).description ?? "", // 👈 asegura que exista
-            ...p,
           }))
         );
       })
