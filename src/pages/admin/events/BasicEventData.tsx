@@ -112,7 +112,7 @@ export default function BasicEventData({
       (formData.name || "").trim() &&
         formData.datetime_from &&
         formData.datetime_to &&
-        (formData.visibility || "public") &&
+        (formData.visibility || "PUBLIC") &&
         userId &&
         organization?._id
     );
@@ -149,7 +149,7 @@ export default function BasicEventData({
         author_id: userId!, // del UserContext
         organizer_id: organization!._id, // del OrganizationContext
         // defaults seguros si el user no selecciona
-        visibility: (formData.visibility as any) || "public",
+        visibility: (formData.visibility as any) || "PUBLIC",
         type_event: (formData.type_event as any) || "general",
       };
 
