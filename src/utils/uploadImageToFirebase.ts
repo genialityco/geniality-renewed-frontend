@@ -1,9 +1,9 @@
-// src/utils/uploadImageToFirebase.ts
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+// utils/uploadImageToFirebase.ts
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "../firebase/firebaseConfig";
 
 export async function uploadImageToFirebase(file: File, folder = "event_images") {
-  const storage = getStorage();
   const fileRef = ref(storage, `${folder}/${Date.now()}_${file.name}`);
-  await uploadBytes(fileRef, file);
-  return await getDownloadURL(fileRef);
+  const snap = await uploadBytes(fileRef, file, { contentType: file.type });
+  return await getDownloadURL(snap.ref);
 }
