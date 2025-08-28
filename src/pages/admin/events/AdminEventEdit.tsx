@@ -1,13 +1,6 @@
 // src/pages/admin/AdminEventEdit.tsx
 import { useEffect, useState } from "react";
-import {
-  Container,
-  Tabs,
-  Loader,
-  Text,
-  Button,
-  Group,
-} from "@mantine/core";
+import { Container, Tabs, Loader, Text, Button, Group } from "@mantine/core";
 
 import { Event } from "../../../services/types";
 import { fetchEventById } from "../../../services/eventService";
@@ -15,6 +8,7 @@ import { fetchEventById } from "../../../services/eventService";
 import BasicEventData from "./BasicEventData";
 import AdminModules from "./AdminModules";
 import AdminActivities from "./AdminActivities";
+import AdminHosts from "./AdminHosts";
 
 interface Props {
   organizationId: string;
@@ -53,6 +47,7 @@ export default function AdminEventEdit({
           <Tabs.Tab value="basicos">Datos Curso</Tabs.Tab>
           <Tabs.Tab value="modulos">Módulos</Tabs.Tab>
           <Tabs.Tab value="actividades">Actividades</Tabs.Tab>
+          <Tabs.Tab value="hosts">Hosts</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="basicos" pt="md">
@@ -86,6 +81,13 @@ export default function AdminEventEdit({
             <Text mb="md">
               Guarda primero el evento para gestionar actividades.
             </Text>
+          )}
+        </Tabs.Panel>
+        <Tabs.Panel value="hosts" pt="md">
+          {isEditing ? (
+            <AdminHosts organizationId={organizationId} eventId={eventId} />
+          ) : (
+            <Text mb="md">Guarda primero el evento para gestionar hosts.</Text>
           )}
         </Tabs.Panel>
       </Tabs>

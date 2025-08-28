@@ -35,9 +35,9 @@ import { FaCheck, FaPencil, FaTrash, FaYoutube } from "react-icons/fa6";
 import {
   createHost,
   fetchHostsByEventId,
-  updateHost, // <-- NUEVO
+  updateHost,
 } from "../../../services/hostsService";
-import { uploadImageToFirebase } from "../../../utils/uploadImageToFirebase"; // <-- para imagen
+import { uploadImageToFirebase } from "../../../utils/uploadImageToFirebase";
 
 interface Props {
   organizationId?: string;
@@ -49,132 +49,105 @@ export default function AdminActivities({ eventId }: Props) {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Formulario de creación
+  // --------- CREAR ACTIVIDAD (sin crear host) ---------
   const [activityName, setActivityName] = useState("");
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState("");
+  const [hosts, setHosts] = useState<Host[]>([]);
+  const [selectedHostIdsCreate, setSelectedHostIdsCreate] = useState<string[]>([]); // MultiSelect en creación
 
-  // Edición
+  // --------- EDITAR ACTIVIDAD ---------
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editActivity, setEditActivity] = useState<Activity | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editVideoUrl, setEditVideoUrl] = useState("");
-  const [editHostIds, setEditHostIds] = useState<string>(""); // opcional (texto)
   const [editModuleId, setEditModuleId] = useState<string | null>(null);
-  const [editSelectedHostIds, setEditSelectedHostIds] = useState<string[]>([]); // MultiSelect
-  const [prevEditHostIds, setPrevEditHostIds] = useState<string[]>([]); // <-- NUEVO (para diffs)
+  const [editSelectedHostIds, setEditSelectedHostIds] = useState<string[]>([]);
+  const [prevEditHostIds, setPrevEditHostIds] = useState<string[]>([]);
 
-  // Confirmación de borrado
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [activityToDelete, setActivityToDelete] = useState<Activity | null>(null);
-
-  // Transcript
-  const [generatingTranscriptId, setGeneratingTranscriptId] = useState<string | null>(null);
-  const [transcriptionStatus, setTranscriptionStatus] = useState<Record<string, string>>({});
-  const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
-
-  // Hosts
-  const [hosts, setHosts] = useState<Host[]>([]);
-  const [selectedHost, setSelectedHost] = useState<string | null>(null);
-
-  // Crear host inline (en modal de edición)
+  // Crear host COMPLETO dentro del modal de edición
   const [newHostOpen, setNewHostOpen] = useState(false);
   const [newHostName, setNewHostName] = useState("");
   const [newHostDesc, setNewHostDesc] = useState("");
+  const [newHostProfession, setNewHostProfession] = useState("");
   const [newHostPublished, setNewHostPublished] = useState(true);
   const [newHostFile, setNewHostFile] = useState<File | null>(null);
   const [newHostPreview, setNewHostPreview] = useState<string | null>(null);
   const [creatingHostInline, setCreatingHostInline] = useState(false);
 
-  // Cargar actividades y módulos
+  // --------- BORRADO ---------
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [activityToDelete, setActivityToDelete] = useState<Activity | null>(null);
+
+  // --------- TRANSCRIPCIÓN ---------
+  const [generatingTranscriptId, setGeneratingTranscriptId] = useState<string | null>(null);
+  const [transcriptionStatus, setTranscriptionStatus] = useState<Record<string, string>>({});
+  const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
+
+  // Cargar data inicial
   useEffect(() => {
     if (!eventId) return;
     setLoading(true);
-    Promise.all([getActivitiesByEvent(eventId), getModulesByEventId(eventId)])
-      .then(([acts, mods]) => {
+    Promise.all([getActivitiesByEvent(eventId), getModulesByEventId(eventId), fetchHostsByEventId(eventId)])
+      .then(([acts, mods, hs]) => {
         setActivities(acts);
         setModules(mods);
+        setHosts(hs);
       })
       .finally(() => setLoading(false));
   }, [eventId]);
 
-  // Cargar hosts por evento
-  useEffect(() => {
-    if (!eventId) return;
-    fetchHostsByEventId(eventId)
-      .then(setHosts)
-      .catch((err) => console.error("Error cargando hosts:", err));
-  }, [eventId]);
-
-  // Crear actividad
+  // --------- Crear ACTIVIDAD (solo selecciona hosts existentes) ---------
   const handleCreateActivity = async () => {
     if (!eventId || !activityName.trim()) return;
     try {
-      let hostIdToUse = selectedHost;
-
-      // Si el usuario escribió un nombre de host nuevo (solo nombre; sin imagen aquí)
-      if (!hostIdToUse && newHostName.trim()) {
-        const newHost = await createHost({
-          name: newHostName.trim(),
-          event_id: eventId,
-          image: "",
-          description: "Speaker del evento",
-          published: true,
-        });
-        hostIdToUse = newHost._id;
-        setHosts((prev) => [...prev, newHost]);
-        setNewHostName("");
-      }
-
       const newActivityData: Partial<Activity> = {
         name: activityName.trim(),
         event_id: eventId,
         module_id: selectedModule || undefined,
         video: videoUrl || undefined,
-        host_ids: hostIdToUse ? [hostIdToUse] : [],
+        host_ids: selectedHostIdsCreate,
       };
 
       const created = await createActivity(newActivityData);
       setActivities((prev) => [...prev, created]);
 
-      // --- SINCRONIZAR Host.activities_ids (addToSet) ---
-      if (hostIdToUse && created?._id) {
-        try {
-          await updateHost(
-            hostIdToUse,
-            { $addToSet: { activities_ids: created._id } } as any // operador atómico
-          );
-        } catch (e) {
-          console.error("No se pudo vincular activity en el host:", e);
-        }
+      // Sincronizar Host.activities_ids para cada host seleccionado
+      if (created?._id && selectedHostIdsCreate.length) {
+        await Promise.all(
+          selectedHostIdsCreate.map((hId) =>
+            updateHost(hId, { $addToSet: { activities_ids: created._id } } as any).catch((e) =>
+              console.error("No se pudo vincular activity en host:", e)
+            )
+          )
+        );
       }
 
-      // limpiar formularios
+      // limpiar formulario
       setActivityName("");
       setSelectedModule(null);
       setVideoUrl("");
-      setSelectedHost(null);
+      setSelectedHostIdsCreate([]);
     } catch (error) {
       console.error("Error al crear actividad:", error);
     }
   };
 
-  // Abrir modal de edición
+  // --------- Abrir modal de EDICIÓN ---------
   const handleOpenEdit = (act: Activity) => {
     setEditActivity(act);
     setEditName(act.name || "");
     setEditDescription(act.description || "");
     setEditVideoUrl(act.video || "");
     setEditModuleId(act.module_id ?? null);
-    setEditHostIds(act.host_ids ? act.host_ids.join(",") : ""); // opcional
     const initial = Array.isArray(act.host_ids) ? act.host_ids : [];
     setEditSelectedHostIds(initial);
-    setPrevEditHostIds(initial); // <-- guardar baseline para diffs
+    setPrevEditHostIds(initial);
     setEditModalOpen(true);
   };
 
-  // Guardar cambios de edición
+  // --------- Guardar EDICIÓN (con diffs + sync Host.activities_ids) ---------
   const handleSaveEdit = async () => {
     if (!editActivity?._id) return;
     try {
@@ -183,42 +156,34 @@ export default function AdminActivities({ eventId }: Props) {
         description: editDescription.trim(),
         video: editVideoUrl.trim(),
         module_id: editModuleId || undefined,
-        host_ids: editSelectedHostIds, // MultiSelect manda aquí
+        host_ids: editSelectedHostIds,
       };
 
-      // 1) Actualizar la actividad
       const updated = await updateActivityPut(editActivity._id, updatedData);
 
-      // 2) Calcular diffs y sincronizar Host.activities_ids
+      // diffs
       const prev = new Set(prevEditHostIds);
       const next = new Set(editSelectedHostIds);
-
       const toAdd = [...next].filter((id) => !prev.has(id));
       const toRemove = [...prev].filter((id) => !next.has(id));
 
       const ops: Promise<any>[] = [];
-
-      toAdd.forEach((hostId) => {
+      toAdd.forEach((hostId) =>
         ops.push(
-          updateHost(
-            hostId,
-            { $addToSet: { activities_ids: editActivity._id } } as any
-          ).catch((e) => console.error("addToSet falló:", e))
-        );
-      });
-
-      toRemove.forEach((hostId) => {
+          updateHost(hostId, { $addToSet: { activities_ids: editActivity._id } } as any).catch((e) =>
+            console.error("addToSet falló:", e)
+          )
+        )
+      );
+      toRemove.forEach((hostId) =>
         ops.push(
-          updateHost(
-            hostId,
-            { $pull: { activities_ids: editActivity._id } } as any
-          ).catch((e) => console.error("pull falló:", e))
-        );
-      });
-
+          updateHost(hostId, { $pull: { activities_ids: editActivity._id } } as any).catch((e) =>
+            console.error("pull falló:", e)
+          )
+        )
+      );
       if (ops.length) await Promise.all(ops);
 
-      // 3) Refrescar UI
       setActivities((prevActs) => prevActs.map((a) => (a._id === editActivity._id ? updated : a)));
       setEditModalOpen(false);
       setEditActivity(null);
@@ -227,7 +192,7 @@ export default function AdminActivities({ eventId }: Props) {
     }
   };
 
-  // Confirmar borrado
+  // --------- Eliminar ---------
   const handleDeleteActivity = async () => {
     if (!activityToDelete?._id) return;
     try {
@@ -240,7 +205,7 @@ export default function AdminActivities({ eventId }: Props) {
     }
   };
 
-  // Transcript
+  // --------- Transcript ---------
   const handleGenerateTranscript = async (activityId: string) => {
     setGeneratingTranscriptId(activityId);
     try {
@@ -267,7 +232,7 @@ export default function AdminActivities({ eventId }: Props) {
     } catch (error) {
       setTranscriptionStatus((prev) => ({
         ...prev,
-        "Error": "Error",
+        [activityId]: "Error",
       }));
       console.error("Error al consultar estado de transcripción:", error);
     } finally {
@@ -283,7 +248,7 @@ export default function AdminActivities({ eventId }: Props) {
         Actividades del Evento
       </Title>
 
-      {/* Formulario creación */}
+      {/* --------- CREAR ACTIVIDAD (solo selecciona hosts existentes) --------- */}
       <Paper withBorder shadow="sm" p="lg" mb="xl" radius="lg">
         <Stack gap="xs">
           <Group gap="sm">
@@ -311,22 +276,19 @@ export default function AdminActivities({ eventId }: Props) {
             />
           </Group>
 
-          <Group gap="sm">
-            <Select
-              label="Host"
-              placeholder="Seleccione un host existente"
-              data={hosts.map((h) => ({ value: h._id, label: h.name }))}
-              value={selectedHost}
-              onChange={setSelectedHost}
-              w={220}
-            />
-            <TextInput
-              label="Crear nuevo host (nombre)"
-              value={newHostName}
-              onChange={(e) => setNewHostName(e.currentTarget.value)}
-              w={220}
-            />
-          </Group>
+          {/* Selección múltiple de hosts existentes */}
+          <MultiSelect
+            label="Hosts del evento"
+            placeholder="Selecciona uno o varios hosts existentes"
+            data={hosts.map((h) => ({ value: h._id, label: h.name }))}
+            value={selectedHostIdsCreate}
+            onChange={setSelectedHostIdsCreate}
+            searchable
+            clearable
+          />
+
+          {/* Sugerencia: gestionar hosts en una pantalla aparte */}
+          {/* <Button variant="subtle" onClick={() => navigate('/admin/hosts')}>Gestionar Hosts</Button> */}
 
           <Button
             onClick={handleCreateActivity}
@@ -340,7 +302,7 @@ export default function AdminActivities({ eventId }: Props) {
         </Stack>
       </Paper>
 
-      {/* Lista de actividades */}
+      {/* --------- LISTA DE ACTIVIDADES --------- */}
       <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="lg" verticalSpacing="lg">
         {activities.map((act) => (
           <Card
@@ -431,7 +393,7 @@ export default function AdminActivities({ eventId }: Props) {
         ))}
       </SimpleGrid>
 
-      {/* Modal edición */}
+      {/* --------- MODAL DE EDICIÓN (con crear host completo) --------- */}
       <Modal opened={editModalOpen} onClose={() => setEditModalOpen(false)} title="Editar Actividad" centered>
         <Stack gap="xs">
           <TextInput label="Nombre de la Actividad" value={editName} onChange={(e) => setEditName(e.currentTarget.value)} required />
@@ -445,10 +407,6 @@ export default function AdminActivities({ eventId }: Props) {
           />
           <TextInput label="Video URL" value={editVideoUrl} onChange={(e) => setEditVideoUrl(e.currentTarget.value)} leftSection={<FaYoutube size={18} />} />
 
-          {/* Campo de texto opcional (IDs separados por comas) */}
-          <TextInput label="Host IDs (separados por comas)" value={editHostIds} onChange={(e) => setEditHostIds(e.currentTarget.value)} />
-
-          {/* Selector múltiple de hosts */}
           <MultiSelect
             label="Hosts / Speakers"
             placeholder="Selecciona uno o varios hosts"
@@ -473,11 +431,10 @@ export default function AdminActivities({ eventId }: Props) {
               <Divider my="sm" />
               <Group grow>
                 <TextInput label="Nombre del Host" value={newHostName} onChange={(e) => setNewHostName(e.currentTarget.value)} required />
-                <TextInput label="Descripción" value={newHostDesc} onChange={(e) => setNewHostDesc(e.currentTarget.value)} placeholder="Rol, bio, etc." />
+                <TextInput label="Profesión / Rol" value={newHostProfession} onChange={(e) => setNewHostProfession(e.currentTarget.value)} placeholder="Ej: Data Scientist" />
               </Group>
-
+              <TextInput label="Descripción" value={newHostDesc} onChange={(e) => setNewHostDesc(e.currentTarget.value)} placeholder="Bio o resumen" />
               <Switch mt="xs" label="Publicado" checked={newHostPublished} onChange={(e) => setNewHostPublished(e.currentTarget.checked)} />
-
               <FileInput
                 mt="sm"
                 label="Imagen del Host (JPG/PNG, máx. 5MB)"
@@ -490,7 +447,6 @@ export default function AdminActivities({ eventId }: Props) {
                 }}
                 clearable
               />
-
               {newHostPreview && <Image mt="xs" src={newHostPreview} alt="Previsualización" radius="md" w={160} h={160} fit="cover" />}
 
               <Group justify="flex-end" mt="md">
@@ -499,7 +455,6 @@ export default function AdminActivities({ eventId }: Props) {
                   onClick={async () => {
                     if (!eventId || !newHostName.trim()) return;
 
-                    // Validaciones básicas
                     if (!newHostFile) {
                       alert("Selecciona una imagen para el host.");
                       return;
@@ -515,18 +470,14 @@ export default function AdminActivities({ eventId }: Props) {
 
                     try {
                       setCreatingHostInline(true);
-
-                      // 1) Subir a Firebase y obtener URL
                       const imageUrl = await uploadImageToFirebase(newHostFile, `hosts/${eventId}`);
 
-                      // 2) Crear host con la URL resultante (NO tocamos activities_ids aquí;
-                      //    se sincroniza al guardar cambios de la actividad con los diffs)
                       const created = await createHost({
                         name: newHostName.trim(),
                         image: imageUrl,
                         description_activity: false,
                         description: newHostDesc.trim(),
-                        profession: "",
+                        profession: newHostProfession.trim(),
                         published: newHostPublished,
                         order: 0,
                         index: 0,
@@ -534,13 +485,14 @@ export default function AdminActivities({ eventId }: Props) {
                         activities_ids: [],
                       });
 
-                      // 3) Refrescar listas y asignar al MultiSelect
+                      // añadirlo a la lista y asignarlo
                       setHosts((prev) => [...prev, created]);
                       setEditSelectedHostIds((prev) => Array.from(new Set([...prev, created._id])));
 
-                      // 4) Limpiar estado
+                      // limpiar
                       setNewHostName("");
                       setNewHostDesc("");
+                      setNewHostProfession("");
                       setNewHostPublished(true);
                       setNewHostFile(null);
                       setNewHostPreview(null);
@@ -570,7 +522,7 @@ export default function AdminActivities({ eventId }: Props) {
         </Stack>
       </Modal>
 
-      {/* Modal de confirmación de eliminación */}
+      {/* --------- CONFIRMAR ELIMINACIÓN --------- */}
       <Modal opened={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} title="¿Eliminar actividad?" centered>
         <Text mb="md">
           ¿Seguro que deseas eliminar la actividad <b>{activityToDelete?.name}</b>?
