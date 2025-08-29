@@ -196,32 +196,38 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Carga user info de localStorage
+  // En el useEffect que valida la sesión local
   useEffect(() => {
     if (!loading && firebaseUser) {
       (async () => {
         const localData = localStorage.getItem("myUserInfo");
         if (localData) {
           try {
-            // const parsed = JSON.parse(localData);
+            const parsed = JSON.parse(localData); // parsed.sessionToken = MI token
             const userData = await fetchUserByFirebaseUid(firebaseUser.uid);
-            // ----------- COMENTAR ESTO -----------
-            // if (userData.sessionToken !== parsed.sessionToken) {
-            //   alert(
-            //     "Tu sesión fue cerrada porque se inició en otro dispositivo."
-            //   );
-            //   await signOut();
-            // } else {
-            // Si no ha cambiado, sincroniza datos como siempre
+
+            // userData.sessionTokens = [{token, createdAt}, ...]
+            const activeTokens: string[] = Array.isArray(userData.sessionTokens)
+              ? userData.sessionTokens.map((t: any) => t.token)
+              : [];
+
+            if (!activeTokens.includes(parsed.sessionToken)) {
+              alert(
+                "Tu sesión fue cerrada porque se inició en otro dispositivo."
+              );
+              await signOut();
+              return;
+            }
+
+            // Si es válido, sincroniza
             setUserId(userData._id);
             setName(userData.name || userData.names);
             setEmail(userData.email);
             setOrganizationUserData(
               await fetchOrganizationUserByUserId(userData._id)
             );
-            // }
-            // ----------- FIN COMENTAR -----------
           } catch {
-            console.error("Error validando sesión única");
+            console.error("Error validando sesión múltiple (max 2)");
             await signOut();
           }
         }
@@ -231,29 +237,41 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, [loading, firebaseUser]);
 
   // signIn: Firebase + carga user desde backend
+  // En UserContext.tsx (signIn)
   const signIn = useCallback(async (email: string, password: string) => {
-    // 1. Login en Firebase
+    // 1) Login Firebase
     const result = await signInWithEmailAndPassword(auth, email, password);
+    const uid = result.user.uid;
 
-    // 2. REFRESCA EL TOKEN en tu backend (esto invalida otros tokens y genera uno nuevo)
-    await refreshSessionToken(result.user.uid);
+    // 2) REFRESCA y OBTÉN tu token propio (string)
+    const sessionToken = await refreshSessionToken(uid);
 
-    // 3. Trae ahora el usuario con el nuevo token
-    const userData = await fetchUserByFirebaseUid(result.user.uid);
+    // 3) Trae el usuario (ya con sessionTokens en backend)
+    const userData = await fetchUserByFirebaseUid(uid);
+    if (!userData) {
+      // Usuario no existe en tu backend (404): limpia y error controlado
+      await firebaseSignOut(auth);
+      localStorage.removeItem("myUserInfo");
+      throw new Error("Usuario no encontrado en el backend.");
+    }
+
+    // 4) Data adicional (org user)
     const organizationUserData = await fetchOrganizationUserByUserId(
       userData._id
     );
 
+    // 5) Estado React
     setUserId(userData._id);
     setOrganizationUserData(organizationUserData);
     setName(userData.name || userData.names);
     setEmail(userData.email);
 
+    // 6) Persistencia local para headers (x-uid / x-session-token)
     localStorage.setItem(
       "myUserInfo",
       JSON.stringify({
         ...userData,
-        sessionToken: userData.sessionToken,
+        sessionToken, // ← SOLO el tuyo
       })
     );
   }, []);

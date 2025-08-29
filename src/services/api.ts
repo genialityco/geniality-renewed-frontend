@@ -10,27 +10,48 @@ const api = axios.create({
   },
 });
 
-// Agrega el sessionToken a cada request
-// api.interceptors.response.use(
-//   (response) => response,
-//   async (error) => {
-//     // Si el backend responde con 401 y SESSION_EXPIRED
-//     if (
-//       error.response &&
-//       error.response.status === 401 &&
-//       error.response.data?.message === "SESSION_EXPIRED"
-//     ) {
-//       // Limpia la sesión, muestra alerta y redirige
-//       localStorage.removeItem("myUserInfo");
-//       // Opcional: window.location = '/login';
-//       alert("Tu sesión fue cerrada porque se inició en otro dispositivo.");
-//       // Puedes recargar o redirigir como prefieras
-//       window.location.reload();
-//       return;
-//     }
-//     // Otros errores siguen normal
-//     return Promise.reject(error);
-//   }
-// );
+// ⇢ Request interceptor: adjunta uid y sessionToken
+api.interceptors.request.use(
+  (config) => {
+    const raw = localStorage.getItem("myUserInfo");
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { uid?: string; sessionToken?: string };
+        // Asegura objeto headers
+        config.headers = config.headers ?? {};
+        if (parsed.uid) {
+          (config.headers as any)["x-uid"] = parsed.uid;
+        }
+        if (parsed.sessionToken) {
+          (config.headers as any)["x-session-token"] = parsed.sessionToken;
+        }
+      } catch {
+        // Si algo falla al parsear, ignora y continúa
+      }
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// ⇢ Response interceptor: expulsa si el token ya no es válido
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const status = error?.response?.status;
+    const message = error?.response?.data?.message;
+
+    if (status === 401 && message === "SESSION_EXPIRED") {
+      localStorage.removeItem("myUserInfo");
+      alert("Tu sesión fue cerrada porque se inició en otro dispositivo.");
+      // Redirige o recarga según tu flujo:
+      // window.location.href = "/login";
+      window.location.reload();
+      // Importante: corta la cadena aquí para no propagar el error original
+      return Promise.reject(new Error("SESSION_EXPIRED"));
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;

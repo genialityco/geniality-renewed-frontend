@@ -31,7 +31,6 @@ export default function EditUserModal({
   const form = useForm({
     initialValues: {},
   });
-  console.log(userProps);
 
   // Cuando el usuario cambia, actualiza los valores del formulario
   useEffect(() => {
