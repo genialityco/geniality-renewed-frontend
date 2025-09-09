@@ -10,14 +10,14 @@ import {
   Select,
   Button,
 } from "@mantine/core";
-import * as XLSX from 'xlsx';
+import * as XLSX from "xlsx";
 import { FaFileExcel } from "react-icons/fa6"; // Asegúrate de que esta importación sea correcta si usas fa6
 
 import BulkUploadSection from "./BulkUploadSection";
 import SearchForm from "./SearchForm";
 import ImportReport from "./ImportReport";
 import MembersTable, { isPaymentPlan, stripHtml } from "./MembersTable"; // Asegúrate de que isPaymentPlan y stripHtml se exporten desde MembersTable
-import ChangePasswordModal from "./ChangePasswordModal";
+import ChangeCredentialsModal from "./ChangeCredentialsModal";
 import ChangePaymentPlanModal from "./ChangePaymentPlanModal";
 import EditUserModal from "./EditUserModal";
 
@@ -50,8 +50,10 @@ export default function MembersTab() {
 
   const [users, setUsers] = useState<OrganizationUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [userPage, setUserPage] = useState(1);
   const [userTotal, setUserTotal] = useState(0);
+  const [rawSearch, setRawSearch] = useState("");
   const [searchText, setSearchText] = useState("");
   const [lastImportReport, setLastImportReport] =
     useState<ImportReportType | null>(null);
@@ -88,6 +90,11 @@ export default function MembersTab() {
   useEffect(() => {
     if (orgId) fetchUsers();
   }, [orgId, userPage, searchText, userLimit]);
+
+  useEffect(() => {
+    const id = setTimeout(() => setSearchText(rawSearch.trim()), 350);
+    return () => clearTimeout(id);
+  }, [rawSearch]);
 
   // Abrir modal de actualizar plan
   const handleUpdatePlan = (userId: string) => {
@@ -173,7 +180,7 @@ export default function MembersTab() {
 
   // 👇 Función para exportar TODOS los usuarios a Excel
   const handleExportToExcel = async () => {
-    setLoadingUsers(true); // Muestra el loader mientras se exporta
+    setExporting(true);
     try {
       // 1. Obtener todos los usuarios sin paginación
       const allUsers = await fetchAllOrganizationUsersByOrganizationId(
@@ -197,7 +204,7 @@ export default function MembersTab() {
         const rowData: { [key: string]: string | number } = {};
 
         // Mapear propiedades de usuario
-        userProps.forEach((prop: { name: any; type: string; label: any; }) => {
+        userProps.forEach((prop: { name: any; type: string; label: any }) => {
           const name = String(prop.name);
           const rawValue = props[name] ?? "";
           let cleanValue = stripHtml(String(rawValue));
@@ -220,7 +227,9 @@ export default function MembersTab() {
       });
 
       // 3. Crear las cabeceras del Excel
-      const headers = userProps.map((prop: { label: any; }) => stripHtml(String(prop.label)));
+      const headers = userProps.map((prop: { label: any }) =>
+        stripHtml(String(prop.label))
+      );
       headers.push("Plan (Vencimiento)");
 
       // 4. Crear la hoja de cálculo
@@ -233,12 +242,11 @@ export default function MembersTab() {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Miembros");
       XLSX.writeFile(workbook, "miembros_organizacion.xlsx");
-
     } catch (error) {
       console.error("Error al exportar usuarios:", error);
       // Podrías mostrar una notificación de error al usuario aquí
     } finally {
-      setLoadingUsers(false); // Oculta el loader al finalizar
+      setExporting(false);
     }
   };
 
@@ -265,8 +273,8 @@ export default function MembersTab() {
             leftSection={<FaFileExcel />}
             variant="outline"
             onClick={handleExportToExcel}
-            loading={loadingUsers} // Muestra el estado de carga en el botón
-            disabled={loadingUsers} // Deshabilita el botón mientras carga
+            loading={exporting}
+            disabled={exporting}
           >
             Exportar a Excel
           </Button>
@@ -328,7 +336,7 @@ export default function MembersTab() {
       )}
 
       {/* Modales */}
-      <ChangePasswordModal
+      <ChangeCredentialsModal
         opened={passwordModalOpened}
         email={selectedEmail}
         onClose={() => setPasswordModalOpened(false)}

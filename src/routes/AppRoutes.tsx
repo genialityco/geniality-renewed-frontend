@@ -16,42 +16,54 @@ import MembershipPaymentSuccess from "../pages/payment/MembershipPaymentSuccess"
 import OrganizationLanding from "../pages/organizationLanding";
 import SuperAdmin from "../pages/superadmin";
 
+import { RequireAuth, RequireMembership } from "./guards";
+
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* Rutas públicas */}
+      {/* Públicas */}
       <Route path="/" element={<Home />} />
       <Route path="/organizations" element={<Organizations />} />
+      <Route path="/superadmin" element={<SuperAdmin />} />
 
-      {/* Página dedicada de login/registro */}
+      {/* Login/registro por organización */}
       <Route
         path="/organization/:organizationId/iniciar-sesion"
         element={<AuthPage />}
       />
 
-      <Route path="/superadmin" element={<SuperAdmin />} />
-
-      {/* TODO lo que dependa de una orgId */}
+      {/* Todo lo de una organización */}
       <Route
         path="/organization/:organizationId/*"
         element={<OrganizationLayout />}
       >
+        {/* Landing libre (desde aquí muestras estado de membresía y tu modal) */}
         <Route index element={<OrganizationLanding />} />
-        <Route path="course/:eventId" element={<CourseDetail />} />
-        <Route
-          path="activitydetail/:activityId"
-          element={<ActivityDetailContainer />}
-        />
-        <Route path="profile" element={<Profile />} />
 
-        <Route path="admin">
-          <Route index element={<AdminOrganizationEvents />} />
+        {/* Rutas que requieren membresía activa */}
+        <Route element={<RequireMembership />}>
+          <Route path="course/:eventId" element={<CourseDetail />} />
+          <Route
+            path="activitydetail/:activityId"
+            element={<ActivityDetailContainer />}
+          />
         </Route>
 
-        <Route path="pago-exitoso"  element={<MembershipPaymentSuccess />} />
+        {/* Rutas que requieren solo sesión */}
+        <Route element={<RequireAuth />}>
+          <Route path="profile" element={<Profile />} />
+        </Route>
+
+        {/* Rutas que requieren rol admin */}
+          <Route path="admin">
+            <Route index element={<AdminOrganizationEvents />} />
+          </Route>
+
+        {/* Callback de pago puede ser público (o moverlo a RequireAuth si quieres) */}
+        <Route path="pago-exitoso" element={<MembershipPaymentSuccess />} />
       </Route>
 
-      {/* Cualquiera otra */}
+      {/* 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

@@ -11,6 +11,7 @@ import { useOrganization } from "../../../context/OrganizationContext";
 import { OrganizationUser, PaymentPlan } from "../../../services/types";
 import { useClipboard } from "@mantine/hooks";
 import { FaClipboard, FaCopy } from "react-icons/fa6";
+import React from "react";
 
 interface Props {
   users: OrganizationUser[];
@@ -22,22 +23,55 @@ interface Props {
 const HEADER_TRUNCATE_LENGTH = 15;
 const LIST_TRUNCATE_LENGTH = 20;
 
+// Fuera del componente principal:
+const CopyEmailButton = React.memo(function CopyEmailButton({
+  email,
+}: {
+  email: string;
+}) {
+  const clipboard = useClipboard({ timeout: 700 });
+  return (
+    <Tooltip label={clipboard.copied ? "Copiado!" : "Copiar email"} withArrow>
+      <ActionIcon
+        aria-label="Copiar email"
+        variant="subtle"
+        color={clipboard.copied ? "teal" : "gray"}
+        onClick={() => clipboard.copy(email)}
+      >
+        {clipboard.copied ? (
+          <FaCopy style={{ width: "70%", height: "70%" }} />
+        ) : (
+          <FaClipboard style={{ width: "70%", height: "70%" }} />
+        )}
+      </ActionIcon>
+    </Tooltip>
+  );
+});
+
 // Utility para eliminar HTML
-export function stripHtml(html: string): string {
-  const div = document.createElement("div");
-  div.innerHTML = html;
-  return div.textContent || div.innerText || "";
+export function stripHtml(input: string): string {
+  const withoutTags = input.replace(/<\/?[^>]+(>|$)/g, "");
+  return withoutTags.replace(/&nbsp;/g, " ").trim();
 }
 
 // Type guard para PaymentPlan
-export function isPaymentPlan(obj: any): obj is PaymentPlan {
+export function isPaymentPlan(obj: unknown): obj is PaymentPlan {
+  if (!obj || typeof obj !== "object") return false;
+  const o = obj as Record<string, unknown>;
   return (
-    obj &&
-    typeof obj.days === "number" &&
-    typeof obj.price === "number" &&
-    typeof obj.date_until === "string"
+    typeof o.days === "number" &&
+    typeof o.price === "number" &&
+    typeof o.date_until === "string" &&
+    !!o.date_until
   );
 }
+
+const dtfCO = new Intl.DateTimeFormat("es-CO", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  timeZone: "America/Bogota",
+});
 
 export default function MembersTable({
   users,
@@ -47,26 +81,6 @@ export default function MembersTable({
 }: Props) {
   const { organization } = useOrganization();
   const userProps = organization?.user_properties || [];
-
-  const CopyEmailButton = ({ email }: { email: string }) => {
-    const clipboard = useClipboard({ timeout: 500 });
-
-    return (
-      <Tooltip label={clipboard.copied ? "Copiado!" : "Copiar email"} withArrow>
-        <ActionIcon
-          variant="subtle"
-          color={clipboard.copied ? "teal" : "gray"}
-          onClick={() => clipboard.copy(email)}
-        >
-          {clipboard.copied ? (
-            <FaCopy style={{ width: "70%", height: "70%" }} />
-          ) : (
-            <FaClipboard style={{ width: "70%", height: "70%" }} />
-          )}
-        </ActionIcon>
-      </Tooltip>
-    );
-  };
 
   return (
     <ScrollArea>
@@ -148,9 +162,9 @@ export default function MembersTable({
                       withArrow
                     >
                       <Text truncate>
-                        {`${new Date(
-                          planInfo.date_until
-                        ).toLocaleDateString()}`}
+                        {planInfo
+                          ? dtfCO.format(new Date(planInfo.date_until))
+                          : "Sin plan"}
                       </Text>
                     </Tooltip>
                   ) : (
@@ -165,15 +179,17 @@ export default function MembersTable({
                     variant="light"
                     onClick={() => onUpdatePlan(user._id as string)}
                     mr="xs"
+                    aria-label="Actualizar plan del usuario"
                   >
                     Actualizar plan
                   </Button>
                   <Button
                     size="xs"
                     variant="outline"
-                    onClick={() => onPasswordChange(props.email || "")}
+                    onClick={() => onPasswordChange(String(props.email ?? ""))}
+                    aria-label="Cambiar credenciales del usuario"
                   >
-                    Cambiar contraseña
+                    Cambiar credenciales
                   </Button>
 
                   <Button
@@ -181,6 +197,7 @@ export default function MembersTable({
                     variant="outline"
                     onClick={() => onEditUser(user)}
                     mr="xs"
+                    aria-label="Editar usuario"
                   >
                     Editar
                   </Button>
