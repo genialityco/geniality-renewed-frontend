@@ -71,21 +71,27 @@ export default function MembersTab() {
   const [userToEdit, setUserToEdit] = useState<OrganizationUser | null>(null);
 
   // Carga usuarios (ya incluyen payment_plan_id)
-  const fetchUsers = async () => {
-    setLoadingUsers(true);
-    try {
-      const data = await fetchOrganizationUsersByOrganizationId(
-        orgId,
-        userPage,
-        Number(userLimit),
-        searchText
-      );
+const fetchUsers = async () => {
+  setLoadingUsers(true);
+  const runId = crypto.randomUUID();
+  (fetchUsers as any).lastRun = runId;
+
+  try {
+    const data = await fetchOrganizationUsersByOrganizationId(
+      orgId, userPage, Number(userLimit), searchText
+    );
+    // Sólo aplica si sigue vigente
+    if ((fetchUsers as any).lastRun === runId) {
       setUsers(data.results);
       setUserTotal(data.total);
-    } finally {
+    }
+  } finally {
+    if ((fetchUsers as any).lastRun === runId) {
       setLoadingUsers(false);
     }
-  };
+  }
+};
+
 
   useEffect(() => {
     if (orgId) fetchUsers();
@@ -262,9 +268,9 @@ export default function MembersTab() {
               }}
             />
             <SearchForm
-              value={searchText}
+              value={rawSearch}
               onSearch={(text) => {
-                setSearchText(text);
+                setRawSearch(text);
                 setUserPage(1);
               }}
             />
