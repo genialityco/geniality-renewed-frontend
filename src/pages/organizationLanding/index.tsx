@@ -74,6 +74,8 @@ export default function OrganizationLanding() {
     TranscriptSearchResult[]
   >([]);
 
+  const openPaywall = () => setShowSubscriptionModal(true);
+
   // -------- DATA FETCHING -----------
   useEffect(() => {
     const fetchData = async () => {
@@ -85,8 +87,7 @@ export default function OrganizationLanding() {
           const eventData = await fetchEventsByOrganizer(organizationId);
           const sortedEvents = eventData.sort(
             (a, b) =>
-              new Date(b.createdAt).getTime() -
-              new Date(a.createdAt).getTime()
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
           setEvents(sortedEvents);
 
@@ -260,8 +261,7 @@ export default function OrganizationLanding() {
           const eventData = await fetchEventsByOrganizer(organizationId);
           const sortedEvents = eventData.sort(
             (a, b) =>
-              new Date(b.createdAt).getTime() -
-              new Date(a.createdAt).getTime()
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
           setEvents(sortedEvents);
           setFilteredEvents(sortedEvents);
@@ -342,6 +342,25 @@ export default function OrganizationLanding() {
     }
   };
 
+  const handleActivityClick = (activityId: string, t?: number) => {
+    if (!userId) {
+      openPaywall(); // <- NO navegar, solo mostrar modal
+      return;
+    }
+    // si hay sesión, navega normal (puedes añadir chequeo de membresía si quieres)
+    const base = `/organization/${organizationId}/activitydetail/${activityId}`;
+    navigate(typeof t === "number" ? `${base}?t=${t}` : base);
+  };
+
+  const handleNameEventClick = (eventId: string) => {
+    if (!userId) {
+      openPaywall(); 
+      return;
+    }
+    // si hay sesión (puedes añadir chequeo de membresía si quieres)
+    navigate(`/organization/${organizationId}/course/${eventId}`);
+  };
+
   // ----------- RENDERING --------------
   if (loading)
     return (
@@ -399,7 +418,24 @@ export default function OrganizationLanding() {
           activityLimit,
           onPageChange: setActivityPage,
           searching,
-          organizationId: organizationId
+          organizationId: organizationId!,
+          onActivityClick: handleActivityClick,
+          onFragmentClick: (
+            activityId: string,
+            startTime: number,
+            matchedSegments: any[]
+          ) => {
+            if (!userId) {
+              openPaywall();
+              return;
+            }
+            navigate(
+              `/organization/${organizationId}/activitydetail/${activityId}?t=${startTime}&fragments=${encodeURIComponent(
+                JSON.stringify(matchedSegments)
+              )}`
+            );
+          },
+          onEventClick: handleNameEventClick,
         }}
       />
 

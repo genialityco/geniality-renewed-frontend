@@ -16,6 +16,9 @@ interface ActivityCardProps {
   matchedSegments?: MatchedSegment[];
   searchQuery?: string;
   organizationId: string;
+  onCardClick?: (activityId: string) => void;
+  onFragmentClick?: (seg: MatchedSegment) => void;
+  onEventClick?: (eventId: string) => void; // 👈 Nuevo
 }
 
 function formatTime(seconds: number): string {
@@ -30,14 +33,16 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   matchedSegments = [],
   searchQuery,
   organizationId,
+  onCardClick,
+  onFragmentClick,
+  onEventClick,
 }) => {
   const navigate = useNavigate();
 
-  // State para hover y selección de fragmentos
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Obtener imagen del evento si existe (event_id es el objeto del evento)
+  // Imagen
   let eventImage: string = "https://via.placeholder.com/160x160?text=No+Video";
   if (typeof activity.event_id === "object" && activity.event_id !== null) {
     const eventObj = activity.event_id as any;
@@ -47,16 +52,15 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
       eventObj.styles?.banner_image ||
       eventImage;
   }
-
   const [_imgSrc, setImgSrc] = useState<string>(eventImage);
+  useEffect(() => setImgSrc(eventImage), [activity._id]);
 
-  useEffect(() => {
-    setImgSrc(eventImage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activity._id]);
-
-  const handleClickCard = (activityId: string) => {
+  const fallbackGoToActivity = (activityId: string) => {
     navigate(`/organization/${organizationId}/activitydetail/${activityId}`);
+  };
+
+  const fallbackGoToEvent = (eventId: string) => {
+    navigate(`/organization/${organizationId}/course/${eventId}`);
   };
 
   return (
@@ -65,7 +69,11 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
       radius="xs"
       withBorder
       style={{ position: "relative", cursor: "pointer" }}
-      onClick={() => handleClickCard(activity._id)}
+      onClick={() =>
+        onCardClick
+          ? onCardClick(activity._id)
+          : fallbackGoToActivity(activity._id)
+      }
     >
       <Grid gutter="md" align="center">
         <Grid.Col span={4}>
@@ -77,15 +85,16 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
             width="100%"
             fit="contain"
             loading="lazy"
-            onError={() => {
-              setImgSrc("https://via.placeholder.com/160x160?text=No+Video");
-            }}
+            onError={() =>
+              setImgSrc("https://via.placeholder.com/160x160?text=No+Video")
+            }
           />
         </Grid.Col>
 
         <Grid.Col span={8}>
           <Flex direction="column" ta="left" justify="space-between">
             <Title order={4}>{activity.name}</Title>
+
             <Text size="sm" variant="gradient">
               Evento:{" "}
               {typeof activity.event_id === "object" &&
@@ -103,17 +112,15 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                       (activity.event_id as any)._id ||
                       (activity.event_id as any).id ||
                       "";
-                    if (eventId && organizationId) {
-                      // window.open(
-                      //   `${window.location.origin}/organization/${organizationId}/course/${eventId}`,
-                      //   "_blank"
-                      // );
-                      // O en la misma pestaña:
-                      navigate(`/organization/${organizationId}/course/${eventId}`);
+                    if (!eventId) return;
+                    if (onEventClick) {
+                      onEventClick(eventId); // 👈 El padre decide (modal o navegar)
+                    } else {
+                      fallbackGoToEvent(eventId); // fallback directo
                     }
                   }}
                 >
-                  {activity.event_id.name}
+                  {(activity.event_id as any).name}
                 </span>
               ) : (
                 "Sin evento asignado"
@@ -127,11 +134,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                 </Text>
 
                 <div
-                  style={{
-                    maxHeight: 150,
-                    overflowY: "auto",
-                    paddingRight: 8,
-                  }}
+                  style={{ maxHeight: 150, overflowY: "auto", paddingRight: 8 }}
                 >
                   {matchedSegments.map((seg) => (
                     <div
@@ -154,12 +157,16 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedId(seg.segmentId);
-                        navigate(
-                          `/organization/${organizationId}/activitydetail/${activity._id}?t=${seg.startTime}` +
-                            `&fragments=${encodeURIComponent(
-                              JSON.stringify(matchedSegments)
-                            )}`
-                        );
+                        if (onFragmentClick) {
+                          onFragmentClick(seg); // 👈 El padre decide
+                        } else {
+                          navigate(
+                            `/organization/${organizationId}/activitydetail/${activity._id}?t=${seg.startTime}` +
+                              `&fragments=${encodeURIComponent(
+                                JSON.stringify(matchedSegments)
+                              )}`
+                          );
+                        }
                       }}
                     >
                       <Text size="sm">

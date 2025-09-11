@@ -15,6 +15,9 @@ export default function ActivitiesGrid({
   onPageChange,
   searching,
   organizationId,
+  onActivityClick,
+  onFragmentClick,
+  onEventClick, // 👈 NUEVO
 }: {
   activities: Activity[];
   searchResults: TranscriptSearchResult[];
@@ -27,6 +30,13 @@ export default function ActivitiesGrid({
   onPageChange: (page: number) => void;
   searching: boolean;
   organizationId: string;
+  onActivityClick: (activityId: string, t?: number) => void;
+  onFragmentClick: (
+    activityId: string,
+    startTime: number,
+    matchedSegments: any[]
+  ) => void;
+  onEventClick: (eventId: string) => void; // 👈 NUEVO
 }) {
   if (searching) {
     return (
@@ -37,6 +47,8 @@ export default function ActivitiesGrid({
       </Flex>
     );
   }
+
+  // Vista de búsqueda con segmentos
   if (searchResults.length > 0 && searchQuery.trim() !== "") {
     return (
       <>
@@ -49,16 +61,23 @@ export default function ActivitiesGrid({
               (act) => String(act._id) === String(result._id)
             );
             if (!foundActivity) return null;
+
             return (
-              <Grid.Col
-                key={foundActivity._id}
-                span={searchQuery ? 12 : { xs: 12, sm: 6, md: 4, lg: 3 }}
-              >
+              <Grid.Col key={foundActivity._id} span={12}>
                 <ActivityCard
                   activity={foundActivity}
                   matchedSegments={result.matchedSegments}
                   searchQuery={searchQuery}
                   organizationId={organizationId}
+                  onCardClick={() => onActivityClick(foundActivity._id)}
+                  onFragmentClick={(seg) =>
+                    onFragmentClick(
+                      foundActivity._id,
+                      seg.startTime,
+                      result.matchedSegments
+                    )
+                  }
+                  onEventClick={onEventClick} // 👈 pasa tal cual
                 />
               </Grid.Col>
             );
@@ -75,7 +94,8 @@ export default function ActivitiesGrid({
       </>
     );
   }
-  // Normal
+
+  // Vista normal
   return (
     <>
       <Grid mt="md" gutter="md">
@@ -89,6 +109,8 @@ export default function ActivitiesGrid({
               <ActivityCard
                 activity={activity}
                 organizationId={organizationId}
+                onCardClick={() => onActivityClick(activity._id)}
+                onEventClick={onEventClick} 
               />
             </Grid.Col>
           ))
