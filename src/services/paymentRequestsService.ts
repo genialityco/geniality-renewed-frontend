@@ -1,12 +1,21 @@
+// src/services/paymentRequestsService.ts
 import api from "./api";
 
-// Tipos básicos
+export type PaymentStatus =
+  | "CREATED"
+  | "PENDING"
+  | "APPROVED"
+  | "DECLINED"
+  | "VOIDED"
+  | "ERROR";
+
 export interface PaymentRequestPayload {
   reference: string;
   userId: string;
   organizationUserId?: string;
   organizationId: string;
   amount: number;
+  currency?: string; // opcional ('COP')
 }
 
 export interface PaymentRequest {
@@ -16,36 +25,40 @@ export interface PaymentRequest {
   organizationUserId?: string;
   organizationId: string;
   amount: number;
-  status: 'PENDING' | 'APPROVED' | 'DECLINED' | 'VOIDED' | 'ERROR';
+  currency?: string;
+  status: PaymentStatus;
   transactionId?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-// 1. Crear un nuevo intento de pago
+// 1) Crear intento de pago
 export const createPaymentRequest = async (
   data: PaymentRequestPayload
 ): Promise<PaymentRequest> => {
-  const response = await api.post<PaymentRequest>("/payment-requests", data);
-  return response.data;
+  const res = await api.post<PaymentRequest>("/payment-requests", {
+    currency: "COP",
+    ...data,
+  });
+  return res.data;
 };
 
-// 2. Obtener por reference
+// 2) Obtener por reference
 export const fetchPaymentRequestByReference = async (
   reference: string
-): Promise<PaymentRequest> => {
-  const response = await api.get<PaymentRequest>(
+): Promise<PaymentRequest | null> => {
+  const res = await api.get<PaymentRequest>(
     `/payment-requests/by-reference/${reference}`
   );
-  return response.data;
+  return res.data ?? null;
 };
 
-// 3. Obtener por transactionId
+// 3) Obtener por transactionId
 export const fetchPaymentRequestByTransactionId = async (
   transactionId: string
-): Promise<PaymentRequest> => {
-  const response = await api.get<PaymentRequest>(
+): Promise<PaymentRequest | null> => {
+  const res = await api.get<PaymentRequest>(
     `/payment-requests/by-transaction/${transactionId}`
   );
-  return response.data;
+  return res.data ?? null;
 };
