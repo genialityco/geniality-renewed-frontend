@@ -20,6 +20,7 @@ import {
 import {
   createOrUpdateUser,
   fetchUserByFirebaseUid,
+  logout,
   refreshSessionToken,
 } from "../services/userService";
 import {
@@ -58,6 +59,7 @@ interface UserContextValue {
   name: string;
   email: string;
   loading: boolean;
+  sessionToken: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (data: SignUpData) => Promise<void>;
   signOut: () => Promise<void>;
@@ -169,6 +171,7 @@ const UserContext = createContext<
   signUp: async () => {},
   signOut: async () => {},
   adminCreateUserAndOrganizationUser: undefined,
+  sessionToken: null,
 });
 
 export function UserProvider({ children }: { children: ReactNode }) {
@@ -178,6 +181,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   // Persistencia y suscripción a Auth
   useEffect(() => {
@@ -205,19 +209,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
           try {
             const parsed = JSON.parse(localData); // parsed.sessionToken = MI token
             const userData = await fetchUserByFirebaseUid(firebaseUser.uid);
-
+            setSessionToken(parsed.sessionToken ?? null);
             // userData.sessionTokens = [{token, createdAt}, ...]
-            const activeTokens: string[] = Array.isArray(userData.sessionTokens)
-              ? userData.sessionTokens.map((t: any) => t.token)
-              : [];
+            // const activeTokens: string[] = Array.isArray(userData.sessionTokens)
+            //   ? userData.sessionTokens.map((t: any) => t.token)
+            //   : [];
 
-            if (!activeTokens.includes(parsed.sessionToken)) {
-              alert(
-                "Tu sesión fue cerrada porque se inició en otro dispositivo."
-              );
-              await signOut();
-              return;
-            }
+            // if (!activeTokens.includes(parsed.sessionToken)) {
+            //   alert(
+            //     "Tu sesión fue cerrada porque se inició en otro dispositivo."
+            //   );
+            //   await signOut();
+            //   return;
+            // }
 
             // Si es válido, sincroniza
             setUserId(userData._id);
@@ -265,7 +269,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setOrganizationUserData(organizationUserData);
     setName(userData.name || userData.names);
     setEmail(userData.email);
-
+    setSessionToken(sessionToken);
     // 6) Persistencia local para headers (x-uid / x-session-token)
     localStorage.setItem(
       "myUserInfo",
@@ -299,7 +303,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
     // 1) Firebase Auth
     const result = await createUserWithEmailAndPassword(auth, email, password);
     const uid = result.user.uid;
-    console.log(uid);
 
     // 2) /users
     const userRecord = await createOrUpdateUser({
@@ -310,7 +313,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     });
 
     // 3) /organization-users
-    const response = await createOrUpdateOrganizationUser({
+    await createOrUpdateOrganizationUser({
       user_id: userRecord._id,
       organization_id: organizationId,
       position_id: positionId,
@@ -318,24 +321,34 @@ export function UserProvider({ children }: { children: ReactNode }) {
       properties,
     });
 
-    console.log(response);
-
+    const sessionToken = await refreshSessionToken(uid);
     // Estado y localStorage
     setUserId(userRecord._id);
     setName(userRecord.names); // <- usar 'names' aquí también
     setEmail(userRecord.email);
+    setSessionToken(sessionToken);
     localStorage.setItem(
       "myUserInfo",
-      JSON.stringify({
-        ...userRecord,
-        sessionToken: userRecord.sessionToken,
-      })
+      JSON.stringify({ ...userRecord, sessionToken })
     );
   }, []);
 
   // signOut: Firebase + limpiar estado
   const signOut = useCallback(async () => {
-    await firebaseSignOut(auth);
+    const info = localStorage.getItem("myUserInfo");
+    const { uid, sessionToken } = info ? JSON.parse(info) : {};
+
+    try {
+      if (uid && sessionToken) {
+        await logout(uid, sessionToken);
+      }
+    } catch {
+      /* ignora errores de red */
+    }
+
+    try {
+      await firebaseSignOut(auth);
+    } catch {}
     setFirebaseUser(null);
     setUserId(null);
     setName("");
@@ -352,6 +365,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         name,
         email,
         loading,
+        sessionToken,
         signIn,
         signUp,
         signOut,

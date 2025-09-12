@@ -69,3 +69,16 @@ export const refreshSessionToken = async (uid: string): Promise<string> => {
   );
   return res.data.sessionToken;
 };
+
+export const logout = async (uid: string, sessionToken: string) => {
+  await api.post(
+    "/users/logout",
+    { uid, sessionToken },
+    {
+      headers: {
+        "x-uid": uid,
+        "x-session-token": sessionToken,
+      },
+    }
+  );
+};

@@ -10,11 +10,13 @@ import { OrganizationProvider } from "./context/OrganizationContext";
 
 import AppRoutes from "./routes/AppRoutes";
 import { theme } from "./theme";
+import SessionWatcher from './components/SessionWatcher';
 
 export default function App() {
   return (
     <MantineProvider theme={theme}>
       <UserProvider>
+        <SessionWatcher /> 
         <PaymentModalProvider>
           <BrowserRouter>
             <OrganizationProvider>
