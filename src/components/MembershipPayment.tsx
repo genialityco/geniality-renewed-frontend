@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { Card, Stack, Text, Title, Button, Group } from "@mantine/core";
+import { Card, Stack, Text, Title, Button, Group, Loader } from "@mantine/core";
 import { useUser } from "../context/UserContext";
 import { createPaymentRequest } from "../services/paymentRequestsService";
 import {
@@ -7,6 +7,7 @@ import {
   buildCheckoutUrl,
 } from "../services/wompiService";
 import { v4 as uuidv4 } from "uuid";
+import { useState } from "react";
 
 const MembershipPayment = () => {
   const today = new Date();
@@ -24,6 +25,8 @@ const MembershipPayment = () => {
   const { userId } = useUser();
   const PUBLIC_KEY = import.meta.env.VITE_WOMPI_PUBLIC_KEY as string;
 
+  const [loading, setLoading] = useState(false);
+
   const handlePayment = async () => {
     if (!PUBLIC_KEY) {
       alert("Falta VITE_WOMPI_PUBLIC_KEY en el frontend.");
@@ -35,6 +38,8 @@ const MembershipPayment = () => {
       );
       return;
     }
+
+    setLoading(true);
 
     const amountInCents = plan.price * 100;
     const reference = `membresia-${organizationId}-${userId}-${uuidv4()}`;
@@ -72,6 +77,7 @@ const MembershipPayment = () => {
     } catch (e) {
       console.error("Error al iniciar el pago:", e);
       alert("No fue posible iniciar el pago. Intenta de nuevo.");
+      setLoading(false); // habilitar de nuevo si falla
     }
   };
 
@@ -107,8 +113,8 @@ const MembershipPayment = () => {
             </Text>
           </Group>
 
-          <Button fullWidth mt="md" onClick={handlePayment}>
-            Pagar Ahora
+          <Button fullWidth mt="md" onClick={handlePayment} disabled={loading}>
+            {loading ? <Loader size="sm" color="white" /> : "Pagar Ahora"}
           </Button>
         </Stack>
       </Card>
