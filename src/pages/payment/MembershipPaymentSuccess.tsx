@@ -9,10 +9,10 @@ import {
   Notification,
   Button,
 } from "@mantine/core";
-import { useUser } from "../../context/UserContext";
 import {
   fetchPaymentRequestByReference,
   fetchPaymentRequestByTransactionId,
+  linkTransaction,
 } from "../../services/paymentRequestsService";
 import { syncTransactionById } from "../../services/wompiService";
 
@@ -31,10 +31,20 @@ const MembershipPaymentSuccess = () => {
   const [isChecking, setIsChecking] = useState(false);
   const didSyncOnce = useRef(false);
 
-  const { userId } = useUser();
-
   const formatCOP = (val: number) =>
     val.toLocaleString("es-CO", { style: "currency", currency: "COP" });
+
+  useEffect(() => {
+    const link = async () => {
+      if (!reference || !transactionId) return;
+      try {
+        await linkTransaction(reference, transactionId); // enlaza por si aún no estaba
+      } catch {
+        /* silencioso */
+      }
+    };
+    link();
+  }, [reference, transactionId]);
 
   // 1) Empujar conciliación directa por transactionId (si llegó en la URL)
   useEffect(() => {
@@ -53,9 +63,9 @@ const MembershipPaymentSuccess = () => {
 
   // 2) Consultar tu PaymentRequest por reference o transactionId
   const checkTransaction = useCallback(async () => {
-    if (!userId || (!reference && !transactionId)) {
+    if (!reference && !transactionId) {
       setStatus("fail");
-      setMessage("No se encontró la transacción o el usuario.");
+      setMessage("No se encontró la transacción.");
       return;
     }
 
@@ -110,7 +120,7 @@ const MembershipPaymentSuccess = () => {
     } finally {
       setIsChecking(false);
     }
-  }, [reference, transactionId, userId, status]);
+  }, [reference, transactionId, status]);
 
   // Primera verificación al montar
   useEffect(() => {

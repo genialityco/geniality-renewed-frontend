@@ -44,11 +44,9 @@ export const createPaymentRequest = async (
 };
 
 // 2) Obtener por reference
-export const fetchPaymentRequestByReference = async (
-  reference: string
-): Promise<PaymentRequest | null> => {
+export const fetchPaymentRequestByReference = async (reference: string) => {
   const res = await api.get<PaymentRequest>(
-    `/payment-requests/by-reference/${reference}`
+    `/payment-requests/by-reference/${encodeURIComponent(reference)}`
   );
   return res.data ?? null;
 };
@@ -56,9 +54,19 @@ export const fetchPaymentRequestByReference = async (
 // 3) Obtener por transactionId
 export const fetchPaymentRequestByTransactionId = async (
   transactionId: string
-): Promise<PaymentRequest | null> => {
+) => {
   const res = await api.get<PaymentRequest>(
-    `/payment-requests/by-transaction/${transactionId}`
+    `/payment-requests/by-transaction/${encodeURIComponent(transactionId)}`
   );
   return res.data ?? null;
+};
+
+export const linkTransaction = async (
+  reference: string,
+  transactionId: string
+) => {
+  await api.post(
+    `/payment-requests/${encodeURIComponent(reference)}/link-transaction`,
+    { transactionId }
+  );
 };

@@ -38,7 +38,9 @@ const MembershipPayment = () => {
 
     const amountInCents = plan.price * 100;
     const reference = `membresia-${organizationId}-${userId}-${uuidv4()}`;
-    const redirectUrl = `${window.location.origin}/organization/${organizationId}/pago-exitoso`;
+    const redirectUrl =
+      `${window.location.origin}/organization/${organizationId}/pago-exitoso` +
+      `?reference=${encodeURIComponent(reference)}`;
 
     try {
       // 1) Crear intento
