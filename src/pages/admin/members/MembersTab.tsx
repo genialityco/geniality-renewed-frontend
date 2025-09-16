@@ -145,9 +145,13 @@ export default function MembersTab() {
     if (
       existingPlan &&
       typeof existingPlan === "object" &&
-      "_id" in existingPlan
+      "_id" in existingPlan &&
+      user
     ) {
-      await updatePaymentPlanDateUntil(existingPlan._id, isoDate);
+      const userNames = user.properties.nombres
+        ? user.properties.nombres
+        : user.properties.names;
+      await updatePaymentPlanDateUntil(existingPlan._id, isoDate, userNames);
     } else {
       const newPlan = await createPaymentPlan({
         days,

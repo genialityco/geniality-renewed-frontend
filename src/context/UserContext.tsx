@@ -135,12 +135,17 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
               ? organizationUser.user_id
               : organizationUser.user_id?._id
           );
+          const names = organizationUser.properties.nombres
+            ? organizationUser.properties.nombres
+            : organizationUser.properties.names;
+
           if (paymentPlan && paymentPlan._id) {
             const newDate = new Date();
             newDate.setDate(newDate.getDate() + 365);
             await updatePaymentPlanDateUntil(
               paymentPlan._id,
-              newDate.toISOString()
+              newDate.toISOString(),
+              names
             );
           }
         } catch {

@@ -4,7 +4,10 @@ import { Group, Button, Checkbox } from "@mantine/core";
 import * as XLSX from "xlsx";
 
 import { createOrUpdateOrganizationUser } from "../../../services/organizationUserService";
-import { createPaymentPlan, updatePaymentPlanDateUntil } from "../../../services/paymentPlansService";
+import {
+  createPaymentPlan,
+  updatePaymentPlanDateUntil,
+} from "../../../services/paymentPlansService";
 import { useUser } from "../../../context/UserContext";
 import { useOrganization } from "../../../context/OrganizationContext";
 import type { ImportReportType } from "../../../services/types";
@@ -64,7 +67,13 @@ export default function BulkUploadSection({
     for (const [idx, row] of fileData.entries()) {
       try {
         // Campos principales
-        const email = norm(row, ["email", "correo", "Correo", "Correo electrónico", "correo electrónico"]);
+        const email = norm(row, [
+          "email",
+          "correo",
+          "Correo",
+          "Correo electrónico",
+          "correo electrónico",
+        ]);
         const nombres = norm(row, ["nombres", "Nombres"]);
         const apellidos = norm(row, ["apellidos", "Apellidos"]);
         const name =
@@ -99,7 +108,9 @@ export default function BulkUploadSection({
             // Crear un nuevo payment plan si no existe
             const plan = await createPaymentPlan({
               days: 365,
-              date_until: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+              date_until: new Date(
+                Date.now() + 365 * 24 * 60 * 60 * 1000
+              ).toISOString(),
               price: 0,
               organization_user_id: organizationUser._id,
             });
@@ -108,10 +119,14 @@ export default function BulkUploadSection({
               payment_plan_id: plan._id,
             });
           } else {
+            const nameUser = organizationUser.properties.nombres
+              ? organizationUser.properties.nombres
+              : organizationUser.properties.names;
             // Actualizar solo date_until del plan existente
             await updatePaymentPlanDateUntil(
               organizationUser.payment_plan_id,
-              new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+              new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+              nameUser
             );
           }
         }
@@ -122,7 +137,11 @@ export default function BulkUploadSection({
           updated.push({ row: idx + 2, data: row });
         }
       } catch (err: any) {
-        errors.push({ row: idx + 2, error: err?.message ?? "Error inesperado", data: row });
+        errors.push({
+          row: idx + 2,
+          error: err?.message ?? "Error inesperado",
+          data: row,
+        });
       }
     }
 
@@ -213,10 +232,7 @@ export default function BulkUploadSection({
     }
 
     // 6) Construir workbook: Hoja "Usuarios" (encabezados + ejemplo)
-    const wsData = [
-      headers,
-      headers.map((h) => example[h]),
-    ];
+    const wsData = [headers, headers.map((h) => example[h])];
     const worksheet = XLSX.utils.aoa_to_sheet(wsData);
 
     // Hoja "Guía" opcional con name/label para referencia

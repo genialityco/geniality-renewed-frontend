@@ -44,11 +44,12 @@ export const fetchPaymentPlanByUserId = async (
  */
 export const updatePaymentPlanDateUntil = async (
   paymentPlanId: string,
-  date_until: string
+  date_until: string,
+  nameUser: string
 ): Promise<PaymentPlan> => {
   const response = await api.patch<PaymentPlan>(
     `/payment-plans/${paymentPlanId}/date-until`,
-    { date_until }
+    { date_until, nameUser }
   );
   return response.data;
 };
