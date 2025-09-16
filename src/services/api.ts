@@ -43,7 +43,7 @@ function handleSessionEndOnce() {
   } catch {}
 
   localStorage.removeItem("myUserInfo");
-  alert("Tu cuenta ya está activa en 2 dispositivos. Para poder continuar en este, cerraremos automáticamente la sesión más antigua.");
+  alert("Tu cuenta se abrió en un nuevo dispositivo. Esta sesión se cerrará porque superaste el límite de 2 dispositivos.");
   window.location.reload();
 }
 
