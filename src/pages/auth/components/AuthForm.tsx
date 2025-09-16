@@ -30,7 +30,17 @@ declare global {
   }
 }
 
-export default function AuthForm({ }: { isPaymentPage?: boolean }) {
+function isProvidedByType(value: any, type?: string) {
+  const t = (type ?? "").toLowerCase();
+  if (t === "boolean") return value === true; // checkbox obligatorio => marcado
+  if (Array.isArray(value)) return value.length > 0; // multiselect/lista múltiple
+  if (typeof value === "string") return value.trim().length > 0; // texto/email/etc
+  if (value === null || value === undefined) return false;
+  // números/objetos: considera como provistos
+  return true;
+}
+
+export default function AuthForm({}: { isPaymentPage?: boolean }) {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
   const { signIn, signUp } = useUser();
@@ -38,7 +48,7 @@ export default function AuthForm({ }: { isPaymentPage?: boolean }) {
 
   // Estado
   const [isRegister, setIsRegister] = useState(false);
-  const [email, setEmail] = useState("");       // SOLO login
+  const [email, setEmail] = useState(""); // SOLO login
   const [password, setPassword] = useState(""); // SOLO login
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -59,12 +69,41 @@ export default function AuthForm({ }: { isPaymentPage?: boolean }) {
   }, [organization]);
 
   // Limpiar errores al tipear email en registro (por si lo usas en reset)
+  // Limpia errores SOLO cuando el usuario edita el email durante registro
   useEffect(() => {
-    if (isRegister && formError) setFormError(null);
-  }, [email, isRegister, formError]);
+    if (!isRegister) return;
+    setFormError(null);
+  }, [email, isRegister]);
+
+  useEffect(() => {
+    if (!organization || !isRegister) return;
+    const props = organization.user_properties ?? [];
+
+    // Recalcula visibilidad actual
+    const nextVisible = new Map<string, boolean>();
+    for (const p of props)
+      nextVisible.set(p.name, shouldRenderProperty(p as any, formValues));
+
+    // Si algún campo pasó a oculto, borramos su valor
+    setFormValues((prev) => {
+      const copy = { ...prev };
+      let changed = false;
+      for (const p of props) {
+        const name = p.name;
+        const shouldShow = nextVisible.get(name) ?? true;
+        if (!shouldShow && name in copy) {
+          delete copy[name];
+          changed = true;
+        }
+      }
+      return changed ? copy : prev;
+    });
+  }, [organization, isRegister, formValues]);
 
   const handleFieldChange = useCallback((name: string, value: any) => {
     setFormValues((prev) => ({ ...prev, [name]: value }));
+    // si había error, desaparece al empezar a corregir
+    setFormError((prev) => (prev ? null : prev));
   }, []);
 
   const goHome = useCallback(() => {
@@ -99,7 +138,9 @@ export default function AuthForm({ }: { isPaymentPage?: boolean }) {
     for (const k of aliases) {
       // busca exact y versión lowercase
       if (set.has(k)) return k;
-      const found = props.find((p) => p.name?.toLowerCase?.() === k.toLowerCase());
+      const found = props.find(
+        (p) => p.name?.toLowerCase?.() === k.toLowerCase()
+      );
       if (found) return found.name;
     }
     return "ID";
@@ -120,9 +161,12 @@ export default function AuthForm({ }: { isPaymentPage?: boolean }) {
       }
     } catch (err: any) {
       let msg = "Error al iniciar sesión. Intenta de nuevo.";
-      if (err?.code === "auth/user-not-found") msg = "No existe una cuenta con este correo.";
-      else if (err?.code === "auth/invalid-credential") msg = "Email o contraseña incorrecta.";
-      else if (err?.code === "auth/too-many-requests") msg = "Demasiados intentos fallidos. Intenta más tarde.";
+      if (err?.code === "auth/user-not-found")
+        msg = "No existe una cuenta con este correo.";
+      else if (err?.code === "auth/invalid-credential")
+        msg = "Email o contraseña incorrecta.";
+      else if (err?.code === "auth/too-many-requests")
+        msg = "Demasiados intentos fallidos. Intenta más tarde.";
       setFormError(msg);
     } finally {
       setSubmitting(false);
@@ -152,6 +196,40 @@ export default function AuthForm({ }: { isPaymentPage?: boolean }) {
       return;
     }
 
+    // 🔐 Validación de campos mandatory visibles por dependencia
+    const props = organization.user_properties ?? [];
+    const missingLabels: string[] = [];
+
+    for (const p of props) {
+      // Solo validar cuando el campo se "muestra"
+      const shouldShow = shouldRenderProperty(p as any, formValues);
+
+      // Si la organización marca visible=false, igual aplicamos dependencia:
+      // - Si no se muestra por dependencia => no se exige
+      // - Si se muestra (dep cumplida) y mandatory => se exige
+      if (!shouldShow) continue;
+
+      if (p.mandatory) {
+        const val = formValues[p.name];
+        const ok = isProvidedByType(val, p.type);
+        if (!ok) {
+          // Usa el label si existe; fallback al name
+          const label = (p as any).label ?? p.name;
+          missingLabels.push(String(label));
+        }
+      }
+    }
+
+    if (missingLabels.length > 0) {
+      setFormError(
+        `Faltan campos obligatorios: ${missingLabels.join(
+          ", "
+        )}. Por favor complétalos.`
+      );
+      setSubmitting(false);
+      return;
+    }
+
     try {
       await signUp({
         email: emailValue,
@@ -173,7 +251,14 @@ export default function AuthForm({ }: { isPaymentPage?: boolean }) {
     } finally {
       setSubmitting(false);
     }
-  }, [organization, formValues, getEmailFieldName, getIdFieldName, signUp, navigate]);
+  }, [
+    organization,
+    formValues,
+    getEmailFieldName,
+    getIdFieldName,
+    signUp,
+    navigate,
+  ]);
 
   // Campos dinámicos SOLO para registro
   const dynamicFields = useMemo(() => {
@@ -236,10 +321,19 @@ export default function AuthForm({ }: { isPaymentPage?: boolean }) {
 
       <Group mb="md" justify="space-between" align="center">
         <Text fw={700} fz={24} mb="md">
-          {isRegister ? "Crear cuenta" : isResetPassword ? "Recuperar contraseña" : "Iniciar sesión"}
+          {isRegister
+            ? "Crear cuenta"
+            : isResetPassword
+            ? "Recuperar contraseña"
+            : "Iniciar sesión"}
         </Text>
 
-        <Button variant="subtle" leftSection={<FaArrowLeft size={18} />} onClick={goHome} size="xs">
+        <Button
+          variant="subtle"
+          leftSection={<FaArrowLeft size={18} />}
+          onClick={goHome}
+          size="xs"
+        >
           Ir al inicio
         </Button>
       </Group>
@@ -249,8 +343,16 @@ export default function AuthForm({ }: { isPaymentPage?: boolean }) {
         <div>
           {!resetMethod && (
             <Group grow mb="md">
-              <Button variant="light" onClick={() => setResetMethod("email")}>Recuperar por Email</Button>
-              <Button variant="light" color="teal" onClick={() => setResetMethod("sms")}>Recuperar por SMS</Button>
+              <Button variant="light" onClick={() => setResetMethod("email")}>
+                Recuperar por Email
+              </Button>
+              <Button
+                variant="light"
+                color="teal"
+                onClick={() => setResetMethod("sms")}
+              >
+                Recuperar por SMS
+              </Button>
             </Group>
           )}
 
@@ -302,7 +404,7 @@ export default function AuthForm({ }: { isPaymentPage?: boolean }) {
                 label="Contraseña"
                 placeholder="********"
                 value={password}
-                onChange={(e) => setPassword(e.currentTarget.value)}
+                onChange={(e) => { setPassword(e.currentTarget.value); setFormError(null); }}
                 mb="sm"
                 required
               />
@@ -313,7 +415,8 @@ export default function AuthForm({ }: { isPaymentPage?: boolean }) {
           {isRegister && (
             <>
               <Text c="dimmed" size="sm" mb="xs">
-                Completa el formulario. La contraseña inicial se tomará del campo de identificación (ID).
+                Completa el formulario. La contraseña inicial se tomará del
+                campo de identificación (ID).
               </Text>
               {dynamicFields}
             </>
@@ -327,9 +430,13 @@ export default function AuthForm({ }: { isPaymentPage?: boolean }) {
 
           <Group mt="md">
             {isRegister ? (
-              <Button fullWidth onClick={handleSignUp} loading={submitting}>Registrarse</Button>
+              <Button fullWidth onClick={handleSignUp} loading={submitting}>
+                Registrarse
+              </Button>
             ) : (
-              <Button fullWidth onClick={handleSignIn} loading={submitting}>Iniciar sesión</Button>
+              <Button fullWidth onClick={handleSignIn} loading={submitting}>
+                Iniciar sesión
+              </Button>
             )}
 
             <Button variant="subtle" onClick={() => setIsRegister((p) => !p)}>
