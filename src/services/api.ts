@@ -43,7 +43,7 @@ function handleSessionEndOnce() {
   } catch {}
 
   localStorage.removeItem("myUserInfo");
-  alert("Tu sesión fue cerrada.");
+  alert("Tu cuenta ya está activa en 2 dispositivos. Para poder continuar en este, cerraremos automáticamente la sesión más antigua.");
   window.location.reload();
 }
 
