@@ -208,13 +208,23 @@ export default function MembersTab() {
         orgId,
         searchText
       );
-
       if (!allUsers || allUsers.length === 0) {
         console.warn("No hay usuarios para exportar.");
         return;
       }
 
-      const userProps = organization?.user_properties || [];
+      // ► Excepciones que SIEMPRE se exportan aunque visible=false
+      const exceptionNames = new Set(["names", "indicativodepais"]);
+
+      // Tomamos las props en el orden definido en organization.user_properties
+      // Incluimos: (visible === true) OR (name ∈ excepciones)
+      const propsToExport = (organization?.user_properties || []).filter(
+        (p: any) => {
+          const name = String(p?.name || "");
+          const isException = exceptionNames.has(name);
+          return p?.visible === true || isException;
+        }
+      );
 
       const dataToExport = allUsers.map((user) => {
         const props = user.properties || {};
@@ -223,22 +233,31 @@ export default function MembersTab() {
 
         const rowData: Record<string, string | number> = {};
 
-        // propiedades dinámicas
-        userProps.forEach((prop: { name: any; type: string; label: any }) => {
-          const name = String(prop.name);
-          const rawValue = props[name] ?? "";
-          let cleanValue = stripHtml(String(rawValue));
+        // Propiedades dinámicas (con mapeo booleano)
+        propsToExport.forEach(
+          (prop: { name: string; type: string; label: string }) => {
+            const name = String(prop.name);
+            const rawValue = props[name] ?? "";
+            let cleanValue = stripHtml(String(rawValue));
 
-          if (prop.type.toLowerCase() === "boolean") {
-            cleanValue =
-              cleanValue.toLowerCase() === "true" ? "Acepto" : "No acepto";
+            if (prop.type?.toLowerCase() === "boolean") {
+              const v = cleanValue.toLowerCase();
+              cleanValue =
+                v === "true" || v === "1" || v === "sí" || v === "si"
+                  ? "Acepto"
+                  : "No acepto";
+            }
+
+            const label = stripHtml(String(prop.label));
+            rowData[label] = cleanValue;
           }
+        );
 
-          const label = stripHtml(String(prop.label));
-          rowData[label] = cleanValue;
-        });
+        // Fecha de registro desde organization_user.created_at
+        const createdAt = user.created_at ? new Date(user.created_at) : null;
+        rowData["Fecha de registro"] = createdAt ? dtfCO.format(createdAt) : "";
 
-        // columna Plan (formato consistente)
+        // Plan (Vencimiento)
         rowData["Plan (Vencimiento)"] = planInfo
           ? dtfCO.format(new Date(planInfo.date_until))
           : "Sin plan";
@@ -246,13 +265,15 @@ export default function MembersTab() {
         return rowData;
       });
 
-      // headers estables
-      const headers = userProps.map((prop: { label: any }) =>
-        stripHtml(String(prop.label))
-      );
-      headers.push("Plan (Vencimiento)");
+      // Encabezados en el mismo orden de propsToExport + extras
+      const headers = [
+        ...propsToExport.map((prop: { label: string }) =>
+          stripHtml(String(prop.label))
+        ),
+        "Fecha de registro",
+        "Plan (Vencimiento)",
+      ];
 
-      // crea sheet sin headers automáticos y escribe encabezado en A1
       const worksheet = XLSX.utils.json_to_sheet(dataToExport, {
         header: headers,
         skipHeader: true,

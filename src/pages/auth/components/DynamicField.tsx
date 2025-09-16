@@ -138,7 +138,7 @@ export default function DynamicField({
 
   // Placeholder
   const placeholder =
-    isPhoneField ? "+57 3121234567" : prop.label;
+    isPhoneField ? "3121234567" : prop.label;
 
   // Common props para TextInput/Textarea
   const common = {
