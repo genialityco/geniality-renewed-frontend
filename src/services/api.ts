@@ -43,7 +43,7 @@ function handleSessionEndOnce() {
   } catch {}
 
   localStorage.removeItem("myUserInfo");
-  alert("Tu cuenta se abrió en un nuevo dispositivo. Esta sesión se cerrará porque superaste el límite de 2 dispositivos.");
+  alert("Tu cuenta se abrió en un nuevo dispositivo. Esta sesión se cerrará porque superaste el límite de 2 dispositivos. Si no reconoces este inicio de sesión, por favor cambia tu contraseña por seguridad.");
   window.location.reload();
 }
 
