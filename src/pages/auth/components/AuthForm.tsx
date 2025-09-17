@@ -31,174 +31,13 @@ import DynamicField from "./DynamicField";
 import EmailRecoverBlock from "./EmailRecoverBlock";
 import SmsRecoverBlock from "./SmsRecoverBlock";
 
+// ✅ Validadores extraídos
+import { validateRegistrationAll } from "../components/Validators";
+
 declare global {
   interface Window {
     recaptchaVerifier?: RecaptchaVerifier;
   }
-}
-
-function isProvidedByType(value: any, type?: string) {
-  const t = (type ?? "").toLowerCase();
-  if (t === "boolean") return value === true; // checkbox obligatorio => marcado
-  if (Array.isArray(value)) return value.length > 0; // multiselect/lista múltiple
-  if (typeof value === "string") return value.trim().length > 0; // texto/email/etc
-  if (value === null || value === undefined) return false;
-  // números/objetos: considera como provistos
-  return true;
-}
-
-/* =========================
- *  AYUDAS DE VALIDACIÓN
- * ========================= */
-const ONLY_LETTERS_RE = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s-]+$/;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-function detectKinds(
-  label: string,
-  name: string,
-  type?: PropertyType | string
-) {
-  const lname = (name || "").toLowerCase();
-  const llabel = (label || "").toLowerCase();
-  const isEmailField = type === PropertyType.EMAIL || lname === "email";
-  const isNamesField =
-    lname === "nombres" ||
-    llabel.includes("nombres") ||
-    lname === "names" ||
-    (llabel.includes("nombre") && !llabel.includes("correo"));
-  const isSurnamesField =
-    lname === "apellidos" ||
-    llabel.includes("apellidos") ||
-    lname === "surnames" ||
-    llabel.includes("apellido");
-  const isIdField =
-    lname === "id" ||
-    lname === "documento" ||
-    lname === "documentoid" ||
-    lname === "documentoidentidad" ||
-    lname === "documento_de_identidad" ||
-    lname === "cedula" ||
-    lname === "cédula" ||
-    lname === "doc" ||
-    lname === "doc_identidad";
-  const isPhoneField =
-    lname.includes("phone") ||
-    lname.includes("cel") ||
-    llabel.includes("contacto") ||
-    llabel.includes("tel") ||
-    llabel.includes("teléfono") ||
-    llabel.includes("telefono") ||
-    lname === "numero de contacto" ||
-    lname === "número de contacto" ||
-    lname === "numero_de_contacto" ||
-    lname === "phone";
-
-  return {
-    isEmailField,
-    isNamesField,
-    isSurnamesField,
-    isIdField,
-    isPhoneField,
-  };
-}
-
-/** obligatorio efectivo: prop.mandatory || (depto/city && pais === "Colombia") */
-function isEffectiveMandatory(prop: any, values: Record<string, any>) {
-  const name = (prop?.name || "").toLowerCase();
-  const isLocation = name === "departamento" || name === "city";
-  const isColombia = (values?.pais || "") === "Colombia";
-  return !!(prop?.mandatory || (isLocation && isColombia));
-}
-
-/** valida TODO lo visible y devuelve { name: error } y arreglo para el modal */
-function validateRegistrationAll(
-  properties: any[],
-  values: Record<string, any>
-): {
-  fieldErrors: Record<string, string>;
-  modalItems: Array<{ name: string; label: string; msg: string }>;
-} {
-  const fieldErrors: Record<string, string> = {};
-  const modalItems: Array<{ name: string; label: string; msg: string }> = [];
-
-  for (const p of properties || []) {
-    // Validar solo si se muestra (dependencias satisfechas)
-    const visible = shouldRenderProperty(p, values);
-    if (!visible) continue;
-
-    const name = p.name;
-    const label = p.label || name;
-    let val = values[name];
-
-    // Requerido efectivo
-    if (isEffectiveMandatory(p, values)) {
-      const provided = isProvidedByType(val, p.type);
-      if (!provided) {
-        const msg = "Este campo es obligatorio.";
-        fieldErrors[name] = msg;
-        modalItems.push({ name, label, msg });
-        continue;
-      }
-    }
-
-    // Normaliza (solo para validaciones)
-    if (typeof val === "string") val = val.trim();
-
-    const {
-      isEmailField,
-      isNamesField,
-      isSurnamesField,
-      isIdField,
-      isPhoneField,
-    } = detectKinds(label, name, p.type);
-
-    // Email
-    if (isEmailField && val && !EMAIL_RE.test(String(val))) {
-      const msg = "Formato de correo inválido.";
-      fieldErrors[name] = msg;
-      modalItems.push({ name, label, msg });
-      continue;
-    }
-
-    // ID / Teléfono => solo dígitos y 6–15 de largo
-    if ((isIdField || isPhoneField) && val) {
-      const digits = String(val).replace(/\D+/g, "");
-      if (!/^\d+$/.test(digits) || digits.length < 6 || digits.length > 15) {
-        const msg = "Debe contener solo números y entre 6 y 15 dígitos.";
-        fieldErrors[name] = msg;
-        modalItems.push({ name, label, msg });
-        continue;
-      }
-    }
-
-    // Nombres / Apellidos => solo letras
-    if (
-      (isNamesField || isSurnamesField) &&
-      val &&
-      !ONLY_LETTERS_RE.test(String(val))
-    ) {
-      const msg = "Solo letras y espacios.";
-      fieldErrors[name] = msg;
-      modalItems.push({ name, label, msg });
-      continue;
-    }
-
-    // Dependencias explícitas (por legibilidad)
-    if (name === "departamento" && values.pais === "Colombia" && !val) {
-      const msg = "Selecciona un departamento.";
-      fieldErrors[name] = msg;
-      modalItems.push({ name, label, msg });
-      continue;
-    }
-    if (name === "city" && values.pais === "Colombia" && !val) {
-      const msg = "Selecciona una ciudad.";
-      fieldErrors[name] = msg;
-      modalItems.push({ name, label, msg });
-      continue;
-    }
-  }
-
-  return { fieldErrors, modalItems };
 }
 
 export default function AuthForm({}: { isPaymentPage?: boolean }) {
@@ -341,6 +180,20 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     await new Promise((r) => setTimeout(r, 100));
   }, []);
 
+  /** Cierra listas abiertas (combobox) y quita el foco antes de abrir el modal */
+  const closeDropdownsAndBlur = useCallback(() => {
+    try {
+      document
+        .querySelectorAll<HTMLElement>(
+          '[role="combobox"], [data-combobox-dropdown]'
+        )
+        .forEach((el) => el.blur?.());
+    } catch {}
+    try {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    } catch {}
+  }, []);
+
   /** ------------ LOGIN ------------- */
   const handleSignIn = useCallback(async () => {
     if (!organization) return;
@@ -389,14 +242,13 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     );
 
     // --- Errores estructurales (falta email / id que controlan cuenta) ---
-    // Helpers para usar el label del schema y evitar duplicados en el modal
     const getLabel = (field: string, fallback: string) =>
       (props.find((p) => p.name === field)?.label as string) || fallback;
 
     const upsertModal = (name: string, label: string, msg: string) => {
       const idx = modalItems.findIndex((it) => it.name === name);
       const item = { name, label, msg };
-      if (idx >= 0) modalItems[idx] = item; // reemplaza (evita duplicados)
+      if (idx >= 0) modalItems[idx] = item;
       else modalItems.unshift(item);
     };
 
@@ -413,7 +265,6 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
       errors[idField] = msg;
       upsertModal(idField, label, msg);
     } else {
-      // Revalida límites 6–15 y solo dígitos para ID (por si acaso)
       const digits = String(passwordValue).replace(/\D+/g, "");
       if (!/^\d+$/.test(digits) || digits.length < 6 || digits.length > 15) {
         const label = getLabel(idField, "ID");
@@ -426,12 +277,13 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     setFieldErrors(errors);
 
     if (Object.keys(errors).length > 0) {
-      // 👉 Abre el modal con el mensaje que pediste
+      // 👇 cierra dropdowns antes de abrir el modal y evita overlay
+      closeDropdownsAndBlur();
       setModalItems(modalItems);
       setModalOpened(true);
       setSubmitting(false);
 
-      // Enfoque suave al primer campo inválido (para que vea el rojo)
+      // Enfoque suave al primer campo inválido
       setTimeout(() => {
         const first = Object.keys(errors)[0];
         if (!first) return;
@@ -492,6 +344,8 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     signUp,
     navigate,
     ensureCleanAuthSession,
+    validateRegistrationAll,
+    closeDropdownsAndBlur,
   ]);
 
   // Campos dinámicos SOLO para registro
@@ -516,8 +370,8 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
         value={formValues[prop.name]}
         onChange={handleFieldChange}
         formValues={formValues}
-        submittedOnce={submittedOnce} // 👈 muestra "obligatorio" tras 1er submit
-        externalError={fieldErrors[prop.name]} // 👈 pinta en rojo el campo
+        submittedOnce={submittedOnce}
+        externalError={fieldErrors[prop.name]}
       />
     ));
   }, [
@@ -688,7 +542,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
             <Button
               variant="subtle"
               onClick={async () => {
-                // al alternar, resetea estados de validación y limpia sesión si va a registro
+                // al alternar, resetea validación y limpia sesión si va a registro
                 const goingToRegister = !isRegister;
                 setIsRegister(goingToRegister);
                 setSubmittedOnce(false);
@@ -729,12 +583,13 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
         </>
       )}
 
-      {/* 🧩 Modal que pediste: abre si hay faltantes y muestra el mensaje */}
+      {/* 🧩 Modal con el listado de faltantes */}
       <Modal
         opened={modalOpened}
         onClose={() => setModalOpened(false)}
         title="Faltan datos por completar"
         centered
+        zIndex={10000} // 👈 asegura estar por encima de cualquier dropdown
       >
         <Text size="sm" mb="sm">
           Por favor ingresa los <b>campos faltantes marcados en rojo</b>.
