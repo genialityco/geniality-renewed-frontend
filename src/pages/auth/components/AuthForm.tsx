@@ -12,10 +12,17 @@ import {
   Image,
   Text,
   Container,
+  Modal, // 👈 Modal para campos faltantes
+  List, // 👈 Lista opcional de campos con error
 } from "@mantine/core";
 import { useUser } from "../../../context/UserContext";
 import { PropertyType } from "../../../services/types";
 import { auth, RecaptchaVerifier } from "../../../firebase/firebaseConfig";
+import {
+  signOut as fbSignOut,
+  setPersistence,
+  browserLocalPersistence,
+} from "firebase/auth";
 import { FaArrowLeft } from "react-icons/fa6";
 // import VincularTelefonoModal from "./VincularTelefonoModal"; // 👈 se mantiene
 import useOrganizationAuth from "../useOrganizationAuth";
@@ -40,6 +47,160 @@ function isProvidedByType(value: any, type?: string) {
   return true;
 }
 
+/* =========================
+ *  AYUDAS DE VALIDACIÓN
+ * ========================= */
+const ONLY_LETTERS_RE = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s-]+$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function detectKinds(
+  label: string,
+  name: string,
+  type?: PropertyType | string
+) {
+  const lname = (name || "").toLowerCase();
+  const llabel = (label || "").toLowerCase();
+  const isEmailField = type === PropertyType.EMAIL || lname === "email";
+  const isNamesField =
+    lname === "nombres" ||
+    llabel.includes("nombres") ||
+    lname === "names" ||
+    (llabel.includes("nombre") && !llabel.includes("correo"));
+  const isSurnamesField =
+    lname === "apellidos" ||
+    llabel.includes("apellidos") ||
+    lname === "surnames" ||
+    llabel.includes("apellido");
+  const isIdField =
+    lname === "id" ||
+    lname === "documento" ||
+    lname === "documentoid" ||
+    lname === "documentoidentidad" ||
+    lname === "documento_de_identidad" ||
+    lname === "cedula" ||
+    lname === "cédula" ||
+    lname === "doc" ||
+    lname === "doc_identidad";
+  const isPhoneField =
+    lname.includes("phone") ||
+    lname.includes("cel") ||
+    llabel.includes("contacto") ||
+    llabel.includes("tel") ||
+    llabel.includes("teléfono") ||
+    llabel.includes("telefono") ||
+    lname === "numero de contacto" ||
+    lname === "número de contacto" ||
+    lname === "numero_de_contacto" ||
+    lname === "phone";
+
+  return {
+    isEmailField,
+    isNamesField,
+    isSurnamesField,
+    isIdField,
+    isPhoneField,
+  };
+}
+
+/** obligatorio efectivo: prop.mandatory || (depto/city && pais === "Colombia") */
+function isEffectiveMandatory(prop: any, values: Record<string, any>) {
+  const name = (prop?.name || "").toLowerCase();
+  const isLocation = name === "departamento" || name === "city";
+  const isColombia = (values?.pais || "") === "Colombia";
+  return !!(prop?.mandatory || (isLocation && isColombia));
+}
+
+/** valida TODO lo visible y devuelve { name: error } y arreglo para el modal */
+function validateRegistrationAll(
+  properties: any[],
+  values: Record<string, any>
+): {
+  fieldErrors: Record<string, string>;
+  modalItems: Array<{ name: string; label: string; msg: string }>;
+} {
+  const fieldErrors: Record<string, string> = {};
+  const modalItems: Array<{ name: string; label: string; msg: string }> = [];
+
+  for (const p of properties || []) {
+    // Validar solo si se muestra (dependencias satisfechas)
+    const visible = shouldRenderProperty(p, values);
+    if (!visible) continue;
+
+    const name = p.name;
+    const label = p.label || name;
+    let val = values[name];
+
+    // Requerido efectivo
+    if (isEffectiveMandatory(p, values)) {
+      const provided = isProvidedByType(val, p.type);
+      if (!provided) {
+        const msg = "Este campo es obligatorio.";
+        fieldErrors[name] = msg;
+        modalItems.push({ name, label, msg });
+        continue;
+      }
+    }
+
+    // Normaliza (solo para validaciones)
+    if (typeof val === "string") val = val.trim();
+
+    const {
+      isEmailField,
+      isNamesField,
+      isSurnamesField,
+      isIdField,
+      isPhoneField,
+    } = detectKinds(label, name, p.type);
+
+    // Email
+    if (isEmailField && val && !EMAIL_RE.test(String(val))) {
+      const msg = "Formato de correo inválido.";
+      fieldErrors[name] = msg;
+      modalItems.push({ name, label, msg });
+      continue;
+    }
+
+    // ID / Teléfono => solo dígitos y 6–15 de largo
+    if ((isIdField || isPhoneField) && val) {
+      const digits = String(val).replace(/\D+/g, "");
+      if (!/^\d+$/.test(digits) || digits.length < 6 || digits.length > 15) {
+        const msg = "Debe contener solo números y entre 6 y 15 dígitos.";
+        fieldErrors[name] = msg;
+        modalItems.push({ name, label, msg });
+        continue;
+      }
+    }
+
+    // Nombres / Apellidos => solo letras
+    if (
+      (isNamesField || isSurnamesField) &&
+      val &&
+      !ONLY_LETTERS_RE.test(String(val))
+    ) {
+      const msg = "Solo letras y espacios.";
+      fieldErrors[name] = msg;
+      modalItems.push({ name, label, msg });
+      continue;
+    }
+
+    // Dependencias explícitas (por legibilidad)
+    if (name === "departamento" && values.pais === "Colombia" && !val) {
+      const msg = "Selecciona un departamento.";
+      fieldErrors[name] = msg;
+      modalItems.push({ name, label, msg });
+      continue;
+    }
+    if (name === "city" && values.pais === "Colombia" && !val) {
+      const msg = "Selecciona una ciudad.";
+      fieldErrors[name] = msg;
+      modalItems.push({ name, label, msg });
+      continue;
+    }
+  }
+
+  return { fieldErrors, modalItems };
+}
+
 export default function AuthForm({}: { isPaymentPage?: boolean }) {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
@@ -53,6 +214,14 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Validación + Modal
+  const [submittedOnce, setSubmittedOnce] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [modalOpened, setModalOpened] = useState(false);
+  const [modalItems, setModalItems] = useState<
+    Array<{ name: string; label: string; msg: string }>
+  >([]);
 
   // Recuperación
   const [isResetPassword, setIsResetPassword] = useState(false);
@@ -68,8 +237,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     setFormValues(init);
   }, [organization]);
 
-  // Limpiar errores al tipear email en registro (por si lo usas en reset)
-  // Limpia errores SOLO cuando el usuario edita el email durante registro
+  // Limpiar errores al tipear email en registro
   useEffect(() => {
     if (!isRegister) return;
     setFormError(null);
@@ -102,8 +270,13 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
 
   const handleFieldChange = useCallback((name: string, value: any) => {
     setFormValues((prev) => ({ ...prev, [name]: value }));
-    // si había error, desaparece al empezar a corregir
+    // limpia errores generales e inline del campo editado
     setFormError((prev) => (prev ? null : prev));
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const { [name]: _, ...rest } = prev;
+      return rest;
+    });
   }, []);
 
   const goHome = useCallback(() => {
@@ -136,7 +309,6 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     ];
     const set = new Set(props.map((p) => p.name));
     for (const k of aliases) {
-      // busca exact y versión lowercase
       if (set.has(k)) return k;
       const found = props.find(
         (p) => p.name?.toLowerCase?.() === k.toLowerCase()
@@ -145,6 +317,29 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     }
     return "ID";
   }, [organization]);
+
+  /** --------- Limpieza de sesión para evitar “multi-dispositivo” --------- */
+  const ensureCleanAuthSession = useCallback(async () => {
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+    } catch {}
+    try {
+      if (auth.currentUser) {
+        await fbSignOut(auth);
+      }
+    } catch {}
+    try {
+      if (window.recaptchaVerifier) {
+        // @ts-ignore
+        if (typeof window.recaptchaVerifier.clear === "function") {
+          // @ts-ignore
+          window.recaptchaVerifier.clear();
+        }
+        window.recaptchaVerifier = undefined;
+      }
+    } catch {}
+    await new Promise((r) => setTimeout(r, 100));
+  }, []);
 
   /** ------------ LOGIN ------------- */
   const handleSignIn = useCallback(async () => {
@@ -178,67 +373,100 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     if (!organization) return;
     setSubmitting(true);
     setFormError(null);
+    setSubmittedOnce(true); // activa mensajes "obligatorio" en campos
 
     const emailField = getEmailFieldName();
     const idField = getIdFieldName();
 
     const emailValue = formValues[emailField];
-    const passwordValue = formValues[idField]; // 👈 contraseña = ID
+    const passwordValue = formValues[idField]; // contraseña = ID
+
+    // Validación completa (obligatorios visibles + reglas por tipo)
+    const props = organization.user_properties ?? [];
+    const { fieldErrors: errors, modalItems } = validateRegistrationAll(
+      props,
+      formValues
+    );
+
+    // --- Errores estructurales (falta email / id que controlan cuenta) ---
+    // Helpers para usar el label del schema y evitar duplicados en el modal
+    const getLabel = (field: string, fallback: string) =>
+      (props.find((p) => p.name === field)?.label as string) || fallback;
+
+    const upsertModal = (name: string, label: string, msg: string) => {
+      const idx = modalItems.findIndex((it) => it.name === name);
+      const item = { name, label, msg };
+      if (idx >= 0) modalItems[idx] = item; // reemplaza (evita duplicados)
+      else modalItems.unshift(item);
+    };
 
     if (!emailValue) {
-      setFormError("Por favor ingresa tu correo en el formulario.");
-      setSubmitting(false);
-      return;
+      const label = getLabel(emailField, "Correo electrónico");
+      const msg = "Este campo es obligatorio.";
+      errors[emailField] = msg;
+      upsertModal(emailField, label, msg);
     }
+
     if (!passwordValue) {
-      setFormError("Por favor ingresa tu documento de identidad (ID).");
-      setSubmitting(false);
-      return;
-    }
-
-    // 🔐 Validación de campos mandatory visibles por dependencia
-    const props = organization.user_properties ?? [];
-    const missingLabels: string[] = [];
-
-    for (const p of props) {
-      // Solo validar cuando el campo se "muestra"
-      const shouldShow = shouldRenderProperty(p as any, formValues);
-
-      // Si la organización marca visible=false, igual aplicamos dependencia:
-      // - Si no se muestra por dependencia => no se exige
-      // - Si se muestra (dep cumplida) y mandatory => se exige
-      if (!shouldShow) continue;
-
-      if (p.mandatory) {
-        const val = formValues[p.name];
-        const ok = isProvidedByType(val, p.type);
-        if (!ok) {
-          // Usa el label si existe; fallback al name
-          const label = (p as any).label ?? p.name;
-          missingLabels.push(String(label));
-        }
+      const label = getLabel(idField, "ID");
+      const msg = "Este campo es obligatorio.";
+      errors[idField] = msg;
+      upsertModal(idField, label, msg);
+    } else {
+      // Revalida límites 6–15 y solo dígitos para ID (por si acaso)
+      const digits = String(passwordValue).replace(/\D+/g, "");
+      if (!/^\d+$/.test(digits) || digits.length < 6 || digits.length > 15) {
+        const label = getLabel(idField, "ID");
+        const msg = "Debe contener solo números y entre 6 y 15 dígitos.";
+        errors[idField] = msg;
+        upsertModal(idField, label, msg);
       }
     }
 
-    if (missingLabels.length > 0) {
-      setFormError(
-        `Faltan campos obligatorios: ${missingLabels.join(
-          ", "
-        )}. Por favor complétalos.`
-      );
+    setFieldErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      // 👉 Abre el modal con el mensaje que pediste
+      setModalItems(modalItems);
+      setModalOpened(true);
       setSubmitting(false);
+
+      // Enfoque suave al primer campo inválido (para que vea el rojo)
+      setTimeout(() => {
+        const first = Object.keys(errors)[0];
+        if (!first) return;
+        const wrapper = document.querySelector<HTMLElement>(
+          `[data-field="${first}"]`
+        );
+        wrapper?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+        const input =
+          document.querySelector<HTMLElement>(`[name="${first}"]`) ||
+          wrapper?.querySelector<HTMLElement>(
+            "input, textarea, [role='combobox']"
+          );
+        input?.focus?.();
+      }, 50);
       return;
     }
 
     try {
+      // 🚫 Evita sesión previa que dispara “multi-dispositivo”
+      await ensureCleanAuthSession();
+
       await signUp({
         email: emailValue,
-        password: passwordValue, // (signUp prioriza ID; ver ajuste abajo)
+        password: passwordValue, // (signUp prioriza ID)
         properties: { ...formValues, email: emailValue, ID: passwordValue },
         organizationId: organization._id,
         positionId: organization.default_position_id,
         rolId: "5c1a59b2f33bd40bb67f2322",
       });
+
+      // 🔄 Refresca token para que el backend cuente solo ESTA sesión
+      try {
+        await auth.currentUser?.getIdToken(true);
+      } catch {}
+
       navigate(`/organization/${organization._id}`);
     } catch (err: any) {
       if (err?.code === "auth/email-already-in-use") {
@@ -246,7 +474,12 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
       } else if (err?.code === "auth/weak-password") {
         setFormError("La contraseña es demasiado débil.");
       } else {
-        setFormError("Error al registrarse. Intenta de nuevo.");
+        const msg =
+          typeof err?.message === "string" &&
+          /dispositivo|sesion|sesión/i.test(err.message)
+            ? err.message
+            : "Error al registrarse. Intenta de nuevo.";
+        setFormError(msg);
       }
     } finally {
       setSubmitting(false);
@@ -258,6 +491,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     getIdFieldName,
     signUp,
     navigate,
+    ensureCleanAuthSession,
   ]);
 
   // Campos dinámicos SOLO para registro
@@ -282,9 +516,18 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
         value={formValues[prop.name]}
         onChange={handleFieldChange}
         formValues={formValues}
+        submittedOnce={submittedOnce} // 👈 muestra "obligatorio" tras 1er submit
+        externalError={fieldErrors[prop.name]} // 👈 pinta en rojo el campo
       />
     ));
-  }, [organization, isRegister, formValues, handleFieldChange]);
+  }, [
+    organization,
+    isRegister,
+    formValues,
+    handleFieldChange,
+    submittedOnce,
+    fieldErrors,
+  ]);
 
   const cleanResetStates = useCallback(() => {
     setResetMethod(null);
@@ -404,7 +647,10 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
                 label="Contraseña"
                 placeholder="********"
                 value={password}
-                onChange={(e) => { setPassword(e.currentTarget.value); setFormError(null); }}
+                onChange={(e) => {
+                  setPassword(e.currentTarget.value);
+                  setFormError(null);
+                }}
                 mb="sm"
                 required
               />
@@ -439,7 +685,22 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
               </Button>
             )}
 
-            <Button variant="subtle" onClick={() => setIsRegister((p) => !p)}>
+            <Button
+              variant="subtle"
+              onClick={async () => {
+                // al alternar, resetea estados de validación y limpia sesión si va a registro
+                const goingToRegister = !isRegister;
+                setIsRegister(goingToRegister);
+                setSubmittedOnce(false);
+                setFieldErrors({});
+                setFormError(null);
+                if (goingToRegister) {
+                  try {
+                    await ensureCleanAuthSession();
+                  } catch {}
+                }
+              }}
+            >
               {isRegister ? "Ya tengo cuenta" : "Crear cuenta"}
             </Button>
 
@@ -467,6 +728,37 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
           /> */}
         </>
       )}
+
+      {/* 🧩 Modal que pediste: abre si hay faltantes y muestra el mensaje */}
+      <Modal
+        opened={modalOpened}
+        onClose={() => setModalOpened(false)}
+        title="Faltan datos por completar"
+        centered
+      >
+        <Text size="sm" mb="sm">
+          Por favor ingresa los <b>campos faltantes marcados en rojo</b>.
+        </Text>
+
+        {modalItems.length > 0 && (
+          <>
+            <Text size="sm" c="dimmed" mb="xs">
+              Campos con problemas:
+            </Text>
+            <List spacing="xs">
+              {modalItems.map((it) => (
+                <List.Item key={it.name}>
+                  <b>{it.label}:</b> {it.msg}
+                </List.Item>
+              ))}
+            </List>
+          </>
+        )}
+
+        <Group justify="flex-end" mt="md">
+          <Button onClick={() => setModalOpened(false)}>Entendido</Button>
+        </Group>
+      </Modal>
     </Container>
   );
 }
