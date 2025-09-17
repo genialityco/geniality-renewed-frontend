@@ -60,7 +60,6 @@ export default function MembersTab() {
   // Modal de cambiar credenciales
   const [passwordModalOpened, setPasswordModalOpened] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
-  const [selectedUid, setSelectedUid] = useState<string | null>(null);
 
   // Modal de actualizar plan
   const [planModalOpen, setPlanModalOpen] = useState(false);
@@ -343,15 +342,13 @@ export default function MembersTab() {
           <ScrollArea h={1000} mb="md">
             <MembersTable
               users={users}
-              onPasswordChange={(email) => {
+              onChangeCredentials={(user) => {
+                const email = String(user.properties?.email ?? "");
+                const userId =
+                  typeof user.user_id === "string" ? user.user_id : null;
+
                 setSelectedEmail(email);
-                // opcional: intenta mapear uid a partir del email
-                const byEmail = users.find(
-                  (u) => String(u.properties?.email ?? "") === email
-                );
-                setSelectedUid(
-                  typeof byEmail?.user_id === "string" ? byEmail.user_id : null
-                );
+                setSelectedUserId(userId);
                 setPasswordModalOpened(true);
               }}
               onUpdatePlan={handleUpdatePlan}
@@ -392,7 +389,7 @@ export default function MembersTab() {
       <ChangeCredentialsModal
         opened={passwordModalOpened}
         email={selectedEmail}
-        uid={selectedUid}
+        userId={selectedUserId}
         onClose={() => setPasswordModalOpened(false)}
       />
 

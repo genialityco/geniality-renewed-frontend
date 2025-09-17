@@ -14,9 +14,10 @@ import { FaClipboard, FaCopy } from "react-icons/fa6";
 import { useOrganization } from "../../../context/OrganizationContext";
 import { OrganizationUser, PaymentPlan } from "../../../services/types";
 
+// Props
 interface Props {
   users: OrganizationUser[];
-  onPasswordChange: (email: string) => void;
+  onChangeCredentials: (user: OrganizationUser) => void;
   onUpdatePlan: (userId: string) => void;
   onEditUser: (user: OrganizationUser) => void;
 }
@@ -77,7 +78,7 @@ const dtfCO = new Intl.DateTimeFormat("es-CO", {
 
 export default function MembersTable({
   users,
-  onPasswordChange,
+  onChangeCredentials,
   onUpdatePlan,
   onEditUser,
 }: Props) {
@@ -97,7 +98,7 @@ export default function MembersTable({
       <Table striped highlightOnHover withTableBorder>
         <Table.Thead>
           <Table.Tr>
-            {userProps.map((prop: { label: any; name: any; }) => {
+            {userProps.map((prop: { label: any; name: any }) => {
               const rawLabel = stripHtml(String(prop.label));
               const displayLabel =
                 rawLabel.length > HEADER_TRUNCATE_LENGTH
@@ -123,7 +124,7 @@ export default function MembersTable({
             return (
               <Table.Tr key={String(user._id)}>
                 {/* Celdas dinámicas */}
-                {userProps.map((prop: { name: any; type: string; }) => {
+                {userProps.map((prop: { name: any; type: string }) => {
                   const name = String(prop.name);
                   const rawValue = props[name] ?? "";
                   const cleanValue = stripHtml(String(rawValue));
@@ -202,9 +203,7 @@ export default function MembersTable({
                     <Button
                       size="xs"
                       variant="outline"
-                      onClick={() =>
-                        onPasswordChange(String(props.email ?? ""))
-                      }
+                      onClick={() => onChangeCredentials(user)}
                       aria-label="Cambiar credenciales del usuario"
                     >
                       Cambiar credenciales

@@ -1,5 +1,5 @@
 // ChangeCredentialsModal.tsx
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Modal,
   TextInput,
@@ -8,88 +8,132 @@ import {
   Text,
   SegmentedControl,
   Stack,
+  ActionIcon,
 } from "@mantine/core";
 import api from "../../../services/api";
+import { FaEye, FaEyeSlash } from "react-icons/fa6";
 
 interface Props {
   opened: boolean;
   email: string | null; // email actual conocido (opcional)
-  uid?: string | null; // si lo tienes, mejor (evita depender del email)
+  userId?: string | null; // id interno (ideal)
   onClose: () => void;
 }
 
 type Mode = "password" | "email" | "both";
 
+const isValidEmail = (s: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim().toLowerCase());
+
 export default function ChangeCredentialsModal({
   opened,
   email,
-  uid,
+  userId,
   onClose,
 }: Props) {
   const [mode, setMode] = useState<Mode>("password");
 
   const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [newEmail, setNewEmail] = useState(email ?? "");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const canSubmit =
-    (mode === "password" && newPassword.length >= 6) ||
-    (mode === "email" && newEmail.trim().length > 3) ||
-    (mode === "both" &&
-      (newPassword.length >= 6 || newEmail.trim().length > 3));
+  const currentEmail = (email ?? "").trim().toLowerCase();
+  const nextEmail = (newEmail ?? "").trim().toLowerCase();
+
+  const emailModeDisabled = useMemo(
+    () => !userId && !currentEmail, // si no hay userId ni email, no podemos cambiar correo
+    [userId, currentEmail]
+  );
+
+  const canSubmit = useMemo(() => {
+    if (mode === "password") return newPassword.trim().length >= 6;
+    // if (mode === "email")
+    //   return isValidEmail(nextEmail) && nextEmail !== currentEmail;
+    // // both
+    const passOk = newPassword.trim().length >= 6;
+    // const emailOk = isValidEmail(nextEmail) && nextEmail !== currentEmail;
+    // return passOk || emailOk;
+    return passOk;
+  }, [mode, newPassword, nextEmail, currentEmail]);
 
   const handleSubmit = async () => {
     setLoading(true);
     setMessage(null);
     try {
       if (mode === "password") {
-        // Si tienes uid, úsalo; si no, por email
-        if (uid) {
-          await api.post("/users/change-password", { uid, newPassword });
-        } else if (email) {
+        // Preferir userId; fallback a email (legacy)
+        if (userId) {
+          await api.post("/users/change-password", {
+            userId,
+            newPassword: newPassword.trim(),
+          });
+        } else if (currentEmail) {
           await api.post("/users/change-password-by-email", {
-            email,
-            newPassword,
+            email: currentEmail,
+            newPassword: newPassword.trim(),
           });
         } else {
-          throw new Error("Falta uid o email para cambiar la contraseña.");
+          throw new Error("Falta userId o email para cambiar la contraseña.");
         }
         setMessage("Contraseña cambiada correctamente.");
       } else if (mode === "email") {
-        if (uid) {
-          await api.post("/users/change-email-by-uid", { uid, newEmail });
-        } else if (email) {
+        // if (!isValidEmail(nextEmail)) throw new Error("Correo inválido.");
+        // if (nextEmail === currentEmail)
+        //   throw new Error("El nuevo correo no puede ser igual al actual.");
+
+        if (userId) {
+          await api.post("/users/change-email-by-userid", {
+            userId,
+            newEmail: nextEmail,
+          });
+        } else if (currentEmail) {
           await api.post("/users/change-email-by-email", {
-            currentEmail: email,
-            newEmail,
+            currentEmail,
+            newEmail: nextEmail,
           });
         } else {
-          throw new Error("Falta uid o email actual para cambiar el correo.");
+          throw new Error(
+            "Falta userId o email actual para cambiar el correo."
+          );
         }
         setMessage("Correo actualizado correctamente.");
       } else {
         // both
         const payload: any = {
-          newPassword: newPassword || undefined,
-          newEmail: newEmail || undefined,
+          newPassword:
+            newPassword.trim().length >= 6 ? newPassword.trim() : undefined,
+          newEmail:
+            isValidEmail(nextEmail) && nextEmail !== currentEmail
+              ? nextEmail
+              : undefined,
         };
-        if (uid) payload.uid = uid;
-        else if (email) payload.currentEmail = email;
+
+        if (!payload.newPassword && !payload.newEmail) {
+          throw new Error(
+            "Proporciona una contraseña válida y/o un nuevo correo válido."
+          );
+        }
+
+        if (userId) payload.userId = userId;
+        else if (currentEmail) payload.currentEmail = currentEmail;
         else
           throw new Error(
-            "Falta uid o email actual para actualizar credenciales."
+            "Falta userId o email actual para actualizar credenciales."
           );
 
         await api.post("/users/change-credentials", payload);
         setMessage("Credenciales actualizadas correctamente.");
       }
     } catch (err: any) {
-      setMessage("Error: " + (err.response?.data?.message || err.message));
+      setMessage("Error: " + (err?.response?.data?.message || err?.message));
     } finally {
       setLoading(false);
     }
   };
+
+  const isSuccess = !!message && !message.startsWith("Error:");
 
   return (
     <Modal
@@ -104,8 +148,8 @@ export default function ChangeCredentialsModal({
           onChange={(v) => setMode(v as Mode)}
           data={[
             { label: "Contraseña", value: "password" },
-            { label: "Correo", value: "email" },
-            { label: "Ambos", value: "both" },
+            { label: "Correo", value: "email", disabled: emailModeDisabled },
+            { label: "Ambos", value: "both", disabled: emailModeDisabled },
           ]}
         />
 
@@ -115,16 +159,39 @@ export default function ChangeCredentialsModal({
             placeholder="nuevo@correo.com"
             value={newEmail}
             onChange={(e) => setNewEmail(e.currentTarget.value)}
+            // error={
+            //   nextEmail && !isValidEmail(nextEmail)
+            //     ? "Correo inválido"
+            //     : nextEmail === currentEmail && mode !== "password"
+            //     ? "Debe ser diferente al correo actual"
+            //     : undefined
+            // }
           />
         )}
 
         {(mode === "password" || mode === "both") && (
           <TextInput
             label="Nueva contraseña"
-            type="password"
+            type={showPassword ? "text" : "password"}
             placeholder="Mínimo 6 caracteres"
             value={newPassword}
             onChange={(e) => setNewPassword(e.currentTarget.value)}
+            error={
+              newPassword && newPassword.trim().length < 6
+                ? "Mínimo 6 caracteres"
+                : undefined
+            }
+            rightSection={
+              <ActionIcon
+                variant="subtle"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={
+                  showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                }
+              >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </ActionIcon>
+            }
           />
         )}
 
@@ -142,7 +209,7 @@ export default function ChangeCredentialsModal({
         </Group>
 
         {message && (
-          <Text mt="sm" c={message.includes("correcta") ? "green" : "red"}>
+          <Text mt="sm" c={isSuccess ? "green" : "red"}>
             {message}
           </Text>
         )}
