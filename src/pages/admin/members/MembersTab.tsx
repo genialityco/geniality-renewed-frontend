@@ -8,6 +8,8 @@ import {
   ScrollArea,
   Select,
   Button,
+  Box,
+  Flex,
 } from "@mantine/core";
 import * as XLSX from "xlsx";
 import { FaFileExcel } from "react-icons/fa6";
@@ -351,39 +353,90 @@ export default function MembersTab() {
 
   return (
     <>
-      <Paper withBorder radius="md" p="xs" mb="md">
-        <Group justify="space-between" mb="xs">
-          <Group>
-            <BulkUploadSection
-              onReport={(r) => {
-                setLastImportReport(r);
-                fetchUsers();
-              }}
-            />
-            <SearchForm
-              value={rawSearch}
-              onSearch={(text) => {
-                setRawSearch(text);
-                setUserPage(1);
-              }}
-            />
-          </Group>
-          <Button
-            leftSection={<FaFileExcel />}
-            variant="outline"
-            onClick={handleExportToExcel}
-            loading={exporting}
-            disabled={exporting}
-          >
-            Exportar a Excel
-          </Button>
-        </Group>
+      <Paper
+        withBorder
+        radius="xl"
+        p="md"
+        mb="md"
+        bg="gradient(45deg, #f8fafc 0%, #ffffff 100%)"
+        style={{ borderColor: "#e2e8f0" }}
+      >
+        <Box mb={lastImportReport ? "md" : 0}>
+          <Flex justify="space-between" align="center" gap="md" wrap="wrap">
+            {/* Left Section - Actions */}
+            <Flex align="center" gap="md" flex={1}>
+              <Box
+                p="xs"
+                bg="white"
+                style={{
+                  borderRadius: "12px",
+                  border: "1px solid #e2e8f0",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                }}
+              >
+                <BulkUploadSection
+                  onReport={(r) => {
+                    setLastImportReport(r);
+                    fetchUsers();
+                  }}
+                />
+              </Box>
 
+              <Box flex={1} maw={350}>
+                <SearchForm
+                  value={rawSearch}
+                  onSearch={(text) => {
+                    setRawSearch(text);
+                    setUserPage(1);
+                  }}
+                />
+              </Box>
+            </Flex>
+
+            {/* Right Section - Export */}
+            <Button
+              leftSection={<FaFileExcel size={18} />}
+              variant="filled"
+              color="teal"
+              size="md"
+              radius="xl"
+              onClick={handleExportToExcel}
+              loading={exporting}
+              disabled={exporting}
+              styles={{
+                root: {
+                  background:
+                    "linear-gradient(135deg, #0ca678 0%, #059669 100%)",
+                  border: "none",
+                  boxShadow: "0 4px 12px rgba(5, 150, 105, 0.3)",
+                  "&:hover": {
+                    transform: "translateY(-2px)",
+                    boxShadow: "0 6px 16px rgba(5, 150, 105, 0.4)",
+                  },
+                },
+              }}
+            >
+              Exportar a Excel
+            </Button>
+          </Flex>
+        </Box>
+
+        {/* Import Report Section */}
         {lastImportReport && (
-          <ImportReport
-            report={lastImportReport}
-            onClear={() => setLastImportReport(null)}
-          />
+          <Box
+            mt="md"
+            p="sm"
+            bg="rgba(255,255,255,0.7)"
+            style={{
+              borderRadius: "12px",
+              backdropFilter: "blur(10px)",
+            }}
+          >
+            <ImportReport
+              report={lastImportReport}
+              onClear={() => setLastImportReport(null)}
+            />
+          </Box>
         )}
       </Paper>
 
