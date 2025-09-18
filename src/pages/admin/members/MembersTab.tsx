@@ -24,6 +24,7 @@ import {
   createOrUpdateOrganizationUser,
   fetchOrganizationUsersByOrganizationId,
   fetchAllOrganizationUsersByOrganizationId,
+  deleteOrganizationUser,
 } from "../../../services/organizationUserService";
 
 import {
@@ -39,12 +40,14 @@ import type {
 
 import { useOrganization } from "../../../context/OrganizationContext";
 
+import DeleteConfirmModal from "./DeleteConfirmModal";
+
 export default function MembersTab() {
   const { organization } = useOrganization();
   const orgId = organization?._id!;
 
   const limitOptions = ["10", "20", "50", "100"];
-  const [userLimit, setUserLimit] = useState("100");
+  const [userLimit, setUserLimit] = useState("10");
 
   const [users, setUsers] = useState<OrganizationUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -68,6 +71,14 @@ export default function MembersTab() {
   // Editar miembro
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<OrganizationUser | null>(null);
+
+  //Modal de eliminar miembro
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<OrganizationUser | null>(
+    null
+  );
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Formateador de fecha consistente (para Excel, matching con tabla)
   const dtfCO = new Intl.DateTimeFormat("es-CO", {
@@ -201,6 +212,49 @@ export default function MembersTab() {
 
     setEditModalOpen(false);
     setUserToEdit(null);
+  };
+
+  // Eliminar miembro
+  const handleDeleteUser = (user: OrganizationUser) => {
+    setUserToDelete(user);
+    setDeleteModalOpen(true);
+    setDeleteError(null);
+  };
+
+  const extractUserId = (orgUser: OrganizationUser): string | null => {
+    const ref: any = orgUser?.user_id;
+    if (!ref) return null;
+    if (typeof ref === "string") return ref;
+    if (typeof ref === "object" && ref._id != null) return String(ref._id);
+    return null;
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    const userId = extractUserId(userToDelete);
+    if (!userId) {
+      setDeleteError("No se pudo determinar el user_id.");
+      return;
+    }
+    try {
+      setDeleting(true);
+      setDeleteError(null);
+      await deleteOrganizationUser(userId); // ← tu API existente
+      setDeleteModalOpen(false);
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (e: any) {
+      setDeleteError(e?.message || "Error eliminando el usuario.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCloseDelete = () => {
+    if (deleting) return;
+    setDeleteModalOpen(false);
+    setUserToDelete(null);
+    setDeleteError(null);
   };
 
   // Exportar a Excel (todos)
@@ -353,6 +407,7 @@ export default function MembersTab() {
               }}
               onUpdatePlan={handleUpdatePlan}
               onEditUser={handleEditUser}
+              onDeleteUser={handleDeleteUser}
             />
           </ScrollArea>
 
@@ -408,6 +463,14 @@ export default function MembersTab() {
         user={userToEdit}
         userProps={(organization?.user_properties || []) as UserProperty[]}
         onSave={handleUserEditSave}
+      />
+      <DeleteConfirmModal
+        opened={deleteModalOpen}
+        user={userToDelete}
+        loading={deleting}
+        error={deleteError}
+        onConfirm={handleConfirmDelete}
+        onClose={handleCloseDelete}
       />
     </>
   );

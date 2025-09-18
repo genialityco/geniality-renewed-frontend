@@ -20,6 +20,7 @@ interface Props {
   onChangeCredentials: (user: OrganizationUser) => void;
   onUpdatePlan: (userId: string) => void;
   onEditUser: (user: OrganizationUser) => void;
+  onDeleteUser: (user: OrganizationUser) => void;
 }
 
 const HEADER_TRUNCATE_LENGTH = 15;
@@ -81,6 +82,7 @@ export default function MembersTable({
   onChangeCredentials,
   onUpdatePlan,
   onEditUser,
+  onDeleteUser,
 }: Props) {
   const { organization } = useOrganization();
 
@@ -216,6 +218,17 @@ export default function MembersTable({
                       aria-label="Editar usuario"
                     >
                       Editar
+                    </Button>
+
+                    <Button
+                      size="xs"
+                      variant="light"
+                      color="red"
+                      component="a"
+                      onClick={() => onDeleteUser(user)}
+                      aria-label="Eliminar usuario"
+                    >
+                      Eliminar
                     </Button>
                   </Group>
                 </Table.Td>

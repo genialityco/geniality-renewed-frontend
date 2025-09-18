@@ -79,3 +79,10 @@ export const fetchAllOrganizationUsersByOrganizationId = async (
   const response = await api.get<OrganizationUser[]>(url);
   return response.data;
 };
+
+export const deleteOrganizationUser = async (organizationUserId: string) => {
+  const url = `/organization-users/${organizationUserId}/delete`;
+  const { data } = await api.post<{ message: string }>(url); // POST, no DELETE
+  return data;
+};
+
