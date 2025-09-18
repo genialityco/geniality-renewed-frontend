@@ -16,7 +16,7 @@ const MembershipPayment = () => {
 
   const plan = {
     name: "Plan Premium",
-    price: 50000, // COP
+    price: 50000,
     description: "Acceso ilimitado a todos los cursos y actividades por 1 año.",
     date_until: dateUntil.toISOString(),
   };
