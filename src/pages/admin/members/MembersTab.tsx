@@ -176,6 +176,7 @@ export default function MembersTab() {
         date_until: isoDate,
         price,
         organization_user_id: selectedUserId,
+        payment_request_id: "",
       });
 
       await createOrUpdateOrganizationUser({
@@ -545,14 +546,13 @@ export default function MembersTab() {
           setUserInfoModalOpen(false);
           setSelectedUserInfo(null);
         }}
-        userProperties={(organization?.user_properties || [])
-          .filter((p: { visible: any }) => p.visible === true)
-          .map((p: { name: any; label: any; type: any; visible: any }) => ({
+        userProperties={(organization?.user_properties || []).map(
+          (p: { name: any; label: any; type: any; visible: any }) => ({
             name: String(p.name),
             label: stripHtml(String(p.label)),
             type: String(p.type || "").toLowerCase(),
-            visible: p.visible,
-          }))}
+          })
+        )}
       />
     </>
   );

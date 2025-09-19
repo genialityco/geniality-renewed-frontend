@@ -12,6 +12,8 @@ import {
   ActionIcon,
   Tooltip,
   ScrollArea,
+  Box,
+  Flex,
 } from "@mantine/core";
 import { useClipboard } from "@mantine/hooks";
 import {
@@ -31,7 +33,7 @@ interface Props {
     name: string;
     label: string;
     type: string;
-    visible: boolean;
+    visible?: boolean;
   }>;
 }
 
@@ -85,6 +87,75 @@ const dtfCO = new Intl.DateTimeFormat("es-CO", {
   timeZone: "America/Bogota",
 });
 
+// === Componente de fila de propiedad ===
+const PropertyRow = React.memo(function PropertyRow({
+  label,
+  value,
+  showCopyButton = false,
+  copyLabel = "Copiar",
+}: {
+  label: string;
+  value: string;
+  showCopyButton?: boolean;
+  copyLabel?: string;
+}) {
+  return (
+    <Flex
+      align="flex-start"
+      gap="md"
+      py="xs"
+      style={{
+        borderBottom: "1px solid var(--mantine-color-gray-2)",
+      }}
+    >
+      {/* Columna izquierda - Título (80%) */}
+      <Box
+        style={{
+          width: "60%",
+          flex: 1,
+        }}
+      >
+        <Text
+          size="sm"
+          fw={500}
+          c="gray.7"
+          style={{
+            lineHeight: 1.4,
+          }}
+        >
+          {label}:
+        </Text>
+      </Box>
+      <Box
+        style={{
+          width: "30%",
+          minWidth: "100px",
+          flexShrink: 0,
+        }}
+      >
+        <Flex align="flex-start" gap="xs" justify="flex-end">
+          <Text
+            size="sm"
+            style={{
+              wordBreak: "break-word",
+              lineHeight: 1.4,
+              textAlign: "right",
+              flex: 1,
+            }}
+          >
+            {value}
+          </Text>
+          {showCopyButton && (
+            <Box style={{ flexShrink: 0 }}>
+              <CopyButton text={value} label={copyLabel} />
+            </Box>
+          )}
+        </Flex>
+      </Box>
+    </Flex>
+  );
+});
+
 export default function UserInfoModal({
   user,
   isOpen,
@@ -115,7 +186,7 @@ export default function UserInfoModal({
           <Title order={3}>Información del Usuario</Title>
         </Group>
       }
-      size="lg"
+      size="xl"
       padding="xl"
       styles={{
         content: {
@@ -123,11 +194,11 @@ export default function UserInfoModal({
         },
       }}
     >
-      <ScrollArea.Autosize mah="70vh">
+      <ScrollArea.Autosize mah="75vh">
         <Stack gap="lg">
           {/* Información básica */}
-          <Paper withBorder p="md" radius="md">
-            <Group justify="space-between" mb="sm">
+          <Paper withBorder p="lg" radius="md">
+            <Group justify="space-between" mb="md">
               <Text size="lg" fw={600} c="gray.8">
                 Datos Básicos
               </Text>
@@ -135,138 +206,108 @@ export default function UserInfoModal({
                 ID: {String(user._id)}
               </Badge>
             </Group>
-            <Divider mb="md" />
+            <Divider mb="lg" />
 
-            <Stack gap="sm">
-              {userProperties
-                .filter((prop) => prop.visible)
-                .map((prop) => {
-                  const name = String(prop.name);
-                  const rawValue = properties[name] ?? "";
-                  const cleanValue = stripHtml(String(rawValue));
-                  let displayValue = "";
+            <Stack gap="xs">
+              {userProperties.map((prop) => {
+                const name = String(prop.name);
+                const rawValue = properties[name] ?? "";
+                const cleanValue = stripHtml(String(rawValue));
+                let displayValue = "";
+                // Formatear según el tipo
+                if (prop.type === "boolean") {
+                  displayValue =
+                    cleanValue.toLowerCase() === "true" ? "Sí" : "No";
+                } else if (prop.type === "email") {
+                  displayValue = cleanValue;
+                } else {
+                  displayValue = cleanValue;
+                }
+                if (!displayValue) return null;
 
-                  // Formatear según el tipo
-                  if (prop.type === "boolean") {
-                    displayValue =
-                      cleanValue.toLowerCase() === "true" ? "Sí" : "No";
-                  } else if (prop.type === "email") {
-                    displayValue = cleanValue;
-                  } else {
-                    displayValue = cleanValue;
-                  }
+                const shouldShowCopy =
+                  prop.type === "email" || cleanValue.length > 20;
+                const copyLabel =
+                  prop.type === "email" ? "Copiar email" : "Copiar texto";
 
-                  if (!displayValue) return null;
-
-                  return (
-                    <Group key={name} justify="space-between" wrap="nowrap">
-                      <Text
-                        size="sm"
-                        fw={500}
-                        c="gray.7"
-                        style={{ minWidth: 120 }}
-                      >
-                        {prop.label}:
-                      </Text>
-                      <Group gap="xs" style={{ flex: 1 }}>
-                        <Text
-                          size="sm"
-                          style={{
-                            wordBreak: "break-word",
-                            flex: 1,
-                            textAlign: "right",
-                          }}
-                        >
-                          {displayValue}
-                        </Text>
-                        {(prop.type === "email" || cleanValue.length > 20) && (
-                          <CopyButton
-                            text={cleanValue}
-                            label={
-                              prop.type === "email"
-                                ? "Copiar email"
-                                : "Copiar texto"
-                            }
-                          />
-                        )}
-                      </Group>
-                    </Group>
-                  );
-                })}
+                return (
+                  <PropertyRow
+                    key={name}
+                    label={prop.label}
+                    value={displayValue}
+                    showCopyButton={shouldShowCopy}
+                    copyLabel={copyLabel}
+                  />
+                );
+              })}
             </Stack>
           </Paper>
 
           {/* Información del plan */}
-          <Paper withBorder p="md" radius="md">
-            <Group justify="space-between" mb="sm">
+          <Paper withBorder p="lg" radius="md">
+            <Group justify="space-between" mb="md">
               <Text size="lg" fw={600} c="gray.8">
                 Plan de Pago
               </Text>
               <FaCalendarAlt size={16} color="var(--mantine-color-blue-6)" />
             </Group>
-            <Divider mb="md" />
+            <Divider mb="lg" />
 
             {planInfo ? (
-              <Stack gap="sm">
-                <Group justify="space-between">
-                  <Text size="sm" fw={500} c="gray.7">
-                    Estado:
-                  </Text>
-                  <Badge
-                    variant="light"
-                    color={isExpired ? "red" : "green"}
-                    size="md"
-                  >
-                    {isExpired ? "⚠️ Vencido" : "✅ Activo"}
-                  </Badge>
-                </Group>
-
-                <Group justify="space-between">
-                  <Text size="sm" fw={500} c="gray.7">
-                    Duración:
-                  </Text>
-                  <Text size="sm">{planInfo.days} días</Text>
-                </Group>
-
-                <Group justify="space-between">
-                  <Text size="sm" fw={500} c="gray.7">
-                    Precio:
-                  </Text>
-                  <Text size="sm" fw={600}>
-                    ${planInfo.price.toLocaleString("es-CO")}
-                  </Text>
-                </Group>
-
-                <Group justify="space-between">
-                  <Text size="sm" fw={500} c="gray.7">
-                    Fecha de vencimiento:
-                  </Text>
-                  <Group gap="xs">
-                    <Text
-                      size="sm"
-                      fw={600}
-                      c={isExpired ? "red.7" : "green.7"}
-                    >
-                      {planDate && dtfCO.format(planDate)}
+              <Stack gap="xs">
+                <Flex
+                  align="flex-start"
+                  gap="md"
+                  py="xs"
+                  style={{
+                    borderBottom: "1px solid var(--mantine-color-gray-2)",
+                  }}
+                >
+                  <Box style={{ width: "80%", flex: 1 }}>
+                    <Text size="sm" fw={500} c="gray.7">
+                      Estado:
                     </Text>
-                    <CopyButton
-                      text={planDate ? dtfCO.format(planDate) : ""}
-                      label="Copiar fecha"
-                    />
-                  </Group>
-                </Group>
+                  </Box>
+                  <Box
+                    style={{ width: "20%", minWidth: "100px", flexShrink: 0 }}
+                  >
+                    <Flex justify="flex-end">
+                      <Badge
+                        variant="light"
+                        color={isExpired ? "red" : "green"}
+                        size="md"
+                      >
+                        {isExpired ? "⚠️ Vencido" : "✅ Activo"}
+                      </Badge>
+                    </Flex>
+                  </Box>
+                </Flex>
+
+                <PropertyRow label="Duración" value={`${planInfo.days} días`} />
+
+                <PropertyRow
+                  label="Precio"
+                  value={`$${planInfo.price.toLocaleString("es-CO")}`}
+                />
+
+                <PropertyRow
+                  label="Fecha de vencimiento"
+                  value={planDate ? dtfCO.format(planDate) : ""}
+                  showCopyButton={!!planDate}
+                  copyLabel="Copiar fecha"
+                />
 
                 {isExpired && (
-                  <Group justify="center" mt="sm">
+                  <Box mt="md" ta="center">
                     <Badge variant="filled" color="red" size="lg">
                       <FaInfoCircle style={{ marginRight: 4 }} />
                       Este plan ha vencido
                     </Badge>
-                  </Group>
+                  </Box>
                 )}
               </Stack>
             ) : (
-              <Group justify="center" py="xl">
+              <Box py="xl" ta="center">
                 <Stack align="center" gap="sm">
                   <Badge variant="light" color="gray" size="xl">
                     Sin plan asignado
@@ -275,7 +316,7 @@ export default function UserInfoModal({
                     Este usuario no tiene un plan de pago activo
                   </Text>
                 </Stack>
-              </Group>
+              </Box>
             )}
           </Paper>
         </Stack>
