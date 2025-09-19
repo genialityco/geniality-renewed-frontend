@@ -12,8 +12,8 @@ import {
   Image,
   Text,
   Container,
-  Modal, // 👈 Modal para campos faltantes
-  List, // 👈 Lista opcional de campos con error
+  Modal,
+  List,
 } from "@mantine/core";
 import { useUser } from "../../../context/UserContext";
 import { PropertyType } from "../../../services/types";
@@ -30,8 +30,6 @@ import shouldRenderProperty from "../../../utils/shouldRenderProperty";
 import DynamicField from "./DynamicField";
 import EmailRecoverBlock from "./EmailRecoverBlock";
 import SmsRecoverBlock from "./SmsRecoverBlock";
-
-// ✅ Validadores extraídos
 import { validateRegistrationAll } from "../components/Validators";
 
 declare global {
@@ -583,36 +581,94 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
         </>
       )}
 
-      {/* 🧩 Modal con el listado de faltantes */}
+      {/* 🧩 Modal con el listado de faltantes - VERSION MEJORADA */}
       <Modal
         opened={modalOpened}
         onClose={() => setModalOpened(false)}
-        title="Faltan datos por completar"
+        title="Campos requeridos"
         centered
-        zIndex={10000} // 👈 asegura estar por encima de cualquier dropdown
+        size="md"
+        zIndex={10000}
+        styles={{
+          title: {
+            fontSize: "1.2rem",
+            fontWeight: 600,
+            color: "#dc2626",
+          },
+        }}
       >
-        <Text size="sm" mb="sm">
-          Por favor ingresa los <b>campos faltantes marcados en rojo</b>.
-        </Text>
+        <div style={{ maxHeight: "60vh", overflowY: "auto" }}>
+          <Text size="sm" mb="lg" c="gray.7">
+            Por favor completa los siguientes campos marcados en{" "}
+            <Text span c="red" fw={500}>
+              rojo
+            </Text>{" "}
+            para continuar:
+          </Text>
 
-        {modalItems.length > 0 && (
-          <>
-            <Text size="sm" c="dimmed" mb="xs">
-              Campos con problemas:
-            </Text>
-            <List spacing="xs">
-              {modalItems.map((it) => (
-                <List.Item key={it.name}>
-                  <b>{it.label}:</b> {it.msg}
-                </List.Item>
+          {modalItems.length > 0 && (
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+            >
+              {modalItems.map((item, index) => (
+                <div
+                  key={item.name}
+                  style={{
+                    padding: "12px 16px",
+                    backgroundColor: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    borderRadius: "8px",
+                    borderLeft: "4px solid #dc2626",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "8px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        minWidth: "20px",
+                        height: "20px",
+                        backgroundColor: "#dc2626",
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginTop: "1px",
+                      }}
+                    >
+                      <Text size="xs" c="white" fw={600}>
+                        {index + 1}
+                      </Text>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <Text size="sm" fw={500} c="gray.8" mb={4}>
+                        {item.label}
+                      </Text>
+                      <Text size="xs" c="red.7">
+                        {item.msg}
+                      </Text>
+                    </div>
+                  </div>
+                </div>
               ))}
-            </List>
-          </>
-        )}
+            </div>
+          )}
 
-        <Group justify="flex-end" mt="md">
-          <Button onClick={() => setModalOpened(false)}>Entendido</Button>
-        </Group>
+          <Group justify="center" mt="xl">
+            <Button
+              onClick={() => setModalOpened(false)}
+              variant="filled"
+              size="md"
+              style={{ minWidth: "120px" }}
+            >
+              Entendido
+            </Button>
+          </Group>
+        </div>
       </Modal>
     </Container>
   );

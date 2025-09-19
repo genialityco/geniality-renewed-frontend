@@ -6,7 +6,7 @@ import shouldRenderProperty from "../../../utils/shouldRenderProperty";
 export const ONLY_LETTERS_RE = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s-]+$/;
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-/** Determina si un valor está “provisto” según su tipo */
+/** Determina si un valor está "provisto" según su tipo */
 export function isProvidedByType(value: any, type?: string): boolean {
     const t = (type ?? "").toLowerCase();
     if (t === "boolean") return value === true; // checkbox obligatorio => marcado
@@ -71,15 +71,54 @@ export function detectKinds(
     };
 }
 
-/** obligatorio efectivo: prop.mandatory || (depto/city && pais === "Colombia") */
+/** 
+ * Obligatorio efectivo: el campo DEBE ser visible Y mandatory === true
+ * Casos especiales: depto/city son obligatorios solo si país === "Colombia" Y son visibles
+ */
 export function isEffectiveMandatory(
     prop: UserProperty,
     values: Record<string, any>
 ): boolean {
+    // REGLA FUNDAMENTAL: Si el campo no es visible, NO puede ser obligatorio
+    const isVisible = shouldRenderProperty(prop as any, values);
+    if (!isVisible) return false;
+
     const name = (prop?.name || "").toLowerCase();
+
+    // Casos especiales para Colombia
     const isLocation = name === "departamento" || name === "city";
     const isColombia = (values?.pais || "") === "Colombia";
-    return !!(prop?.mandatory || (isLocation && isColombia));
+
+    if (isLocation && isColombia) {
+        // Solo obligatorio si es visible Y Colombia está seleccionada
+        return true;
+    }
+
+    // Para el resto de campos: solo obligatorio si es visible Y mandatory === true
+    return !!(isVisible && prop?.mandatory);
+}
+
+/** Limpia etiquetas HTML y devuelve solo el texto, con opción de truncar */
+function cleanHtmlLabel(label: string, maxLength?: number): string {
+    if (!label || typeof label !== 'string') return label || '';
+
+    const cleaned = label
+        .replace(/<[^>]*>/g, '') // Elimina todas las etiquetas HTML
+        .replace(/&nbsp;/g, ' ') // Reemplaza &nbsp; con espacios
+        .replace(/&amp;/g, '&')  // Reemplaza &amp; con &
+        .replace(/&lt;/g, '<')   // Reemplaza &lt; con <
+        .replace(/&gt;/g, '>')   // Reemplaza &gt; con >
+        .replace(/&quot;/g, '"') // Reemplaza &quot; con "
+        .replace(/&#39;/g, "'")  // Reemplaza &#39; con '
+        .replace(/\s+/g, ' ')    // Normaliza espacios múltiples
+        .trim();                 // Elimina espacios al inicio y final
+
+    // Truncar si es muy largo
+    if (maxLength && cleaned.length > maxLength) {
+        return cleaned.substring(0, maxLength).trim() + '...';
+    }
+
+    return cleaned;
 }
 
 export type FieldErrors = Record<string, string>;
@@ -98,26 +137,32 @@ export function validateRegistrationAll(
     const modalItems: ModalItem[] = [];
 
     for (const p of properties) {
+        // Solo procesamos campos visibles
         const visible = shouldRenderProperty(p as any, values);
         if (!visible) continue;
 
         const name = p.name;
-        const label = (p.label as string) || name;
+        const rawLabel = (p.label as string) || name;
+        const cleanLabel = cleanHtmlLabel(rawLabel, 80); // Trunca a 80 caracteres para el modal
         let val = values[name];
 
-        // Requeridos efectivos (dependen de país/depto/ciudad)
+        // Verificamos si es efectivamente obligatorio (visible + mandatory/especial)
         if (isEffectiveMandatory(p, values)) {
             const provided = isProvidedByType(val, p.type);
             if (!provided) {
                 const msg = "Este campo es obligatorio.";
                 fieldErrors[name] = msg;
-                modalItems.push({ name, label, msg });
-                continue;
+                modalItems.push({ name, label: cleanLabel, msg }); // Usa label limpio y truncado
+                continue; // Si falta un obligatorio, no validamos formato
             }
         }
 
+        // Solo validamos formato si hay valor (campos opcionales pueden estar vacíos)
+        if (!val) continue;
+
         // Normaliza para validaciones de string
         if (typeof val === "string") val = val.trim();
+        if (!val) continue; // Si queda vacío después del trim, saltamos
 
         const {
             isEmailField,
@@ -125,23 +170,23 @@ export function validateRegistrationAll(
             isSurnamesField,
             isIdField,
             isPhoneField,
-        } = detectKinds(label, name, p.type);
+        } = detectKinds(cleanLabel, name, p.type);
 
         // Email
-        if (isEmailField && val && !EMAIL_RE.test(String(val))) {
+        if (isEmailField && !EMAIL_RE.test(String(val))) {
             const msg = "Formato de correo inválido.";
             fieldErrors[name] = msg;
-            modalItems.push({ name, label, msg });
+            modalItems.push({ name, label: cleanLabel, msg });
             continue;
         }
 
         // ID/Teléfono: solo dígitos y 6–15 de largo
-        if ((isIdField || isPhoneField) && val) {
+        if (isIdField || isPhoneField) {
             const digits = String(val).replace(/\D+/g, "");
             if (!/^\d+$/.test(digits) || digits.length < 6 || digits.length > 15) {
                 const msg = "Debe contener solo números y entre 6 y 15 dígitos.";
                 fieldErrors[name] = msg;
-                modalItems.push({ name, label, msg });
+                modalItems.push({ name, label: cleanLabel, msg });
                 continue;
             }
         }
@@ -149,26 +194,11 @@ export function validateRegistrationAll(
         // Nombres/Apellidos: solo letras
         if (
             (isNamesField || isSurnamesField) &&
-            val &&
             !ONLY_LETTERS_RE.test(String(val))
         ) {
             const msg = "Solo letras y espacios.";
             fieldErrors[name] = msg;
-            modalItems.push({ name, label, msg });
-            continue;
-        }
-
-        // Dependencias explícitas
-        if (name === "departamento" && values.pais === "Colombia" && !val) {
-            const msg = "Selecciona un departamento.";
-            fieldErrors[name] = msg;
-            modalItems.push({ name, label, msg });
-            continue;
-        }
-        if (name === "city" && values.pais === "Colombia" && !val) {
-            const msg = "Selecciona una ciudad.";
-            fieldErrors[name] = msg;
-            modalItems.push({ name, label, msg });
+            modalItems.push({ name, label: cleanLabel, msg });
             continue;
         }
     }
