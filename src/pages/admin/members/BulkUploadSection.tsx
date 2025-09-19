@@ -113,6 +113,7 @@ export default function BulkUploadSection({
               ).toISOString(),
               price: 0,
               organization_user_id: organizationUser._id,
+              payment_request_id: ""
             });
             await createOrUpdateOrganizationUser({
               ...organizationUser,

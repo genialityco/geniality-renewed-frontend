@@ -157,6 +157,7 @@ export default function MembersTab() {
         date_until: isoDate,
         price,
         organization_user_id: selectedUserId,
+        payment_request_id: ""
       });
 
       await createOrUpdateOrganizationUser({
