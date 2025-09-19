@@ -163,6 +163,7 @@ export interface OrganizationUser {
 }
 
 export interface PaymentPlan {
+  payment_request_id: any;
   _id: string;
   days: number;
   date_until: string;
