@@ -23,7 +23,7 @@ import type { Event } from "../../services/types";
 import EventsTab from "./events/EventsTab";
 import AdminEventEdit from "./events/AdminEventEdit";
 import MembersTab from "./members/MembersTab";
-import AdminOrganizationSettings from "./org/AdminOrganizationSettings";
+import AdminOrganizationPage from "./org/AdminOrganizationPage";
 
 type Section = "events" | "members" | "org";
 
@@ -182,7 +182,7 @@ export default function AdminOrganizationEvents() {
         ) : activeSection === "members" ? (
           <MembersTab />
         ) : (
-          <AdminOrganizationSettings organizationId={orgId} />
+          <AdminOrganizationPage organizationId={orgId} />
         )}
       </Container>
     </>
