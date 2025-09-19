@@ -10,7 +10,7 @@ import {
   Group,
 } from "@mantine/core";
 import { useClipboard } from "@mantine/hooks";
-import { FaClipboard, FaCopy } from "react-icons/fa6";
+import { FaClipboard, FaCopy, FaEye } from "react-icons/fa6";
 import { useOrganization } from "../../../context/OrganizationContext";
 import { OrganizationUser, PaymentPlan } from "../../../services/types";
 
@@ -21,6 +21,7 @@ interface Props {
   onUpdatePlan: (userId: string) => void;
   onEditUser: (user: OrganizationUser) => void;
   onDeleteUser: (user: OrganizationUser) => void;
+  onViewUser: (user: OrganizationUser) => void;
 }
 
 const HEADER_TRUNCATE_LENGTH = 15;
@@ -83,6 +84,7 @@ export default function MembersTable({
   onUpdatePlan,
   onEditUser,
   onDeleteUser,
+  onViewUser,
 }: Props) {
   const { organization } = useOrganization();
 
@@ -304,6 +306,21 @@ export default function MembersTable({
                   }}
                 >
                   <Group gap="xs" wrap="wrap" justify="flex-start">
+                    <Button
+                      size="xs"
+                      variant="light"
+                      color="green"
+                      onClick={() => onViewUser(user)}
+                      aria-label="Ver información del usuario"
+                      leftSection={<FaEye size={10} />}
+                      style={{
+                        borderRadius: "6px",
+                        fontSize: "11px",
+                        fontWeight: 500,
+                      }}
+                    >
+                      Ver
+                    </Button>
                     <Button
                       size="xs"
                       variant="light"

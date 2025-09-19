@@ -21,6 +21,7 @@ import MembersTable, { isPaymentPlan, stripHtml } from "./MembersTable";
 import ChangeCredentialsModal from "./ChangeCredentialsModal";
 import ChangePaymentPlanModal from "./ChangePaymentPlanModal";
 import EditUserModal from "./EditUserModal";
+import UserInfoModal from "./UserInfoModal"; // ← Nuevo import
 
 import {
   createOrUpdateOrganizationUser,
@@ -81,6 +82,11 @@ export default function MembersTab() {
   );
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Modal de información del usuario ← Nuevo estado
+  const [userInfoModalOpen, setUserInfoModalOpen] = useState(false);
+  const [selectedUserInfo, setSelectedUserInfo] =
+    useState<OrganizationUser | null>(null);
 
   // Formateador de fecha consistente (para Excel, matching con tabla)
   const dtfCO = new Intl.DateTimeFormat("es-CO", {
@@ -257,6 +263,12 @@ export default function MembersTab() {
     setDeleteModalOpen(false);
     setUserToDelete(null);
     setDeleteError(null);
+  };
+
+  // Ver información del usuario ← Nueva función
+  const handleViewUserInfo = (user: OrganizationUser) => {
+    setSelectedUserInfo(user);
+    setUserInfoModalOpen(true);
   };
 
   // Exportar a Excel (todos)
@@ -461,6 +473,7 @@ export default function MembersTab() {
               onUpdatePlan={handleUpdatePlan}
               onEditUser={handleEditUser}
               onDeleteUser={handleDeleteUser}
+              onViewUser={handleViewUserInfo}
             />
           </ScrollArea>
 
@@ -524,6 +537,22 @@ export default function MembersTab() {
         error={deleteError}
         onConfirm={handleConfirmDelete}
         onClose={handleCloseDelete}
+      />
+      <UserInfoModal
+        user={selectedUserInfo}
+        isOpen={userInfoModalOpen}
+        onClose={() => {
+          setUserInfoModalOpen(false);
+          setSelectedUserInfo(null);
+        }}
+        userProperties={(organization?.user_properties || [])
+          .filter((p: { visible: any }) => p.visible === true)
+          .map((p: { name: any; label: any; type: any; visible: any }) => ({
+            name: String(p.name),
+            label: stripHtml(String(p.label)),
+            type: String(p.type || "").toLowerCase(),
+            visible: p.visible,
+          }))}
       />
     </>
   );
