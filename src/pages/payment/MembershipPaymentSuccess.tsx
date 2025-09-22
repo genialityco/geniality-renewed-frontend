@@ -189,7 +189,7 @@ const MembershipPaymentSuccess = () => {
             <Button
               mt="lg"
               onClick={() =>
-                (window.location.href = `/organization/${organizationId}/pago`)
+                (window.location.href = `/organization/${organizationId}`)
               }
             >
               Intentar de nuevo
