@@ -97,7 +97,6 @@ export default function MembersTable({
         type: String(p.type || "").toLowerCase(),
         visible: p.visible,
       })) ?? [];
-  console.log("userProps:", userProps);
 
   return (
     <ScrollArea>

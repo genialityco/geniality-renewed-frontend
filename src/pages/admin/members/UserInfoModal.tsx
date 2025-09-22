@@ -33,7 +33,7 @@ interface Props {
     name: string;
     label: string;
     type: string;
-    visible?: boolean;
+    visible?: boolean; // <- se respeta abajo
   }>;
 }
 
@@ -108,7 +108,7 @@ const PropertyRow = React.memo(function PropertyRow({
         borderBottom: "1px solid var(--mantine-color-gray-2)",
       }}
     >
-      {/* Columna izquierda - Título (80%) */}
+      {/* Columna izquierda - Título (60%) */}
       <Box
         style={{
           width: "60%",
@@ -128,7 +128,7 @@ const PropertyRow = React.memo(function PropertyRow({
       </Box>
       <Box
         style={{
-          width: "30%",
+          width: "40%",
           minWidth: "100px",
           flexShrink: 0,
         }}
@@ -176,6 +176,11 @@ export default function UserInfoModal({
     isExpired = planDate < new Date();
   }
 
+  // --- NUEVO: filtrar por "visible" (mostrar si visible !== false) ---
+  const visibleUserProps = (userProperties ?? []).filter(
+    (p) => p.visible !== false
+  );
+
   return (
     <Modal
       opened={isOpen}
@@ -209,20 +214,34 @@ export default function UserInfoModal({
             <Divider mb="lg" />
 
             <Stack gap="xs">
-              {userProperties.map((prop) => {
+              {visibleUserProps.length === 0 && (
+                <Text size="sm" c="gray.6">
+                  No hay propiedades visibles para este usuario.
+                </Text>
+              )}
+
+              {visibleUserProps.map((prop) => {
                 const name = String(prop.name);
                 const rawValue = properties[name] ?? "";
+
+                // Si el valor es nulo/indefinido/empty string, no renderizamos la fila
+                if (rawValue === null || rawValue === undefined || rawValue === "")
+                  return null;
+
                 const cleanValue = stripHtml(String(rawValue));
                 let displayValue = "";
+
                 // Formatear según el tipo
                 if (prop.type === "boolean") {
-                  displayValue =
-                    cleanValue.toLowerCase() === "true" ? "Sí" : "No";
+                  const v = String(cleanValue).toLowerCase();
+                  displayValue = v === "true" || v === "1" ? "Sí" : "No";
                 } else if (prop.type === "email") {
                   displayValue = cleanValue;
                 } else {
                   displayValue = cleanValue;
                 }
+
+                // Si tras limpiar queda vacío, no mostramos
                 if (!displayValue) return null;
 
                 const shouldShowCopy =

@@ -551,6 +551,7 @@ export default function MembersTab() {
             name: String(p.name),
             label: stripHtml(String(p.label)),
             type: String(p.type || "").toLowerCase(),
+            visible: p.visible,
           })
         )}
       />
