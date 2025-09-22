@@ -1,5 +1,4 @@
 // src/pages/auth/components/AuthForm.tsx
-// (reemplazo completo, conserva el comentario del VincularTelefonoModal)
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -13,7 +12,6 @@ import {
   Text,
   Container,
   Modal,
-  List,
 } from "@mantine/core";
 import { useUser } from "../../../context/UserContext";
 import { PropertyType } from "../../../services/types";
