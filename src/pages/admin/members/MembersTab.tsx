@@ -8,6 +8,8 @@ import {
   ScrollArea,
   Select,
   Button,
+  Box,
+  Flex,
 } from "@mantine/core";
 import * as XLSX from "xlsx";
 import { FaFileExcel } from "react-icons/fa6";
@@ -19,11 +21,13 @@ import MembersTable, { isPaymentPlan, stripHtml } from "./MembersTable";
 import ChangeCredentialsModal from "./ChangeCredentialsModal";
 import ChangePaymentPlanModal from "./ChangePaymentPlanModal";
 import EditUserModal from "./EditUserModal";
+import UserInfoModal from "./UserInfoModal"; // ← Nuevo import
 
 import {
   createOrUpdateOrganizationUser,
   fetchOrganizationUsersByOrganizationId,
   fetchAllOrganizationUsersByOrganizationId,
+  deleteOrganizationUser,
 } from "../../../services/organizationUserService";
 
 import {
@@ -39,12 +43,14 @@ import type {
 
 import { useOrganization } from "../../../context/OrganizationContext";
 
+import DeleteConfirmModal from "./DeleteConfirmModal";
+
 export default function MembersTab() {
   const { organization } = useOrganization();
   const orgId = organization?._id!;
 
   const limitOptions = ["10", "20", "50", "100"];
-  const [userLimit, setUserLimit] = useState("100");
+  const [userLimit, setUserLimit] = useState("10");
 
   const [users, setUsers] = useState<OrganizationUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -68,6 +74,19 @@ export default function MembersTab() {
   // Editar miembro
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<OrganizationUser | null>(null);
+
+  //Modal de eliminar miembro
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<OrganizationUser | null>(
+    null
+  );
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Modal de información del usuario ← Nuevo estado
+  const [userInfoModalOpen, setUserInfoModalOpen] = useState(false);
+  const [selectedUserInfo, setSelectedUserInfo] =
+    useState<OrganizationUser | null>(null);
 
   // Formateador de fecha consistente (para Excel, matching con tabla)
   const dtfCO = new Intl.DateTimeFormat("es-CO", {
@@ -157,7 +176,7 @@ export default function MembersTab() {
         date_until: isoDate,
         price,
         organization_user_id: selectedUserId,
-        payment_request_id: ""
+        payment_request_id: "",
       });
 
       await createOrUpdateOrganizationUser({
@@ -202,6 +221,55 @@ export default function MembersTab() {
 
     setEditModalOpen(false);
     setUserToEdit(null);
+  };
+
+  // Eliminar miembro
+  const handleDeleteUser = (user: OrganizationUser) => {
+    setUserToDelete(user);
+    setDeleteModalOpen(true);
+    setDeleteError(null);
+  };
+
+  const extractUserId = (orgUser: OrganizationUser): string | null => {
+    const ref: any = orgUser?.user_id;
+    if (!ref) return null;
+    if (typeof ref === "string") return ref;
+    if (typeof ref === "object" && ref._id != null) return String(ref._id);
+    return null;
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    const userId = extractUserId(userToDelete);
+    if (!userId) {
+      setDeleteError("No se pudo determinar el user_id.");
+      return;
+    }
+    try {
+      setDeleting(true);
+      setDeleteError(null);
+      await deleteOrganizationUser(userId); // ← tu API existente
+      setDeleteModalOpen(false);
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (e: any) {
+      setDeleteError(e?.message || "Error eliminando el usuario.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCloseDelete = () => {
+    if (deleting) return;
+    setDeleteModalOpen(false);
+    setUserToDelete(null);
+    setDeleteError(null);
+  };
+
+  // Ver información del usuario ← Nueva función
+  const handleViewUserInfo = (user: OrganizationUser) => {
+    setSelectedUserInfo(user);
+    setUserInfoModalOpen(true);
   };
 
   // Exportar a Excel (todos)
@@ -298,39 +366,90 @@ export default function MembersTab() {
 
   return (
     <>
-      <Paper withBorder radius="md" p="xs" mb="md">
-        <Group justify="space-between" mb="xs">
-          <Group>
-            <BulkUploadSection
-              onReport={(r) => {
-                setLastImportReport(r);
-                fetchUsers();
-              }}
-            />
-            <SearchForm
-              value={rawSearch}
-              onSearch={(text) => {
-                setRawSearch(text);
-                setUserPage(1);
-              }}
-            />
-          </Group>
-          <Button
-            leftSection={<FaFileExcel />}
-            variant="outline"
-            onClick={handleExportToExcel}
-            loading={exporting}
-            disabled={exporting}
-          >
-            Exportar a Excel
-          </Button>
-        </Group>
+      <Paper
+        withBorder
+        radius="xl"
+        p="md"
+        mb="md"
+        bg="gradient(45deg, #f8fafc 0%, #ffffff 100%)"
+        style={{ borderColor: "#e2e8f0" }}
+      >
+        <Box mb={lastImportReport ? "md" : 0}>
+          <Flex justify="space-between" align="center" gap="md" wrap="wrap">
+            {/* Left Section - Actions */}
+            <Flex align="center" gap="md" flex={1}>
+              <Box
+                p="xs"
+                bg="white"
+                style={{
+                  borderRadius: "12px",
+                  border: "1px solid #e2e8f0",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                }}
+              >
+                <BulkUploadSection
+                  onReport={(r) => {
+                    setLastImportReport(r);
+                    fetchUsers();
+                  }}
+                />
+              </Box>
 
+              <Box flex={1} maw={350}>
+                <SearchForm
+                  value={rawSearch}
+                  onSearch={(text) => {
+                    setRawSearch(text);
+                    setUserPage(1);
+                  }}
+                />
+              </Box>
+            </Flex>
+
+            {/* Right Section - Export */}
+            <Button
+              leftSection={<FaFileExcel size={18} />}
+              variant="filled"
+              color="teal"
+              size="md"
+              radius="xl"
+              onClick={handleExportToExcel}
+              loading={exporting}
+              disabled={exporting}
+              styles={{
+                root: {
+                  background:
+                    "linear-gradient(135deg, #0ca678 0%, #059669 100%)",
+                  border: "none",
+                  boxShadow: "0 4px 12px rgba(5, 150, 105, 0.3)",
+                  "&:hover": {
+                    transform: "translateY(-2px)",
+                    boxShadow: "0 6px 16px rgba(5, 150, 105, 0.4)",
+                  },
+                },
+              }}
+            >
+              Exportar a Excel
+            </Button>
+          </Flex>
+        </Box>
+
+        {/* Import Report Section */}
         {lastImportReport && (
-          <ImportReport
-            report={lastImportReport}
-            onClear={() => setLastImportReport(null)}
-          />
+          <Box
+            mt="md"
+            p="sm"
+            bg="rgba(255,255,255,0.7)"
+            style={{
+              borderRadius: "12px",
+              backdropFilter: "blur(10px)",
+            }}
+          >
+            <ImportReport
+              report={lastImportReport}
+              onClear={() => setLastImportReport(null)}
+            />
+          </Box>
         )}
       </Paper>
 
@@ -354,6 +473,8 @@ export default function MembersTab() {
               }}
               onUpdatePlan={handleUpdatePlan}
               onEditUser={handleEditUser}
+              onDeleteUser={handleDeleteUser}
+              onViewUser={handleViewUserInfo}
             />
           </ScrollArea>
 
@@ -409,6 +530,30 @@ export default function MembersTab() {
         user={userToEdit}
         userProps={(organization?.user_properties || []) as UserProperty[]}
         onSave={handleUserEditSave}
+      />
+      <DeleteConfirmModal
+        opened={deleteModalOpen}
+        user={userToDelete}
+        loading={deleting}
+        error={deleteError}
+        onConfirm={handleConfirmDelete}
+        onClose={handleCloseDelete}
+      />
+      <UserInfoModal
+        user={selectedUserInfo}
+        isOpen={userInfoModalOpen}
+        onClose={() => {
+          setUserInfoModalOpen(false);
+          setSelectedUserInfo(null);
+        }}
+        userProperties={(organization?.user_properties || []).map(
+          (p: { name: any; label: any; type: any; visible: any }) => ({
+            name: String(p.name),
+            label: stripHtml(String(p.label)),
+            type: String(p.type || "").toLowerCase(),
+            visible: p.visible,
+          })
+        )}
       />
     </>
   );

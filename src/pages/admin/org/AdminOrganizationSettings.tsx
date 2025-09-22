@@ -12,7 +12,7 @@ import {
   Loader,
   Alert,
   Text,
-  Textarea, // 👈 añadido
+  Textarea,
 } from "@mantine/core";
 import {
   fetchOrganizationById,

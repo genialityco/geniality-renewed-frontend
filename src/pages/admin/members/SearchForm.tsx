@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@mantine/core";
 
 interface Props {
@@ -9,26 +9,32 @@ interface Props {
 export default function SearchForm({ value, onSearch }: Props) {
   const [text, setText] = useState(value);
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSearch(text);
-  };
+  useEffect(() => setText(value), [value]);
 
   return (
-    <form onSubmit={submit} style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+    <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
       <input
         type="text"
         placeholder="Buscar nombre o email"
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          const v = e.target.value;
+          setText(v);
+          onSearch(v);
+        }}
         style={{ padding: 4, borderRadius: 4, border: "1px solid #ddd" }}
       />
-      <Button type="submit">Buscar</Button>
       {text && (
-        <Button variant="subtle" onClick={() => { setText(""); onSearch(""); }}>
+        <Button
+          variant="subtle"
+          onClick={() => {
+            setText("");
+            onSearch("");
+          }}
+        >
           Limpiar
         </Button>
       )}
-    </form>
+    </div>
   );
 }

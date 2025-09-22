@@ -1,5 +1,5 @@
 // src/pages/AdminOrganizationEvents/EditUserModal.tsx
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Modal,
   Button,
@@ -21,6 +21,36 @@ interface Props {
   onSave: (updatedProperties: any) => void;
 }
 
+type AnyRecord = Record<string, any>;
+
+function toSelectData(
+  options: any[] = []
+): Array<string | { value: string; label: string }> {
+  if (!Array.isArray(options)) return [];
+  // Acepta ["a","b"] o [{label,value}]
+  if (options.length > 0 && typeof options[0] === "object") {
+    return options.map((o: any) => ({
+      value: String(o.value ?? o.label ?? ""),
+      label: String(o.label ?? o.value ?? ""),
+    }));
+  }
+  return options.map((s) => String(s));
+}
+
+function isPropEnabled(prop: UserProperty, values: AnyRecord): boolean {
+  const dep: any = (prop as any).dependency;
+  if (!dep || !dep.fieldName) return true;
+  const depVal = values?.[dep.fieldName];
+  const triggers: any[] = dep.triggerValues ?? [];
+  if (Array.isArray(triggers) && triggers.length > 0) {
+    return triggers.includes(depVal);
+  }
+  // Si no hay triggerValues, con que el campo dependiente tenga valor
+  return (
+    depVal !== undefined && depVal !== null && String(depVal).trim() !== ""
+  );
+}
+
 export default function EditUserModal({
   opened,
   onClose,
@@ -28,114 +58,166 @@ export default function EditUserModal({
   userProps,
   onSave,
 }: Props) {
-  const form = useForm({
+  // Sólo props visibles
+  const visibleProps = useMemo(
+    () => (userProps ?? []).filter((p) => (p as any).visible !== false),
+    [userProps]
+  );
+
+  const form = useForm<AnyRecord>({
     initialValues: {},
   });
 
-  // Cuando el usuario cambia, actualiza los valores del formulario
+  // Inicialización (sólo visibles)
   useEffect(() => {
-    if (user) {
-      const initialValues: Record<string, any> = {};
-      userProps.forEach((prop) => {
-        const name = prop.name;
-        initialValues[name] = user.properties?.[name] ?? "";
-        // Manejo de tipos para inicialización
-        if (prop.type.toLowerCase() === "boolean") {
-          initialValues[name] =
-            String(user.properties?.[name]).toLowerCase() === "true";
-        }
-      });
-      form.setValues(initialValues);
-    }
-  }, [user, userProps]);
+    if (!user) return;
+    const initialValues: AnyRecord = {};
+    visibleProps.forEach((prop) => {
+      const name = prop.name;
+      const raw = user.properties?.[name];
+      const t = prop.type.toLowerCase();
 
-  // Renderiza dinámicamente el campo del formulario según el tipo
+      if (t === "boolean") {
+        initialValues[name] = String(raw).toLowerCase() === "true";
+      } else {
+        // Para selects (list), Mantine espera string | null
+        initialValues[name] = raw ?? "";
+      }
+    });
+    form.setValues(initialValues);
+  }, [user, visibleProps]);
+
+  // Limpiar valores cuando una dependencia deshabilita un campo
+  useEffect(() => {
+    visibleProps.forEach((prop) => {
+      const name = prop.name;
+      const enabled = isPropEnabled(prop, form.values);
+      if (!enabled && form.values[name]) {
+        form.setFieldValue(
+          name,
+          prop.type.toLowerCase() === "boolean" ? false : ""
+        );
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.values, visibleProps]);
+
   const renderField = (prop: UserProperty) => {
     const name = prop.name;
-    const label = prop.label;
+    const cleanLabel =
+      typeof prop.label === "string"
+        ? prop.label.replace(/<[^>]*>?/gm, "")
+        : prop.label;
 
-    // Se eliminó la etiqueta 'Text' que podía contener HTML
-    // y se remplazó por una etiqueta 'label' simple.
-    // El label del checkbox que tiene una URL se debe manejar con `dangerouslySetInnerHTML`
-    // pero para este componente se recomienda solo mostrar el texto sin HTML.
-    const cleanLabel = (
-      label && typeof label === "string" ?
-      label.replace(/<[^>]*>?/gm, "") :
-      label
-    );
+    const type = prop.type.toLowerCase();
+    const enabled = isPropEnabled(prop, form.values);
 
-    switch (prop.type.toLowerCase()) {
+    switch (type) {
       case "text":
-      case "codearea": // Añadido para el nuevo tipo `codearea`
-      case "country": // Añadido para el nuevo tipo `country`
-      case "city": // Añadido para el nuevo tipo `city`
+      case "codearea":
+      case "country":
+      case "city":
         return (
           <TextInput
             key={name}
             label={cleanLabel}
-            {...form.getInputProps(name)}
+            disabled={!enabled}
+            value={form.values[name] ?? ""}
+            onChange={(e) => form.setFieldValue(name, e.currentTarget.value)}
           />
         );
+
       case "email":
         return (
           <TextInput
             key={name}
             type="email"
             label={cleanLabel}
-            {...form.getInputProps(name)}
+            disabled={!enabled}
+            value={form.values[name] ?? ""}
+            onChange={(e) => form.setFieldValue(name, e.currentTarget.value)}
           />
         );
+
       case "textarea":
         return (
           <Textarea
             key={name}
             label={cleanLabel}
-            {...form.getInputProps(name)}
+            disabled={!enabled}
+            value={form.values[name] ?? ""}
+            onChange={(e) => form.setFieldValue(name, e.currentTarget.value)}
           />
         );
+
       case "boolean":
         return (
           <Checkbox
             key={name}
             label={cleanLabel}
-            {...form.getInputProps(name, { type: "checkbox" })}
+            disabled={!enabled}
+            checked={Boolean(form.values[name])}
+            onChange={(e) => form.setFieldValue(name, e.currentTarget.checked)}
           />
         );
-      case "list":
-        // Aseguramos que `options` tenga el formato correcto para Select
-        const selectData = (prop.options || []).map((option: any) =>
-          typeof option === "string" ? option : option.value
-        );
+
+      case "list": {
+        const data = toSelectData((prop as any).options);
+        // Mantine Select requiere controlado: value y onChange(string | null)
+        const value = form.values[name] ?? "";
         return (
           <Select
             key={name}
             label={cleanLabel}
-            data={selectData}
-            {...form.getInputProps(name)}
+            disabled={!enabled}
+            data={data as any}
+            searchable
+            clearable
+            // importante: controlado
+            value={value === "" ? null : String(value)}
+            onChange={(val) => form.setFieldValue(name, val ?? "")}
+            // para evitar warnings cuando data cambia
+            checkIconPosition="right"
+            nothingFoundMessage="Sin opciones"
           />
         );
+      }
+
       default:
-        // Renderizar un TextInput genérico para tipos no mapeados
         return (
           <TextInput
             key={name}
             label={cleanLabel}
-            {...form.getInputProps(name)}
+            disabled={!enabled}
+            value={form.values[name] ?? ""}
+            onChange={(e) => form.setFieldValue(name, e.currentTarget.value)}
           />
         );
     }
   };
 
+  const handleSubmit = (values: AnyRecord) => {
+    // Sólo enviar las visibles
+    const allowed = new Set(visibleProps.map((p) => p.name));
+    const filtered: AnyRecord = {};
+    Object.keys(values).forEach((k) => {
+      if (allowed.has(k)) filtered[k] = values[k];
+    });
+    onSave(filtered);
+  };
+
   return (
     <Modal opened={opened} onClose={onClose} title="Editar miembro">
       <Text>{user?._id}</Text>
-      <form
-        onSubmit={form.onSubmit((values) => {
-          onSave(values);
-        })}
-      >
+      <form onSubmit={form.onSubmit(handleSubmit)}>
         <Stack gap="md">
-          {userProps.map(renderField)}
+          {visibleProps.length === 0 ? (
+            <Text size="sm" c="gray.6">
+              No hay propiedades visibles para editar.
+            </Text>
+          ) : (
+            visibleProps.map(renderField)
+          )}
           <Button type="submit" mt="md">
             Guardar cambios
           </Button>
