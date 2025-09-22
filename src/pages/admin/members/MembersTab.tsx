@@ -334,6 +334,18 @@ export default function MembersTab() {
           ? dtfCO.format(new Date(planInfo.date_until))
           : "Sin plan";
 
+        // Exporta tal cual el enum ('gateway' | 'manual' | 'admin'); deja vacío si no hay plan
+        const mapSource = (s?: string) =>
+          s === "gateway"
+            ? "Pasarela de pago"
+            : s === "admin"
+            ? "Creado por admin"
+            : s === "manual"
+            ? "Creado manualmente"
+            : "";
+
+        rowData["source"] = planInfo ? mapSource((planInfo as any).source) : "";
+
         return rowData;
       });
 
