@@ -1,7 +1,7 @@
 // src/routes/AppRoutes.tsx
 import { Routes, Route } from "react-router-dom";
 
-import Home from "../pages/Home";
+//import Home from "../pages/Home";
 import Organizations from "../pages/Organizations";
 import AuthPage from "../pages/auth/AuthPage";
 import NotFound from "../components/NotFound";
@@ -22,8 +22,8 @@ export default function AppRoutes() {
   return (
     <Routes>
       {/* Públicas */}
-      <Route path="/" element={<Home />} />
-      <Route path="/organizations" element={<Organizations />} />
+      {/*<Route path="/" element={<Home />} />*/}
+      <Route path="/" element={<Organizations />} />
       <Route path="/superadmin" element={<SuperAdmin />} />
 
       {/* Login/registro por organización */}

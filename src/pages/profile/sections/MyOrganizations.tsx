@@ -14,6 +14,7 @@ import {
 import { useUser } from "../../../context/UserContext"; // ajusta ruta
 import { fetchOrganizationsByUser } from "../../../services/organizationUserService"; // ajusta ruta
 import { UserOrganizationCard, Organization } from "../../../services/types"; // ajusta ruta
+import { useNavigate } from "react-router-dom";
 
 const pickOrgImage = (org?: Organization) =>
   org?.styles?.event_image ||
@@ -21,8 +22,18 @@ const pickOrgImage = (org?: Organization) =>
   org?.styles?.logo_url ||
   "";
 
+// Extrae el id del autor ya sea string u objeto { _id: string }
+const getAuthorId = (author: any): string | undefined => {
+  if (!author) return undefined;
+  if (typeof author === "string") return author;
+  if (typeof author === "object" && author._id) return String(author._id);
+  return undefined;
+};
+
 export default function MyOrganizations() {
   const { userId } = useUser();
+  const navigate = useNavigate();
+
   const [items, setItems] = useState<UserOrganizationCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,23 +57,17 @@ export default function MyOrganizations() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  // ⬇️ Deja aquí la navegación que uses (Next Router, React Router, etc.)
   const handleVisit = (org: Organization) => {
-    console.log("Visitar", org);
-    // TODO: redirigir a la vista pública de la organización
-    // Ejemplos:
-    // router.push(`/organizations/${org._id}`)
-    // navigate(`/organizations/${org._id}`)
-    // window.location.href = `/organizations/${org._id}`
+    navigate(`/organization/${org._id}`);
   };
 
   const handleAdmin = (org: Organization) => {
-    console.log("Admin de", org);
-    // TODO: redirigir al panel admin de la organización
-    // Ejemplos:
-    // router.push(`/admin/organizations/${org._id}`)
-    // navigate(`/admin/organizations/${org._id}`)
-    // window.location.href = `/admin/organizations/${org._id}`
+    navigate(`/organization/${org._id}/admin`);
+  };
+
+  const isAuthor = (org: Organization) => {
+    const authorId = getAuthorId(org.author);
+    return userId && authorId && String(userId) === String(authorId);
   };
 
   if (loading) return <Loader />;
@@ -96,10 +101,6 @@ export default function MyOrganizations() {
           <Box style={{ display: "flex", gap: 16, paddingBottom: 8 }}>
             {items.map(({ organization, membership }) => {
               const img = pickOrgImage(organization);
-              const isAdminOwner =
-                organization?.author &&
-                userId &&
-                String(organization.author) === String(userId);
 
               return (
                 <Card
@@ -143,7 +144,7 @@ export default function MyOrganizations() {
                         Visitar
                       </Button>
 
-                      {isAdminOwner && (
+                      {isAuthor(organization) && (
                         <Button
                           size="xs"
                           variant="outline"
