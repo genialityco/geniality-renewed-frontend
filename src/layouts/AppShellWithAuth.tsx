@@ -76,6 +76,9 @@ export default function AppShellWithAuth() {
                 <Menu.Item onClick={() => handleNavigate("courses")}>
                   Mis cursos
                 </Menu.Item>
+                <Menu.Item onClick={() => handleNavigate("Organizations")}>
+                  Mis organizaciones
+                </Menu.Item>
                 <Menu.Item onClick={() => handleNavigate("info")}>
                   Mis datos
                 </Menu.Item>

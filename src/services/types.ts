@@ -187,7 +187,7 @@ export enum PropertyType {
 export interface UserProperty {
   dependency: any;
   name: string;               // clave interna (p. ej. "ID", "pais", "phone"…)
-  label: string;     
+  label: string;
   unique: boolean,         // etiqueta para mostrar
   type: PropertyType;         // uno de los valores de PropertyType
   mandatory: boolean;         // si es obligatorio
@@ -204,4 +204,15 @@ export type ImportReportType = {
   created: any[];
   updated: any[];
   errors: any[];
+};
+
+export type UserOrganizationCard = {
+  organization: Organization;
+  membership: {
+    _id: string;
+    rol_id?: string;
+    properties?: any;
+    created_at?: string;
+    updated_at?: string;
+  }
 };
