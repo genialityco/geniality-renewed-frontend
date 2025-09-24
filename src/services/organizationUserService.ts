@@ -22,6 +22,7 @@ export const fetchOrganizationUserByUserId = async (
   return response.data;
 };
 
+
 /**
  * Crea o actualiza un organization-user.
  * Se envía un payload con los campos definidos.
@@ -85,4 +86,13 @@ export const deleteOrganizationUser = async (organizationUserId: string) => {
   const { data } = await api.post<{ message: string }>(url); // POST, no DELETE
   return data;
 };
+
+
+export async function fetchOrganizationsByUser(userId: string) {
+  const url = `/organization-users/organizations-by-user/${userId}`;
+  const data = await api.get<{ organization: any; membership: any }[]>(url);
+  console.log("fetchOrganizationsByUser data:", data);
+  return data.data;
+}
+
 
