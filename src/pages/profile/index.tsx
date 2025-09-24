@@ -4,7 +4,7 @@ import MyCourses from "./sections/MyCourses";
 import PersonalInfo from "./sections/PersonalInfo";
 import MembershipPlan from "./sections/MembershipPlan";
 import ChangePassword from "./sections/ChangePassword";
-import MyOrganizations from "./sections/Myorganizations";
+import MyOrganizations from "./sections/MyOrganizations";
 
 
 const Profile = () => {
