@@ -174,6 +174,21 @@ function extractPayerFromRow(row: any): {
   legalId?: string;
   legalIdType?: string;
 } {
+  // Intentamos obtener el customer_email directamente del rawWebhook
+  const customerEmail = row?.rawWebhook?.data?.transaction?.customer_email;
+
+  if (customerEmail) {
+    return {
+      email: customerEmail,
+      // Dejamos los demás campos vacíos ya que solo queremos mostrar el email
+      name: undefined,
+      phone: undefined,
+      legalId: undefined,
+      legalIdType: undefined,
+    };
+  }
+
+  // Si no existe rawWebhook, mantenemos la lógica original como fallback
   // Preferimos OrganizationUser.properties
   const props = row?.organizationUser?.properties || {};
   const nameOU = props.nombres || props.names || props.name;
@@ -214,10 +229,15 @@ function KV({
 }) {
   return (
     <Group gap={6} wrap="nowrap" align="baseline">
-      <Text size="xs" c="dimmed">
+      <Text size="xs" c="dimmed" component="span">
         {label}:
       </Text>
-      <Text size="sm" fw={500} ff={mono ? "monospace" : undefined}>
+      <Text
+        size="sm"
+        fw={500}
+        ff={mono ? "monospace" : undefined}
+        component="span"
+      >
         {children}
       </Text>
     </Group>
@@ -401,6 +421,7 @@ export default function AdminPaymentsExplorer({ organizationId }: Props) {
       });
       setRows(res.items);
       setTotal(res.total);
+      console.log(res);
     } catch (e: any) {
       setError(e?.message || "No se pudo cargar pagos.");
     } finally {
