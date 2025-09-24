@@ -18,7 +18,7 @@ import { syncTransactionById } from "../../services/wompiService";
 
 type UiStatus = "loading" | "pending" | "success" | "fail";
 
-const MembershipPaymentSuccess = () => {
+const PaymentStatus = () => {
   const { organizationId } = useParams();
   const [searchParams] = useSearchParams();
   const transactionId = searchParams.get("id");
@@ -201,4 +201,4 @@ const MembershipPaymentSuccess = () => {
   );
 };
 
-export default MembershipPaymentSuccess;
+export default PaymentStatus;

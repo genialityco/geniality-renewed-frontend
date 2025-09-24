@@ -151,8 +151,6 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
         } catch {
           // Si no tiene paymentPlan, no hacer nada
         }
-
-        console.log("Payment plan updated successfully");
       }
 
       return { user: null, organizationUser: updatedOrganizationUser };

@@ -12,7 +12,7 @@ import ActivityDetailContainer from "../pages/activity/ActivityDetailContainer";
 import Profile from "../pages/profile";
 
 import AdminOrganizationEvents from "../pages/admin/index";
-import MembershipPaymentSuccess from "../pages/payment/MembershipPaymentSuccess";
+import PaymentStatus from "../pages/payment/PaymentStatus";
 import OrganizationLanding from "../pages/organizationLanding";
 import SuperAdmin from "../pages/superadmin";
 
@@ -60,7 +60,7 @@ export default function AppRoutes() {
           </Route>
 
         {/* Callback de pago puede ser público (o moverlo a RequireAuth si quieres) */}
-        <Route path="pago-exitoso" element={<MembershipPaymentSuccess />} />
+        <Route path="pago-exitoso" element={<PaymentStatus />} />
       </Route>
 
       {/* 404 */}

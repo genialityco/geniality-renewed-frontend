@@ -91,7 +91,6 @@ export const deleteOrganizationUser = async (organizationUserId: string) => {
 export async function fetchOrganizationsByUser(userId: string) {
   const url = `/organization-users/organizations-by-user/${userId}`;
   const data = await api.get<{ organization: any; membership: any }[]>(url);
-  console.log("fetchOrganizationsByUser data:", data);
   return data.data;
 }
 
