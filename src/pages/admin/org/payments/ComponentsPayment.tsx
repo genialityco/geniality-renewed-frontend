@@ -139,7 +139,7 @@ export function PaymentFilters({
         />
 
         <DateInput
-          label="Desde"
+          label="Hasta"
           placeholder="mm/dd/aaaa"
           value={filters.dateTo}
           onChange={onDateToChange}
