@@ -116,7 +116,6 @@ export function PaymentFilters({
           value={filters.status}
           onChange={(value) => onStatusChange(value ?? "ALL")}
           w={180}
-          searchable
           allowDeselect={false}
           comboboxProps={{
             withinPortal: true,
@@ -127,18 +126,28 @@ export function PaymentFilters({
 
         <DateInput
           label="Desde"
+          placeholder="mm/dd/aaaa"
           value={filters.dateFrom}
           onChange={onDateFromChange}
-          w={180}
+          w={200}
           clearable
+          valueFormat="DD/MM/YYYY"
+          leftSection={<FaRegCalendar size={14} />}
+          // opcional: estilo de input
+          variant="default" // o "filled", "unstyled"
+          size="sm"
         />
 
         <DateInput
-          label="Hasta"
+          label="Desde"
+          placeholder="mm/dd/aaaa"
           value={filters.dateTo}
           onChange={onDateToChange}
-          w={180}
-          clearable
+          w={200}
+          valueFormat="DD/MM/YYYY"
+          leftSection={<FaRegCalendar size={14} />}
+          variant="default" 
+          size="sm"
         />
 
         <Button

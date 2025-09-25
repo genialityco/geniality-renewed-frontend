@@ -90,7 +90,12 @@ export default function MembersTable({
 
   const userProps =
     (organization?.user_properties || [])
-      .filter((p: { visible: any }) => p.visible === true)
+      .filter(
+        (p: { visible: any; name: any }) =>
+          p.visible === true ||
+          p.name === "names" ||
+          p.name === "indicativodepais"
+      )
       .map((p: { name: any; label: any; type: any; visible: any }) => ({
         name: String(p.name),
         label: stripHtml(String(p.label)),
