@@ -146,52 +146,67 @@ export default function MembersTab() {
   // Guardar plan desde el modal
   const handlePlanSave = async ({
     days,
-    price,
+    price = 50000,
   }: {
     days: number;
     price: number;
   }) => {
     if (!selectedUserId) return;
 
-    const date_until = new Date();
-    date_until.setDate(date_until.getDate() + days);
-    const isoDate = date_until.toISOString();
+    try {
+      const user = users.find((u) => u._id === selectedUserId);
 
-    const user = users.find((u) => u._id === selectedUserId);
-    const existingPlan = user?.payment_plan_id as { _id: string } | undefined;
+      if (!user) {
+        console.error("Usuario no encontrado");
+        return;
+      }
 
-    if (
-      existingPlan &&
-      typeof existingPlan === "object" &&
-      "_id" in existingPlan &&
-      user
-    ) {
-      const userNames = user.properties.nombres
-        ? user.properties.nombres
-        : user.properties.names;
-      await updatePaymentPlanDateUntil(existingPlan._id, isoDate, userNames);
-    } else {
-      const newPlan = await createPaymentPlan({
-        days,
-        date_until: isoDate,
-        price,
-        organization_user_id: selectedUserId,
-        payment_request_id: "",
-      });
+      // Calcula la fecha final
+      const date_until = new Date();
+      date_until.setDate(date_until.getDate() + days);
+      const isoDate = date_until.toISOString();
 
-      await createOrUpdateOrganizationUser({
-        properties: user?.properties || {},
-        rol_id: user?.rol_id || "",
-        organization_id: user?.organization_id || "",
-        position_id: user?.position_id || "",
-        user_id: user?.user_id as string,
-        payment_plan_id: newPlan._id,
-      });
+      const existingPlan = user?.payment_plan_id;
+
+      const hasExistingPlan =
+        existingPlan &&
+        typeof existingPlan === "object" &&
+        "_id" in existingPlan;
+
+      if (hasExistingPlan) {
+        const userNames =
+          user.properties?.nombres ?? user.properties?.names ?? "Usuario";
+        await updatePaymentPlanDateUntil(
+          (existingPlan as { _id: string })._id,
+          isoDate,
+          userNames
+        );
+      } else {
+        const newPlan = await createPaymentPlan({
+          days,
+          date_until: isoDate,
+          price,
+          organization_user_id: selectedUserId,
+          payment_request_id: "",
+        });
+
+        await createOrUpdateOrganizationUser({
+          properties: user.properties || {},
+          rol_id: user.rol_id || "",
+          organization_id: user.organization_id || "",
+          position_id: user.position_id || "",
+          user_id: user.user_id as string,
+          payment_plan_id: newPlan._id,
+        });
+      }
+
+      setPlanModalOpen(false);
+      setSelectedUserId(null);
+      await fetchUsers();
+    } catch (error) {
+      console.error("Error al guardar el plan:", error);
+      // Aquí podrías mostrar un mensaje de error al usuario
     }
-
-    setPlanModalOpen(false);
-    setSelectedUserId(null);
-    fetchUsers();
   };
 
   // Editar miembro
