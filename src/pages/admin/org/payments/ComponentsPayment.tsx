@@ -646,9 +646,7 @@ export function PaymentPlanModal({
   onClose,
   loading,
   plan,
-  planMsg,
-  newUntil,
-  onNewUntilChange,
+  planMsg
 }: PaymentPlanProps) {
   return (
     <Modal
