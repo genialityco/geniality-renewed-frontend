@@ -24,7 +24,8 @@ import MembersTable, { isPaymentPlan, stripHtml } from "./MembersTable";
 import ChangeCredentialsModal from "./ChangeCredentialsModal";
 import ChangePaymentPlanModal from "./ChangePaymentPlanModal";
 import EditUserModal from "./EditUserModal";
-import UserInfoModal from "./UserInfoModal"; // ← Nuevo import
+import UserInfoModal from "./UserInfoModal";
+import { useUser } from "../../../context/UserContext";
 
 import {
   createOrUpdateOrganizationUser,
@@ -50,8 +51,9 @@ import DeleteConfirmModal from "./DeleteConfirmModal";
 import { createPaymentRequest } from "../../../services/paymentRequestsService";
 
 export default function MembersTab() {
-  const isMobile = useMediaQuery("(max-width: 48em)"); // ~768px
+  const isMobile = useMediaQuery("(max-width: 48em)");
   const { organization } = useOrganization();
+  const { adminCreateUserAndOrganizationUser } = useUser(); // ← Usar la función del admin
   const orgId = organization?._id!;
 
   const limitOptions = ["10", "20", "50", "100"];
@@ -68,19 +70,17 @@ export default function MembersTab() {
   const [lastImportReport, setLastImportReport] =
     useState<ImportReportType | null>(null);
 
-  // Modal de cambiar credenciales
   const [passwordModalOpened, setPasswordModalOpened] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
 
-  // Modal de actualizar plan
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
-  // Editar miembro
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<OrganizationUser | null>(null);
 
-  //Modal de eliminar miembro
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<OrganizationUser | null>(
     null
@@ -88,12 +88,10 @@ export default function MembersTab() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Modal de información del usuario ← Nuevo estado
   const [userInfoModalOpen, setUserInfoModalOpen] = useState(false);
   const [selectedUserInfo, setSelectedUserInfo] =
     useState<OrganizationUser | null>(null);
 
-  // Formateador de fecha consistente (para Excel, matching con tabla)
   const dtfCO = new Intl.DateTimeFormat("es-CO", {
     year: "numeric",
     month: "2-digit",
@@ -102,19 +100,18 @@ export default function MembersTab() {
   });
 
   const sharedButtonProps = {
-    size: "md" as const, // igual para ambos
+    size: "md" as const,
     radius: "xl" as const,
-    fullWidth: isMobile, // ambos ocupan 100% en móvil
+    fullWidth: isMobile,
     styles: {
       root: {
-        height: 44, // altura EXACTA igual
-        paddingInline: 16, // mismo padding horizontal
-        minWidth: isMobile ? "auto" : 180, // ancho mínimo uniforme en desktop
+        height: 44,
+        paddingInline: 16,
+        minWidth: isMobile ? "auto" : 180,
       },
     },
   };
 
-  // --- Fetch con "stale guard"
   const lastRunRef = useRef<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
@@ -149,19 +146,16 @@ export default function MembersTab() {
     if (orgId) fetchUsers();
   }, [orgId, fetchUsers]);
 
-  // Debounce del buscador
   useEffect(() => {
     const id = setTimeout(() => setSearchText(rawSearch.trim()), 350);
     return () => clearTimeout(id);
   }, [rawSearch]);
 
-  // Abrir modal de actualizar plan
   const handleUpdatePlan = (userId: string) => {
     setSelectedUserId(userId);
     setPlanModalOpen(true);
   };
 
-  // Guardar plan desde el modal
   const handlePlanSave = async ({
     days,
     price,
@@ -226,7 +220,6 @@ export default function MembersTab() {
     fetchUsers();
   };
 
-  // Editar miembro
   const handleEditUser = (user: OrganizationUser) => {
     setUserToEdit(user);
     setEditModalOpen(true);
@@ -255,7 +248,74 @@ export default function MembersTab() {
     setUserToEdit(null);
   };
 
-  // Eliminar miembro
+  // CREAR USUARIO - Usando adminCreateUserAndOrganizationUser
+  const handleCreateUserSave = async (newUserData: any) => {
+    if (!organization || !adminCreateUserAndOrganizationUser) return;
+
+    // Detectar campos de email e ID (igual que AuthForm)
+    const emailField =
+      (organization.user_properties || []).find(
+        (p: any) => p.type === "email" || p.name?.toLowerCase() === "email"
+      )?.name || "email";
+
+    const idField =
+      (organization.user_properties || []).find((p: any) => {
+        const lname = p.name?.toLowerCase() || "";
+        return [
+          "id",
+          "documento",
+          "documentoid",
+          "documentoidentidad",
+          "documento_de_identidad",
+          "cedula",
+          "cédula",
+          "ceduladeciudadania",
+          "doc",
+          "doc_identidad",
+        ].includes(lname);
+      })?.name || "ID";
+
+    const emailValue = newUserData[emailField];
+    const passwordValue = newUserData[idField];
+
+    if (!emailValue || !passwordValue) {
+      throw new Error("Email y documento son requeridos");
+    }
+
+    // Construir el nombre completo
+    const nombres = newUserData.nombres || newUserData.names || "";
+    const apellidos = newUserData.apellidos || newUserData.surnames || "";
+    const fullName = [nombres, apellidos].filter(Boolean).join(" ").trim();
+
+    try {
+      // Usar la función especial del admin que no afecta la sesión actual
+      await adminCreateUserAndOrganizationUser({
+        email: emailValue,
+        password: passwordValue,
+        name: fullName,
+        properties: newUserData,
+        organizationId: organization._id,
+        positionId: organization.default_position_id || "",
+        rolId: "5c1a59b2f33bd40bb67f2322",
+      });
+
+      setCreateModalOpen(false);
+      fetchUsers();
+    } catch (error: any) {
+      console.error("Error al crear el usuario:", error);
+
+      if (error?.code === "auth/email-already-in-use") {
+        throw new Error("Ya existe una cuenta con ese correo");
+      } else if (error?.code === "auth/weak-password") {
+        throw new Error("La contraseña debe tener al menos 6 caracteres");
+      } else if (error?.code === "auth/invalid-email") {
+        throw new Error("El formato del correo es inválido");
+      } else {
+        throw new Error(error?.message || "Error al crear el usuario");
+      }
+    }
+  };
+
   const handleDeleteUser = (user: OrganizationUser) => {
     setUserToDelete(user);
     setDeleteModalOpen(true);
@@ -280,7 +340,7 @@ export default function MembersTab() {
     try {
       setDeleting(true);
       setDeleteError(null);
-      await deleteOrganizationUser(userId); // ← tu API existente
+      await deleteOrganizationUser(userId);
       setDeleteModalOpen(false);
       setUserToDelete(null);
       fetchUsers();
@@ -298,13 +358,11 @@ export default function MembersTab() {
     setDeleteError(null);
   };
 
-  // Ver información del usuario ← Nueva función
   const handleViewUserInfo = (user: OrganizationUser) => {
     setSelectedUserInfo(user);
     setUserInfoModalOpen(true);
   };
 
-  // Exportar a Excel (todos)
   const handleExportToExcel = async () => {
     setExporting(true);
     try {
@@ -317,11 +375,8 @@ export default function MembersTab() {
         return;
       }
 
-      // ► Excepciones que SIEMPRE se exportan aunque visible=false
       const exceptionNames = new Set(["names", "indicativodepais"]);
 
-      // Tomamos las props en el orden definido en organization.user_properties
-      // Incluimos: (visible === true) OR (name ∈ excepciones)
       const propsToExport = (organization?.user_properties || []).filter(
         (p: any) => {
           const name = String(p?.name || "");
@@ -337,7 +392,6 @@ export default function MembersTab() {
 
         const rowData: Record<string, string | number> = {};
 
-        // Propiedades dinámicas (con mapeo booleano)
         propsToExport.forEach(
           (prop: { name: string; type: string; label: string }) => {
             const name = String(prop.name);
@@ -357,16 +411,13 @@ export default function MembersTab() {
           }
         );
 
-        // Fecha de registro desde organization_user.created_at
         const createdAt = user.created_at ? new Date(user.created_at) : null;
         rowData["Fecha de registro"] = createdAt ? dtfCO.format(createdAt) : "";
 
-        // Plan (Vencimiento)
         rowData["Plan (Vencimiento)"] = planInfo
           ? dtfCO.format(new Date(planInfo.date_until))
           : "Sin plan";
 
-        // Exporta tal cual el enum ('gateway' | 'manual' | 'admin'); deja vacío si no hay plan
         const mapSource = (s?: string) =>
           s === "gateway"
             ? "Pasarela de pago"
@@ -381,7 +432,6 @@ export default function MembersTab() {
         return rowData;
       });
 
-      // Encabezados en el mismo orden de propsToExport + extras
       const headers = [
         ...propsToExport.map((prop: { label: string }) =>
           stripHtml(String(prop.label))
@@ -419,7 +469,6 @@ export default function MembersTab() {
         style={{ borderColor: "#e2e8f0" }}
       >
         <Box mb={lastImportReport ? "md" : 0}>
-          {/* Header responsive: buscador izquierda, acciones derecha */}
           <Flex
             justify="space-between"
             align="center"
@@ -427,7 +476,6 @@ export default function MembersTab() {
             wrap="wrap"
             direction={isMobile ? "column" : "row"}
           >
-            {/* IZQUIERDA: Buscador */}
             <Box
               style={{ flex: 1, width: isMobile ? "100%" : "auto" }}
               maw={600}
@@ -441,13 +489,11 @@ export default function MembersTab() {
               />
             </Box>
 
-            {/* DERECHA: Acciones */}
             <Group
               gap="sm"
               justify={isMobile ? "stretch" : "flex-end"}
               w={isMobile ? "100%" : "auto"}
             >
-              {/* Más opciones: Drawer en móvil, Popover en desktop */}
               {isMobile ? (
                 <>
                   <Drawer
@@ -511,7 +557,15 @@ export default function MembersTab() {
                 </Popover>
               )}
 
-              {/* Exportar a Excel */}
+              <Button
+                variant="filled"
+                color="blue"
+                onClick={() => setCreateModalOpen(true)}
+                {...sharedButtonProps}
+              >
+                Crear Usuario
+              </Button>
+
               <Button
                 leftSection={<FaFileExcel size={18} />}
                 variant="filled"
@@ -541,7 +595,6 @@ export default function MembersTab() {
           </Flex>
         </Box>
 
-        {/* Import Report Section */}
         {lastImportReport && (
           <Box
             mt="md"
@@ -611,7 +664,6 @@ export default function MembersTab() {
         </Paper>
       )}
 
-      {/* Modales */}
       <ChangeCredentialsModal
         opened={passwordModalOpened}
         email={selectedEmail}
@@ -634,7 +686,18 @@ export default function MembersTab() {
         user={userToEdit}
         userProps={(organization?.user_properties || []) as UserProperty[]}
         onSave={handleUserEditSave}
+        mode="edit"
       />
+
+      <EditUserModal
+        opened={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        user={null}
+        userProps={(organization?.user_properties || []) as UserProperty[]}
+        onSave={handleCreateUserSave}
+        mode="create"
+      />
+
       <DeleteConfirmModal
         opened={deleteModalOpen}
         user={userToDelete}
@@ -643,6 +706,7 @@ export default function MembersTab() {
         onConfirm={handleConfirmDelete}
         onClose={handleCloseDelete}
       />
+
       <UserInfoModal
         user={selectedUserInfo}
         isOpen={userInfoModalOpen}
