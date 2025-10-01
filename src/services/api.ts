@@ -4,7 +4,7 @@ import axios from "axios";
 const API_URL = import.meta.env.VITE_API_URL || "";
 const api = axios.create({ baseURL: API_URL });
 
-// ⇢ Request interceptor: adjunta uid y sessionToken
+// ⇢ Request interceptor
 api.interceptors.request.use(
   (config) => {
     try {
@@ -27,72 +27,78 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ====== Modal mínimo para logout exitoso ======
-let logoutModalShown = false;
-function showLogoutModalOnce() {
-  if (logoutModalShown) return;
-  logoutModalShown = true;
+let alreadyHandledSessionEnd = false;
 
-  try {
-    localStorage.removeItem("myUserInfo");
-  } catch {}
-
+// 👉 Modal simple sin botón
+function showSessionEndModal(message: string) {
   const overlay = document.createElement("div");
-  overlay.style.cssText = `
-    position: fixed; inset: 0; background: rgba(0,0,0,.5);
-    display: flex; align-items: center; justify-content: center; z-index: 9999;
-  `;
+  overlay.style.position = "fixed";
+  overlay.style.top = "0";
+  overlay.style.left = "0";
+  overlay.style.width = "100%";
+  overlay.style.height = "100%";
+  overlay.style.background = "rgba(0,0,0,0.6)";
+  overlay.style.display = "flex";
+  overlay.style.alignItems = "center";
+  overlay.style.justifyContent = "center";
+  overlay.style.zIndex = "9999";
+
   const modal = document.createElement("div");
-  modal.style.cssText = `
-    background: white; padding: 28px 32px; border-radius: 10px;
-    box-shadow: 0 8px 30px rgba(0,0,0,.2); text-align: center; min-width: 240px;
-  `;
-  const p = document.createElement("p");
-  p.textContent = "Sesión cerrada correctamente";
-  p.style.cssText = `margin:0; font-size:18px; font-weight:600; color:#111;`;
-  modal.appendChild(p);
+  modal.style.background = "#fff";
+  modal.style.padding = "24px";
+  modal.style.borderRadius = "12px";
+  modal.style.maxWidth = "400px";
+  modal.style.textAlign = "center";
+  modal.style.fontFamily = "sans-serif";
+  modal.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
+
+  const text = document.createElement("p");
+  text.textContent = message;
+  text.style.margin = "0";
+
+  modal.appendChild(text);
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 
-  setTimeout(() => window.location.reload(), 1600);
+  // opcional: redirigir después de unos segundos
+  setTimeout(() => {
+    localStorage.removeItem("myUserInfo");
+    window.location.href = "/organization/63f552d916065937427b3b02"; // ajusta la ruta
+  }, 3000); // 3 segundos
 }
 
-// Detecta éxito de logout en más escenarios (200/204, success: true, msg con "logout")
-function isLogoutSuccess(response: any): boolean {
-  const url = response?.config?.url || "";
-  const status = Number(response?.status || 0);
-  const isLogoutEndpoint = /\/users\/logout(?:$|[/?#])/i.test(url);
-  if (!isLogoutEndpoint) return false;
+function handleSessionEndOnce() {
+  if (alreadyHandledSessionEnd) return;
+  alreadyHandledSessionEnd = true;
 
-  if (status === 204) return true;
-
-  if (status >= 200 && status < 300) {
-    const data = response?.data ?? {};
-    const msg = ((data?.message || data?.msg || "") + "").toUpperCase().trim();
-    const ok = data?.success === true;
-    if (ok) return true;
-    if (msg === "LOGOUT_SUCCESS") return true;
-    if (/LOGOUT/.test(msg)) return true;
-    if (!data || Object.keys(data).length === 0) return true;
-  }
-  return false;
-}
-
-// ⇢ Response interceptor: SOLO modal en logout exitoso
-api.interceptors.response.use(
-  (response) => {
-    if (isLogoutSuccess(response)) {
-      try {
-        if ("BroadcastChannel" in window) {
-          new BroadcastChannel("session").postMessage("logout");
-        }
-      } catch {}
-      showLogoutModalOnce(); // ← ÚNICO modal
+  try {
+    if ("BroadcastChannel" in window) {
+      new BroadcastChannel("session").postMessage("revoked");
     }
-    return response;
-  },
+  } catch {}
+
+  localStorage.removeItem("myUserInfo");
+
+  showSessionEndModal("Sesión finalizada.");
+}
+
+api.interceptors.response.use(
+  (response) => response,
   async (error) => {
-    // Importante: aquí NO mostramos modal. El alert lo maneja tu signOut catch.
+    const status = error?.response?.status;
+    const message = (error?.response?.data?.message || "").toString();
+
+    const isSessionExpired =
+      status === 401 &&
+      (message === "SESSION_EXPIRED" ||
+        message === "No autenticado" ||
+        message === "Unauthorized");
+
+    if (isSessionExpired) {
+      handleSessionEndOnce();
+      return Promise.reject(new Error("SESSION_EXPIRED"));
+    }
+
     return Promise.reject(error);
   }
 );
