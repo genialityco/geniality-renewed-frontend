@@ -7,6 +7,7 @@ export interface PaymentPlanPayload {
   price: number;
   organization_user_id: string;
   payment_request_id: string;
+  source?: string; 
 }
 
 /**
@@ -46,11 +47,12 @@ export const fetchPaymentPlanByUserId = async (
 export const updatePaymentPlanDateUntil = async (
   paymentPlanId: string,
   date_until: string,
-  nameUser: string
+  nameUser: string,
+  source?: string
 ): Promise<PaymentPlan> => {
   const response = await api.patch<PaymentPlan>(
     `/payment-plans/${paymentPlanId}/date-until`,
-    { date_until, nameUser }
+    { date_until, nameUser, source }
   );
   return response.data;
 };

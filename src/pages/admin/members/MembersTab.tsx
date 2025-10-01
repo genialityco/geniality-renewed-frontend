@@ -44,6 +44,7 @@ import type {
 import { useOrganization } from "../../../context/OrganizationContext";
 
 import DeleteConfirmModal from "./DeleteConfirmModal";
+import { createPaymentRequest } from "../../../services/paymentRequestsService";
 
 export default function MembersTab() {
   const { organization } = useOrganization();
@@ -169,14 +170,28 @@ export default function MembersTab() {
       const userNames = user.properties.nombres
         ? user.properties.nombres
         : user.properties.names;
-      await updatePaymentPlanDateUntil(existingPlan._id, isoDate, userNames);
+      await updatePaymentPlanDateUntil(
+        existingPlan._id,
+        isoDate,
+        userNames,
+        "admin"
+      );
     } else {
+      const paymentRequest = await createPaymentRequest({
+        reference: `plan-${user?.user_id}-${Date.now()}`,
+        userId: user?.user_id as string,
+        organizationId: orgId,
+        amount: price,
+        organizationUserId: user?._id,
+        currency: "COP",
+      });
       const newPlan = await createPaymentPlan({
         days,
         date_until: isoDate,
         price,
         organization_user_id: selectedUserId,
-        payment_request_id: "",
+        payment_request_id: paymentRequest._id,
+        source: "manual",
       });
 
       await createOrUpdateOrganizationUser({
