@@ -1,7 +1,7 @@
 // src/api/index.ts
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || ""; // fallback relativo
+const API_URL = import.meta.env.VITE_API_URL || "";
 const api = axios.create({ baseURL: API_URL });
 
 // ⇢ Request interceptor: adjunta uid y sessionToken
@@ -27,103 +27,72 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ⇢ Response interceptor: expulsa si el token ya no es válido (deduplicado)
-let alreadyHandledSessionEnd = false;
-
-function handleSessionEnd(reason: "logout" | "revoked") {
-  if (alreadyHandledSessionEnd) return;
-  alreadyHandledSessionEnd = true;
+// ====== Modal mínimo para logout exitoso ======
+let logoutModalShown = false;
+function showLogoutModalOnce() {
+  if (logoutModalShown) return;
+  logoutModalShown = true;
 
   try {
-    // avisa a otras pestañas (opcional)
-    if ("BroadcastChannel" in window) {
-      new BroadcastChannel("session").postMessage(reason);
-    }
+    localStorage.removeItem("myUserInfo");
   } catch {}
 
-  localStorage.removeItem("myUserInfo");
-  showSessionEndModal(reason);
-}
-
-function showSessionEndModal(reason: "logout" | "revoked") {
   const overlay = document.createElement("div");
   overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    display: flex; align-items: center; justify-content: center; z-index: 9999;
   `;
-
   const modal = document.createElement("div");
   modal.style.cssText = `
-    background: white;
-    padding: 32px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    text-align: center;
-    max-width: 400px;
+    background: white; padding: 28px 32px; border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.2); text-align: center; min-width: 240px;
   `;
-
-  const message = document.createElement("p");
-  message.style.cssText = `
-    margin: 0;
-    font-size: 18px;
-    font-weight: 500;
-    color: #333;
-  `;
-
-  // Mensaje según el tipo de cierre de sesión
-  if (reason === "logout") {
-    message.textContent = "Sesión cerrada correctamente";
-  } else {
-    message.textContent =
-      "Tu sesión se cerró porque iniciaste en otro dispositivo";
-  }
-
-  modal.appendChild(message);
+  const p = document.createElement("p");
+  p.textContent = "Sesión cerrada correctamente";
+  p.style.cssText = `margin:0; font-size:18px; font-weight:600; color:#111;`;
+  modal.appendChild(p);
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 
-  setTimeout(() => {
-    window.location.reload();
-  }, 2000);
+  setTimeout(() => window.location.reload(), 1600);
 }
 
+// Detecta éxito de logout en más escenarios (200/204, success: true, msg con "logout")
+function isLogoutSuccess(response: any): boolean {
+  const url = response?.config?.url || "";
+  const status = Number(response?.status || 0);
+  const isLogoutEndpoint = /\/users\/logout(?:$|[/?#])/i.test(url);
+  if (!isLogoutEndpoint) return false;
+
+  if (status === 204) return true;
+
+  if (status >= 200 && status < 300) {
+    const data = response?.data ?? {};
+    const msg = ((data?.message || data?.msg || "") + "").toUpperCase().trim();
+    const ok = data?.success === true;
+    if (ok) return true;
+    if (msg === "LOGOUT_SUCCESS") return true;
+    if (/LOGOUT/.test(msg)) return true;
+    if (!data || Object.keys(data).length === 0) return true;
+  }
+  return false;
+}
+
+// ⇢ Response interceptor: SOLO modal en logout exitoso
 api.interceptors.response.use(
   (response) => {
-    // Detectar logout exitoso
-    const message = response?.data?.message || "";
-    if (
-      message === "LOGOUT_SUCCESS" ||
-      response.config?.url?.includes("/logout")
-    ) {
-      handleSessionEnd("logout");
+    if (isLogoutSuccess(response)) {
+      try {
+        if ("BroadcastChannel" in window) {
+          new BroadcastChannel("session").postMessage("logout");
+        }
+      } catch {}
+      showLogoutModalOnce(); // ← ÚNICO modal
     }
     return response;
   },
   async (error) => {
-    const status = error?.response?.status;
-    const message = (error?.response?.data?.message || "").toString();
-
-    // Detectar sesión revocada por otro dispositivo
-    const isSessionRevoked =
-      status === 401 &&
-      (message === "SESSION_REVOKED" ||
-        message === "SESSION_EXPIRED" ||
-        message === "No autenticado" ||
-        message === "Unauthorized");
-
-    if (isSessionRevoked) {
-      handleSessionEnd("revoked");
-      return Promise.reject(new Error("SESSION_REVOKED"));
-    }
-
+    // Importante: aquí NO mostramos modal. El alert lo maneja tu signOut catch.
     return Promise.reject(error);
   }
 );

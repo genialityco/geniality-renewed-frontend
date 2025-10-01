@@ -336,27 +336,56 @@ export function UserProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  // signOut: Firebase + limpiar estado
   const signOut = useCallback(async () => {
-    const info = localStorage.getItem("myUserInfo");
-    const { uid, sessionToken } = info ? JSON.parse(info) : {};
+    // 1) Lee credenciales actuales
+    const raw = localStorage.getItem("myUserInfo");
+    const { uid, sessionToken } = raw ? JSON.parse(raw) : {};
+
+    // 2) Aviso opcional a otras pestañas
+    try {
+      if ("BroadcastChannel" in window) {
+        new BroadcastChannel("session").postMessage("logout");
+      }
+    } catch {}
+
+    // 3) Marca intención de logout (si la usas en otro lado; aquí ya no es necesario)
+    // markUserLogout?.();
 
     try {
+      // 4) Llama al logout; si es OK, api.ts mostrará el modal "Sesión cerrada"
       if (uid && sessionToken) {
         await logout(uid, sessionToken);
+      } else {
+        localStorage.removeItem("myUserInfo");
       }
-    } catch {
-      /* ignora errores de red */
+    } catch (e) {
+      // Si entra aquí es muy probable que el token ya estuviera revocado
+      // → Mostrar ALERT directo (lo pediste así)
+      alert("Sesión iniciada en más de un dispositivo");
+      // Limpia y refresca si quieres
+      try {
+        localStorage.removeItem("myUserInfo");
+      } catch {}
+      setTimeout(() => window.location.reload(), 800);
+    } finally {
+      // 5) Cierra sesión en Firebase (si aplica) y limpia estado del contexto
+      try {
+        await firebaseSignOut(auth);
+      } catch {}
+      try {
+        setFirebaseUser?.(null);
+      } catch {}
+      try {
+        setUserId?.(null);
+      } catch {}
+      try {
+        setName?.("");
+      } catch {}
+      try {
+        setEmail?.("");
+      } catch {}
+      localStorage.removeItem("myUserInfo");
     }
-
-    try {
-      await firebaseSignOut(auth);
-    } catch {}
-    setFirebaseUser(null);
-    setUserId(null);
-    setName("");
-    setEmail("");
-    localStorage.removeItem("myUserInfo");
   }, []);
 
   return (
