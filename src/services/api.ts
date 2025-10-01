@@ -20,7 +20,6 @@ api.interceptors.request.use(
           (config.headers as any)["x-session-token"] = sessionToken;
       }
     } catch {
-      // Si no se puede parsear, limpia para evitar loops
       localStorage.removeItem("myUserInfo");
     }
     return config;
@@ -31,38 +30,98 @@ api.interceptors.request.use(
 // ⇢ Response interceptor: expulsa si el token ya no es válido (deduplicado)
 let alreadyHandledSessionEnd = false;
 
-function handleSessionEndOnce() {
+function handleSessionEnd(reason: "logout" | "revoked") {
   if (alreadyHandledSessionEnd) return;
   alreadyHandledSessionEnd = true;
 
   try {
     // avisa a otras pestañas (opcional)
     if ("BroadcastChannel" in window) {
-      new BroadcastChannel("session").postMessage("revoked");
+      new BroadcastChannel("session").postMessage(reason);
     }
   } catch {}
 
   localStorage.removeItem("myUserInfo");
-  alert("Tu cuenta se abrió en un nuevo dispositivo. Esta sesión se cerrará porque superaste el límite de 2 dispositivos. Si no reconoces este inicio de sesión, por favor cambia tu contraseña por seguridad.");
-  window.location.reload();
+  showSessionEndModal(reason);
+}
+
+function showSessionEndModal(reason: "logout" | "revoked") {
+  const overlay = document.createElement("div");
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  `;
+
+  const modal = document.createElement("div");
+  modal.style.cssText = `
+    background: white;
+    padding: 32px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    max-width: 400px;
+  `;
+
+  const message = document.createElement("p");
+  message.style.cssText = `
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+    color: #333;
+  `;
+
+  // Mensaje según el tipo de cierre de sesión
+  if (reason === "logout") {
+    message.textContent = "Sesión cerrada correctamente";
+  } else {
+    message.textContent =
+      "Tu sesión se cerró porque iniciaste en otro dispositivo";
+  }
+
+  modal.appendChild(message);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  setTimeout(() => {
+    window.location.reload();
+  }, 2000);
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Detectar logout exitoso
+    const message = response?.data?.message || "";
+    if (
+      message === "LOGOUT_SUCCESS" ||
+      response.config?.url?.includes("/logout")
+    ) {
+      handleSessionEnd("logout");
+    }
+    return response;
+  },
   async (error) => {
     const status = error?.response?.status;
     const message = (error?.response?.data?.message || "").toString();
 
-    // Trata como sesión inválida cualquiera de estos casos
-    const isSessionExpired =
+    // Detectar sesión revocada por otro dispositivo
+    const isSessionRevoked =
       status === 401 &&
-      (message === "SESSION_EXPIRED" ||
+      (message === "SESSION_REVOKED" ||
+        message === "SESSION_EXPIRED" ||
         message === "No autenticado" ||
         message === "Unauthorized");
 
-    if (isSessionExpired) {
-      handleSessionEndOnce();
-      return Promise.reject(new Error("SESSION_EXPIRED"));
+    if (isSessionRevoked) {
+      handleSessionEnd("revoked");
+      return Promise.reject(new Error("SESSION_REVOKED"));
     }
 
     return Promise.reject(error);
