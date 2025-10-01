@@ -10,7 +10,10 @@ import {
   Button,
   Box,
   Flex,
+  Popover,
+  Drawer,
 } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import * as XLSX from "xlsx";
 import { FaFileExcel } from "react-icons/fa6";
 
@@ -47,12 +50,13 @@ import DeleteConfirmModal from "./DeleteConfirmModal";
 import { createPaymentRequest } from "../../../services/paymentRequestsService";
 
 export default function MembersTab() {
+  const isMobile = useMediaQuery("(max-width: 48em)"); // ~768px
   const { organization } = useOrganization();
   const orgId = organization?._id!;
 
   const limitOptions = ["10", "20", "50", "100"];
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [userLimit, setUserLimit] = useState("10");
-
   const [users, setUsers] = useState<OrganizationUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -96,6 +100,19 @@ export default function MembersTab() {
     day: "2-digit",
     timeZone: "America/Bogota",
   });
+
+  const sharedButtonProps = {
+    size: "md" as const, // igual para ambos
+    radius: "xl" as const,
+    fullWidth: isMobile, // ambos ocupan 100% en móvil
+    styles: {
+      root: {
+        height: 44, // altura EXACTA igual
+        paddingInline: 16, // mismo padding horizontal
+        minWidth: isMobile ? "auto" : 180, // ancho mínimo uniforme en desktop
+      },
+    },
+  };
 
   // --- Fetch con "stale guard"
   const lastRunRef = useRef<string | null>(null);
@@ -402,62 +419,125 @@ export default function MembersTab() {
         style={{ borderColor: "#e2e8f0" }}
       >
         <Box mb={lastImportReport ? "md" : 0}>
-          <Flex justify="space-between" align="center" gap="md" wrap="wrap">
-            {/* Left Section - Actions */}
-            <Flex align="center" gap="md" flex={1}>
-              <Box
-                p="xs"
-                bg="white"
-                style={{
-                  borderRadius: "12px",
-                  border: "1px solid #e2e8f0",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          {/* Header responsive: buscador izquierda, acciones derecha */}
+          <Flex
+            justify="space-between"
+            align="center"
+            gap="md"
+            wrap="wrap"
+            direction={isMobile ? "column" : "row"}
+          >
+            {/* IZQUIERDA: Buscador */}
+            <Box
+              style={{ flex: 1, width: isMobile ? "100%" : "auto" }}
+              maw={600}
+            >
+              <SearchForm
+                value={rawSearch}
+                onSearch={(text) => {
+                  setRawSearch(text);
+                  setUserPage(1);
+                }}
+              />
+            </Box>
+
+            {/* DERECHA: Acciones */}
+            <Group
+              gap="sm"
+              justify={isMobile ? "stretch" : "flex-end"}
+              w={isMobile ? "100%" : "auto"}
+            >
+              {/* Más opciones: Drawer en móvil, Popover en desktop */}
+              {isMobile ? (
+                <>
+                  <Drawer
+                    opened={drawerOpen}
+                    onClose={() => setDrawerOpen(false)}
+                    position="bottom"
+                    size="auto"
+                    withCloseButton
+                    padding="md"
+                    zIndex={400}
+                    overlayProps={{ opacity: 0.35, blur: 2 }}
+                  >
+                    <BulkUploadSection
+                      onReport={(r) => {
+                        setLastImportReport(r);
+                        fetchUsers();
+                      }}
+                    />
+                  </Drawer>
+
+                  <Button
+                    variant="filled"
+                    {...sharedButtonProps}
+                    onClick={() => setDrawerOpen(true)}
+                  >
+                    Más opciones
+                  </Button>
+                </>
+              ) : (
+                <Popover
+                  position="bottom-end"
+                  withArrow
+                  shadow="md"
+                  offset={8}
+                  keepMounted
+                  trapFocus
+                >
+                  <Popover.Target>
+                    <Button variant="light" color="gray" {...sharedButtonProps}>
+                      Más opciones
+                    </Button>
+                  </Popover.Target>
+                  <Popover.Dropdown
+                    style={{
+                      background: "white",
+                      borderRadius: 12,
+                      border: "1px solid #e2e8f0",
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+                      padding: 8,
+                      minWidth: 360,
+                      maxWidth: 520,
+                    }}
+                  >
+                    <BulkUploadSection
+                      onReport={(r) => {
+                        setLastImportReport(r);
+                        fetchUsers();
+                      }}
+                    />
+                  </Popover.Dropdown>
+                </Popover>
+              )}
+
+              {/* Exportar a Excel */}
+              <Button
+                leftSection={<FaFileExcel size={18} />}
+                variant="filled"
+                color="teal"
+                onClick={handleExportToExcel}
+                loading={exporting}
+                disabled={exporting}
+                {...sharedButtonProps}
+                styles={{
+                  ...sharedButtonProps.styles,
+                  root: {
+                    ...sharedButtonProps.styles.root,
+                    background:
+                      "linear-gradient(135deg, #0ca678 0%, #059669 100%)",
+                    border: "none",
+                    boxShadow: "0 4px 12px rgba(5, 150, 105, 0.3)",
+                    "&:hover": {
+                      transform: isMobile ? "none" : "translateY(-2px)",
+                      boxShadow: "0 6px 16px rgba(5, 150, 105, 0.4)",
+                    },
+                  },
                 }}
               >
-                <BulkUploadSection
-                  onReport={(r) => {
-                    setLastImportReport(r);
-                    fetchUsers();
-                  }}
-                />
-              </Box>
-
-              <Box flex={1} maw={350}>
-                <SearchForm
-                  value={rawSearch}
-                  onSearch={(text) => {
-                    setRawSearch(text);
-                    setUserPage(1);
-                  }}
-                />
-              </Box>
-            </Flex>
-
-            {/* Right Section - Export */}
-            <Button
-              leftSection={<FaFileExcel size={18} />}
-              variant="filled"
-              color="teal"
-              size="md"
-              radius="xl"
-              onClick={handleExportToExcel}
-              loading={exporting}
-              disabled={exporting}
-              styles={{
-                root: {
-                  background:
-                    "linear-gradient(135deg, #0ca678 0%, #059669 100%)",
-                  border: "none",
-                  boxShadow: "0 4px 12px rgba(5, 150, 105, 0.3)",
-                  "&:hover": {
-                    transform: "translateY(-2px)",
-                    boxShadow: "0 6px 16px rgba(5, 150, 105, 0.4)",
-                  },
-                },
-              }}
-            >
-              Exportar a Excel
-            </Button>
+                Exportar a Excel
+              </Button>
+            </Group>
           </Flex>
         </Box>
 
@@ -467,10 +547,7 @@ export default function MembersTab() {
             mt="md"
             p="sm"
             bg="rgba(255,255,255,0.7)"
-            style={{
-              borderRadius: "12px",
-              backdropFilter: "blur(10px)",
-            }}
+            style={{ borderRadius: "12px", backdropFilter: "blur(10px)" }}
           >
             <ImportReport
               report={lastImportReport}
