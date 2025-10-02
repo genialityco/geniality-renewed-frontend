@@ -338,6 +338,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // signOut: Firebase + limpiar estado
   const signOut = useCallback(async () => {
+    
     const info = localStorage.getItem("myUserInfo");
     const { uid, sessionToken } = info ? JSON.parse(info) : {};
 

@@ -4,7 +4,15 @@ import axios from "axios";
 const API_URL = import.meta.env.VITE_API_URL || "";
 const api = axios.create({ baseURL: API_URL });
 
-// ⇢ Request interceptor
+// =============== Helpers de bandera para logout manual ===============
+function isManualLogoutFlagSet() {
+  return localStorage.getItem("manualLogout") === "1";
+}
+function clearManualLogoutFlag() {
+  localStorage.removeItem("manualLogout");
+}
+
+// =============== Interceptor de Request ===============
 api.interceptors.request.use(
   (config) => {
     try {
@@ -27,9 +35,9 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// =============== Modal y control de una sola invocación ===============
 let alreadyHandledSessionEnd = false;
 
-// 👉 Modal simple sin botón
 function showSessionEndModal(message: string) {
   const overlay = document.createElement("div");
   overlay.style.position = "fixed";
@@ -60,11 +68,11 @@ function showSessionEndModal(message: string) {
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 
-  // opcional: redirigir después de unos segundos
+  // Redirección diferida
   setTimeout(() => {
     localStorage.removeItem("myUserInfo");
-    window.location.href = "/organization/63f552d916065937427b3b02"; // ajusta la ruta
-  }, 3000); // 3 segundos
+    window.location.href = "/organization/63f552d916065937427b3b02"; // ajusta la ruta si aplica
+  }, 3000);
 }
 
 function handleSessionEndOnce() {
@@ -82,23 +90,36 @@ function handleSessionEndOnce() {
   );
 }
 
+// =============== Interceptor de Response ===============
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const status = error?.response?.status;
     const message = (error?.response?.data?.message || "").toString();
 
-    const isSessionExpired =
-      status === 401 &&
-      (message === "SESSION_EXPIRED" ||
-        message === "No autenticado" ||
-        message === "Unauthorized");
+    // Solo tratamos como "máximo de dispositivos" cuando el backend lo indica claramente
+    const isMaxDevices = status === 401 && message === "SESSION_EXPIRED";
 
-    if (isSessionExpired) {
+    // Si el cierre fue manual (bandera marcada desde el botón), NO mostrar modal.
+    if (isManualLogoutFlagSet()) {
+      try {
+        if ("BroadcastChannel" in window) {
+          new BroadcastChannel("session").postMessage("manual-logout");
+        }
+      } catch {}
+      localStorage.removeItem("myUserInfo");
+      clearManualLogoutFlag();
+      // Redirige aquí si quieres que sea centralizado desde el interceptor:
+      window.location.href = "/organization/63f552d916065937427b3b02";
+      return Promise.reject(error);
+    }
+
+    if (isMaxDevices) {
       handleSessionEndOnce();
       return Promise.reject(new Error("SESSION_EXPIRED"));
     }
 
+    // Otros 401/errores: no dispares modal
     return Promise.reject(error);
   }
 );
