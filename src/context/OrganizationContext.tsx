@@ -14,6 +14,7 @@ export interface Organization {
   name: string;
   image: string;
   user_properties?: Record<string, any>;
+  default_position_id?: string;
 }
 
 interface OrganizationContextType {

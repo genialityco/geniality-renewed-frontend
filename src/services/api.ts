@@ -1,10 +1,10 @@
 // src/api/index.ts
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || ""; // fallback relativo
+const API_URL = import.meta.env.VITE_API_URL || "";
 const api = axios.create({ baseURL: API_URL });
 
-// ⇢ Request interceptor: adjunta uid y sessionToken
+// ⇢ Request interceptor
 api.interceptors.request.use(
   (config) => {
     try {
@@ -20,7 +20,6 @@ api.interceptors.request.use(
           (config.headers as any)["x-session-token"] = sessionToken;
       }
     } catch {
-      // Si no se puede parsear, limpia para evitar loops
       localStorage.removeItem("myUserInfo");
     }
     return config;
@@ -28,23 +27,59 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ⇢ Response interceptor: expulsa si el token ya no es válido (deduplicado)
 let alreadyHandledSessionEnd = false;
+
+// 👉 Modal simple sin botón
+function showSessionEndModal(message: string) {
+  const overlay = document.createElement("div");
+  overlay.style.position = "fixed";
+  overlay.style.top = "0";
+  overlay.style.left = "0";
+  overlay.style.width = "100%";
+  overlay.style.height = "100%";
+  overlay.style.background = "rgba(0,0,0,0.6)";
+  overlay.style.display = "flex";
+  overlay.style.alignItems = "center";
+  overlay.style.justifyContent = "center";
+  overlay.style.zIndex = "9999";
+
+  const modal = document.createElement("div");
+  modal.style.background = "#fff";
+  modal.style.padding = "24px";
+  modal.style.borderRadius = "12px";
+  modal.style.maxWidth = "400px";
+  modal.style.textAlign = "center";
+  modal.style.fontFamily = "sans-serif";
+  modal.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
+
+  const text = document.createElement("p");
+  text.textContent = message;
+  text.style.margin = "0";
+
+  modal.appendChild(text);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  // opcional: redirigir después de unos segundos
+  setTimeout(() => {
+    localStorage.removeItem("myUserInfo");
+    window.location.href = "/organization/63f552d916065937427b3b02"; // ajusta la ruta
+  }, 3000); // 3 segundos
+}
 
 function handleSessionEndOnce() {
   if (alreadyHandledSessionEnd) return;
   alreadyHandledSessionEnd = true;
 
   try {
-    // avisa a otras pestañas (opcional)
     if ("BroadcastChannel" in window) {
       new BroadcastChannel("session").postMessage("revoked");
     }
   } catch {}
-
   localStorage.removeItem("myUserInfo");
-  alert("Tu cuenta se abrió en un nuevo dispositivo. Esta sesión se cerrará porque superaste el límite de 2 dispositivos. Si no reconoces este inicio de sesión, por favor cambia tu contraseña por seguridad.");
-  window.location.reload();
+  showSessionEndModal(
+    "Tu cuenta se abrió en un nuevo dispositivo. Esta sesión se cerrará porque superaste el límite de 2 dispositivos. Si no reconoces este inicio de sesión, por favor cambia tu contraseña por seguridad"
+  );
 }
 
 api.interceptors.response.use(
@@ -53,7 +88,6 @@ api.interceptors.response.use(
     const status = error?.response?.status;
     const message = (error?.response?.data?.message || "").toString();
 
-    // Trata como sesión inválida cualquiera de estos casos
     const isSessionExpired =
       status === 401 &&
       (message === "SESSION_EXPIRED" ||

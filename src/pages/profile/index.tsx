@@ -25,7 +25,7 @@ const Profile = () => {
             <Tabs.Tab value="Organizations">Mis Organizaciones</Tabs.Tab>
             <Tabs.Tab value="info">Información Personal</Tabs.Tab>
             <Tabs.Tab value="membership">Mi Plan</Tabs.Tab>
-            <Tabs.Tab value="password">Cambiar Contraseña</Tabs.Tab>
+            {/* <Tabs.Tab value="password">Cambiar Contraseña</Tabs.Tab> */}
           </Tabs.List>
 
           <Tabs.Panel value="courses">
