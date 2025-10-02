@@ -494,7 +494,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
                 required
               />
               <PasswordInput
-                label="Numero de identificación (Cedula)"
+                label="Número de identificación (Cédula, ID)"
                 placeholder="********"
                 value={password}
                 onChange={(e) => {
