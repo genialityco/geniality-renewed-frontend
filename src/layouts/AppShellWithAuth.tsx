@@ -17,6 +17,7 @@ export default function AppShellWithAuth() {
 
   const handleLogout = async () => {
     try {
+      localStorage.setItem("manualLogout", "1");
       await contextSignOut();
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
