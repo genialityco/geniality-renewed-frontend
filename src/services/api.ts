@@ -76,10 +76,10 @@ function handleSessionEndOnce() {
       new BroadcastChannel("session").postMessage("revoked");
     }
   } catch {}
-
   localStorage.removeItem("myUserInfo");
-
-  showSessionEndModal("Sesión finalizada.");
+  showSessionEndModal(
+    "Tu cuenta se abrió en un nuevo dispositivo. Esta sesión se cerrará porque superaste el límite de 2 dispositivos. Si no reconoces este inicio de sesión, por favor cambia tu contraseña por seguridad"
+  );
 }
 
 api.interceptors.response.use(

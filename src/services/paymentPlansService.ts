@@ -6,7 +6,7 @@ export interface PaymentPlanPayload {
   date_until: string; 
   price: number;
   organization_user_id: string;
-  payment_request_id: string;
+  payment_request_id?: string;
   source?: string; 
 }
 
