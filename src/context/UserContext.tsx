@@ -16,6 +16,7 @@ import {
   User as FirebaseUser,
   setPersistence,
   browserLocalPersistence,
+  fetchSignInMethodsForEmail,
 } from "firebase/auth";
 import {
   createOrUpdateUser,
@@ -63,12 +64,61 @@ interface UserContextValue {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (data: SignUpData) => Promise<void>;
   signOut: () => Promise<void>;
+  adminCreateMember?: typeof adminCreateMember;
+  adminCreateUserAndOrganizationUser?: typeof adminCreateUserAndOrganizationUser;
 }
 
 /**
  * Permite crear un usuario y su organization-user desde el admin.
  * Si el usuario ya existe en Firebase, actualiza el organization-user y el paymentPlan.date_until.
  */
+export async function adminCreateMember(data: AdminCreateUserData) {
+  let firebaseUser;
+  try {
+    const methods = await fetchSignInMethodsForEmail(auth, data.email);
+    if (methods.length > 0) {
+      alert("Usuario existente");
+      return null;
+    }
+  } catch (err) {
+    console.error("Error verificando el email en Firebase:", err);
+    alert("Error al crear el usuario");
+    return null;
+  }
+
+  try {
+    // 1) Crear en Firebase Auth
+    firebaseUser = await createUserWithEmailAndPassword(
+      auth,
+      data.email,
+      data.password
+    );
+
+    // 2) Crear en /users (backend)
+    const userRecord = await createOrUpdateUser({
+      uid: firebaseUser.user.uid,
+      email: data.email,
+      names: data.name,
+      ...data.properties,
+    });
+
+    // 3) Crear en /organization-users (backend)
+    const organizationUserRecord = await createOrUpdateOrganizationUser({
+      user_id: userRecord._id,
+      organization_id: data.organizationId,
+      position_id: data.positionId,
+      rol_id: data.rolId,
+      properties: data.properties,
+    });
+
+    return { user: userRecord, organizationUser: organizationUserRecord };
+  } catch (error) {
+    console.error("Error creating member:", error);
+    alert("Error al crear el usuario");
+    return null;
+  }
+}
+
 async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
   let firebaseUser;
   let userRecord;
@@ -82,7 +132,6 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
       data.email,
       data.password
     );
-
     // 2) Crea el usuario en el backend
     userRecord = await createOrUpdateUser({
       uid: firebaseUser.user.uid,
@@ -175,6 +224,7 @@ const UserContext = createContext<
   signOut: async () => {},
   adminCreateUserAndOrganizationUser: undefined,
   sessionToken: null,
+  adminCreateMember: undefined
 });
 
 export function UserProvider({ children }: { children: ReactNode }) {
@@ -338,7 +388,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // signOut: Firebase + limpiar estado
   const signOut = useCallback(async () => {
-    
     const info = localStorage.getItem("myUserInfo");
     const { uid, sessionToken } = info ? JSON.parse(info) : {};
 
@@ -374,6 +423,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         signUp,
         signOut,
         adminCreateUserAndOrganizationUser,
+        adminCreateMember
       }}
     >
       {children}

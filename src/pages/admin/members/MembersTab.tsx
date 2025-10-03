@@ -52,7 +52,7 @@ import DeleteConfirmModal from "./DeleteConfirmModal";
 export default function MembersTab() {
   const isMobile = useMediaQuery("(max-width: 48em)");
   const { organization } = useOrganization();
-  const { adminCreateUserAndOrganizationUser } = useUser(); // ← Usar la función del admin
+  const { adminCreateMember } = useUser(); // ← Usar la función del admin
   const orgId = organization?._id!;
 
   const limitOptions = ["10", "20", "50", "100"];
@@ -238,16 +238,14 @@ export default function MembersTab() {
     setUserToEdit(null);
   };
 
-  // CREAR USUARIO - Usando adminCreateUserAndOrganizationUser
   const handleCreateUserSave = async (newUserData: any) => {
-    if (!organization || !adminCreateUserAndOrganizationUser) return;
+    if (!organization || !adminCreateMember) return;
 
     // Detectar campos de email e ID (igual que AuthForm)
     const emailField =
       (organization.user_properties || []).find(
         (p: any) => p.type === "email" || p.name?.toLowerCase() === "email"
       )?.name || "email";
-
     const idField =
       (organization.user_properties || []).find((p: any) => {
         const lname = p.name?.toLowerCase() || "";
@@ -279,7 +277,7 @@ export default function MembersTab() {
 
     try {
       // Usar la función especial del admin que no afecta la sesión actual
-      await adminCreateUserAndOrganizationUser({
+      await adminCreateMember({
         email: emailValue,
         password: passwordValue,
         name: fullName,
