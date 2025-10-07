@@ -1,7 +1,6 @@
 // src/routes/AppRoutes.tsx
 import { Routes, Route } from "react-router-dom";
 
-//import Home from "../pages/Home";
 import Organizations from "../pages/Organizations";
 import AuthPage from "../pages/auth/AuthPage";
 import NotFound from "../components/NotFound";
@@ -18,11 +17,14 @@ import SuperAdmin from "../pages/superadmin";
 
 import { RequireAuth, RequireMembership } from "./guards";
 
+// ⭐ Nueva página de recuperación (contenido/UX):
+import Recovery from "../pages/auth/RecoveryPassword/Recovery";
+
 export default function AppRoutes() {
   return (
     <Routes>
       {/* Públicas */}
-      {/*<Route path="/" element={<Home />} />*/}
+      {/* <Route path="/" element={<Home />} /> */}
       <Route path="/" element={<Organizations />} />
       <Route path="/superadmin" element={<SuperAdmin />} />
 
@@ -52,12 +54,15 @@ export default function AppRoutes() {
         {/* Rutas que requieren solo sesión */}
         <Route element={<RequireAuth />}>
           <Route path="profile" element={<Profile />} />
+
+          {/* ⭐ NUEVA ruta protegida: /organization/:organizationId/recuperar-datos?token=... */}
+          <Route path="recuperar-datos" element={<Recovery />} />
         </Route>
 
-        {/* Rutas que requieren rol admin */}
-          <Route path="admin">
-            <Route index element={<AdminOrganizationEvents />} />
-          </Route>
+        {/* Rutas que requieren rol admin (si luego agregas RequireAdmin, envuélvela) */}
+        <Route path="admin">
+          <Route index element={<AdminOrganizationEvents />} />
+        </Route>
 
         {/* Callback de pago puede ser público (o moverlo a RequireAuth si quieres) */}
         <Route path="pago-exitoso" element={<PaymentStatus />} />

@@ -1,6 +1,11 @@
 // src/pages/auth/components/AuthForm.tsx
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import {
+  useParams,
+  useNavigate,
+  useLocation,
+  useSearchParams,
+} from "react-router-dom";
 import {
   TextInput,
   PasswordInput,
@@ -39,6 +44,18 @@ declare global {
 export default function AuthForm({}: { isPaymentPage?: boolean }) {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
+
+  // 👇 NUEVO: leer next (si viene) y calcular fallback
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const nextParam = searchParams.get("next");
+  const fromState = (location.state as any)?.from;
+  const fromPath = (fromState?.pathname || "") + (fromState?.search || "");
+  const defaultAfterLogin = organizationId
+    ? `/organization/${organizationId}`
+    : `/`;
+  const nextPath = nextParam || fromPath || defaultAfterLogin;
+
   const { signIn, signUp } = useUser();
   const { organization, loadingOrg } = useOrganizationAuth(organizationId);
 
@@ -197,12 +214,8 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     setFormError(null);
     try {
       await signIn(email, password);
-      if (auth.currentUser && !auth.currentUser.phoneNumber) {
-        // setModalOpen(true); // 👈 se mantiene
-        navigate(`/organization/${organization._id}`);
-      } else {
-        navigate(`/organization/${organization._id}`);
-      }
+      // ⬇️ mínimo cambio: respeta next si viene; si no, cae al default
+      navigate(nextPath, { replace: true });
     } catch (err: any) {
       let msg = "Error al iniciar sesión. Intenta de nuevo.";
       if (err?.code === "auth/user-not-found")
@@ -215,7 +228,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     } finally {
       setSubmitting(false);
     }
-  }, [organization, signIn, email, password, navigate]);
+  }, [organization, signIn, email, password, navigate, nextPath]);
 
   /** ------------ REGISTRO ------------- */
   const handleSignUp = useCallback(async () => {
@@ -315,7 +328,8 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
         await auth.currentUser?.getIdToken(true);
       } catch {}
 
-      navigate(`/organization/${organization._id}`);
+      // ⬇️ mínimo cambio: respeta next si viene; si no, cae al default
+      navigate(nextPath, { replace: true });
     } catch (err: any) {
       if (err?.code === "auth/email-already-in-use") {
         setFormError("Ya existe una cuenta con ese correo.");
@@ -342,6 +356,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     ensureCleanAuthSession,
     validateRegistrationAll,
     closeDropdownsAndBlur,
+    nextPath,
   ]);
 
   // Campos dinámicos SOLO para registro
@@ -534,52 +549,44 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
                 Iniciar sesión
               </Button>
             )}
+          </Group>
 
-            <Button
-              variant="subtle"
-              onClick={async () => {
-                // al alternar, resetea validación y limpia sesión si va a registro
-                const goingToRegister = !isRegister;
-                setIsRegister(goingToRegister);
-                setSubmittedOnce(false);
-                setFieldErrors({});
-                setFormError(null);
-                if (goingToRegister) {
-                  try {
-                    await ensureCleanAuthSession();
-                  } catch {}
-                }
-              }}
-            >
-              {isRegister ? "Ya tengo cuenta" : "Crear cuenta"}
-            </Button>
-
-            {!isRegister && (
+          {/* Ambos botones al mismo nivel */}
+          {!isRegister && (
+            <Group mt="xs" grow>
               <Button
                 variant="light"
-                fullWidth
-                mt="xs"
+                color="orange"
+                onClick={async () => {
+                  const goingToRegister = !isRegister;
+                  setIsRegister(goingToRegister);
+                  setSubmittedOnce(false);
+                  setFieldErrors({});
+                  setFormError(null);
+                  if (goingToRegister) {
+                    try {
+                      await ensureCleanAuthSession();
+                    } catch {}
+                  }
+                }}
+              >
+                Crear cuenta
+              </Button>
+
+              <Button
+                variant="light"
                 onClick={() => {
                   setIsResetPassword(true);
                   cleanResetStates();
                 }}
               >
-                ¿Olvidaste tu contraseña?
+                ¿Olvidaste tus datos?
               </Button>
-            )}
-          </Group>
-
-          {/* Mantengo tu código comentado tal cual */}
-          {/* <VincularTelefonoModal
-            opened={modalOpen}
-            organizationId={organization._id}
-            organizationUser={organizationUserData}
-            onClose={() => setModalOpen(false)}
-          /> */}
+            </Group>
+          )}
         </>
       )}
 
-      {/* 🧩 Modal con el listado de faltantes - VERSION MEJORADA */}
       <Modal
         opened={modalOpened}
         onClose={() => setModalOpened(false)}

@@ -1,9 +1,9 @@
 // EmailRecoverBlock.tsx
 import { useState } from "react";
 import { TextInput, Button, Group, Text } from "@mantine/core";
-import { sendPasswordResetEmail } from "firebase/auth";
+//import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../../../firebase/firebaseConfig";
-
+import { sendPasswordResetEmail } from "../../../services/EmailService";
 type Props = {
   email: string;
   setEmail: (v: string) => void;
@@ -14,12 +14,7 @@ type Props = {
 /** -----------------------------------
  *  Subcomponente: Recuperación por Email
  *  ----------------------------------- */
-export default function EmailRecoverBlock({
-  email,
-  setEmail,
-  organizationId,
-  onBack,
-}: Props) {
+export default function EmailRecoverBlock({ email, setEmail, onBack }: Props) {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState("");
   const [resetError, setResetError] = useState("");
@@ -30,9 +25,10 @@ export default function EmailRecoverBlock({
     setResetError("");
     try {
       auth.languageCode = "es";
-      await sendPasswordResetEmail(auth, email, {
-        url: `${window.location.origin}/organization/${organizationId}`,
-      });
+      // await sendPasswordResetEmail(auth, email, {
+      //   url: `${window.location.origin}/organization/${organizationId}`,
+      // });
+      await sendPasswordResetEmail(email);
       setResetMessage("¡Revisa tu correo para restablecer tu contraseña!");
     } catch (err: any) {
       setResetError(

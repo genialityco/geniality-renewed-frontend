@@ -1,5 +1,5 @@
 // src/components/UserInfoModal.tsx
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   Text,
@@ -14,6 +14,7 @@ import {
   ScrollArea,
   Box,
   Flex,
+  Loader,
 } from "@mantine/core";
 import { useClipboard } from "@mantine/hooks";
 import {
@@ -24,6 +25,11 @@ import {
   FaInfoCircle,
 } from "react-icons/fa";
 import { OrganizationUser, PaymentPlan } from "../../../services/types";
+import {
+  searchPaymentRequests,
+  type PaymentRequestRow,
+} from "../../../services/paymentRequestsService";
+import { useOrganization } from "../../../context/OrganizationContext";
 
 interface Props {
   user: OrganizationUser | null;
@@ -33,7 +39,7 @@ interface Props {
     name: string;
     label: string;
     type: string;
-    visible?: boolean; // <- se respeta abajo
+    visible?: boolean;
   }>;
 }
 
@@ -109,30 +115,14 @@ const PropertyRow = React.memo(function PropertyRow({
       }}
     >
       {/* Columna izquierda - Título (60%) */}
-      <Box
-        style={{
-          width: "60%",
-          flex: 1,
-        }}
-      >
-        <Text
-          size="sm"
-          fw={500}
-          c="gray.7"
-          style={{
-            lineHeight: 1.4,
-          }}
-        >
+      <Box style={{ width: "60%", flex: 1 }}>
+        <Text size="sm" fw={500} c="gray.7" style={{ lineHeight: 1.4 }}>
           {label}:
         </Text>
       </Box>
-      <Box
-        style={{
-          width: "40%",
-          minWidth: "100px",
-          flexShrink: 0,
-        }}
-      >
+
+      {/* Columna derecha - Valor (40%) */}
+      <Box style={{ width: "40%", minWidth: "100px", flexShrink: 0 }}>
         <Flex align="flex-start" gap="xs" justify="flex-end">
           <Text
             size="sm"
@@ -156,6 +146,24 @@ const PropertyRow = React.memo(function PropertyRow({
   );
 });
 
+// === Color por estado de pago ===
+function statusColor(s: PaymentRequestRow["status"]) {
+  switch (s) {
+    case "APPROVED":
+      return "green";
+    case "PENDING":
+      return "yellow";
+    case "CREATED":
+      return "blue";
+    case "DECLINED":
+    case "VOIDED":
+    case "ERROR":
+      return "red";
+    default:
+      return "gray";
+  }
+}
+
 export default function UserInfoModal({
   user,
   isOpen,
@@ -163,10 +171,18 @@ export default function UserInfoModal({
   userProperties,
 }: Props) {
   if (!user) return null;
+  const u = user as OrganizationUser; // ← garantiza no nulo para TS después del early return
 
-  const rawPlan = user.payment_plan_id;
+  const { organization } = useOrganization();
+  const organizationId = organization?._id || "";
+
+  const [payLoading, setPayLoading] = useState(false);
+  const [payItems, setPayItems] = useState<PaymentRequestRow[]>([]);
+  const [payTotal, setPayTotal] = useState(0);
+
+  const rawPlan = u.payment_plan_id;
   const planInfo = isPaymentPlan(rawPlan) ? rawPlan : undefined;
-  const properties = user.properties || {};
+  const properties = u.properties || {};
 
   // Verificar si el plan está vencido
   let isExpired = false;
@@ -176,10 +192,65 @@ export default function UserInfoModal({
     isExpired = planDate < new Date();
   }
 
-  // --- NUEVO: filtrar por "visible" (mostrar si visible !== false) ---
+  // Filtrar por "visible" (mostrar si visible !== false)
   const visibleUserProps = (userProperties ?? []).filter(
     (p) => p.visible !== false
   );
+
+  // Obtener userId string desde OrganizationUser.user_id (puede ser string u objeto)
+  const userIdString: string | null = useMemo(() => {
+    const ref: any = u.user_id;
+    if (!ref) return null;
+    if (typeof ref === "string") return ref;
+    if (typeof ref === "object" && ref._id) return String(ref._id);
+    return null;
+  }, [u.user_id]);
+
+  // Cargar intentos de pago (payment-requests) asociados
+  useEffect(() => {
+    let mounted = true;
+    async function loadPaymentRequests() {
+      if (!isOpen || !organizationId) return;
+      setPayLoading(true);
+      try {
+        const q =
+          userIdString ||
+          properties.email ||
+          properties.correo ||
+          String(u._id);
+
+        const { items, total } = await searchPaymentRequests({
+          organizationId,
+          q,
+          page: 1,
+          pageSize: 50,
+        });
+
+        if (mounted) {
+          setPayItems(items as PaymentRequestRow[]);
+          setPayTotal(total ?? items?.length ?? 0);
+        }
+      } catch {
+        if (mounted) {
+          setPayItems([]);
+          setPayTotal(0);
+        }
+      } finally {
+        if (mounted) setPayLoading(false);
+      }
+    }
+    loadPaymentRequests();
+    return () => {
+      mounted = false;
+    };
+  }, [
+    isOpen,
+    organizationId,
+    userIdString,
+    u._id,
+    properties.email,
+    properties.correo,
+  ]);
 
   return (
     <Modal
@@ -208,7 +279,7 @@ export default function UserInfoModal({
                 Datos Básicos
               </Text>
               <Badge variant="light" color="blue" size="sm">
-                ID: {String(user._id)}
+                ID: {String(u._id)}
               </Badge>
             </Group>
             <Divider mb="lg" />
@@ -225,7 +296,11 @@ export default function UserInfoModal({
                 const rawValue = properties[name] ?? "";
 
                 // Si el valor es nulo/indefinido/empty string, no renderizamos la fila
-                if (rawValue === null || rawValue === undefined || rawValue === "")
+                if (
+                  rawValue === null ||
+                  rawValue === undefined ||
+                  rawValue === ""
+                )
                   return null;
 
                 const cleanValue = stripHtml(String(rawValue));
@@ -336,6 +411,93 @@ export default function UserInfoModal({
                   </Text>
                 </Stack>
               </Box>
+            )}
+          </Paper>
+
+          {/* Intentos de pago (Payment Requests) */}
+          <Paper withBorder p="lg" radius="md">
+            <Group justify="space-between" mb="md">
+              <Text size="lg" fw={600} c="gray.8">
+                Intentos de Pago
+              </Text>
+              {payLoading ? (
+                <Loader size="sm" />
+              ) : (
+                <Badge variant="light" color="gray">
+                  {payTotal} registro{payTotal === 1 ? "" : "s"}
+                </Badge>
+              )}
+            </Group>
+            <Divider mb="lg" />
+
+            {payLoading ? (
+              <Box py="xl" ta="center">
+                <Loader />
+              </Box>
+            ) : payItems.length === 0 ? (
+              <Text size="sm" c="gray.6">
+                No se encontraron intentos de pago asociados.
+              </Text>
+            ) : (
+              <Stack gap="xs">
+                {payItems.map((row) => {
+                  const created = row.createdAt
+                    ? dtfCO.format(new Date(row.createdAt))
+                    : "";
+                  const updated = row.updatedAt
+                    ? dtfCO.format(new Date(row.updatedAt))
+                    : "";
+                  return (
+                    <Box
+                      key={`${row.reference}-${row.createdAt}`}
+                      p="sm"
+                      style={{
+                        border: "1px solid var(--mantine-color-gray-2)",
+                        borderRadius: 8,
+                      }}
+                    >
+                      <Group justify="space-between" mb={6}>
+                        <Group gap="xs">
+                          <Badge
+                            variant="light"
+                            color={statusColor(row.status)}
+                          >
+                            {row.status}
+                          </Badge>
+                          <Text size="sm" c="gray.7">
+                            Ref:&nbsp;<strong>{row.reference}</strong>
+                          </Text>
+                          <CopyButton text={row.reference} label="Copiar ref" />
+                        </Group>
+                        {row.transactionId && (
+                          <Group gap="xs">
+                            <Text size="sm" c="gray.7">
+                              Tx:&nbsp;<strong>{row.transactionId}</strong>
+                            </Text>
+                            <CopyButton
+                              text={row.transactionId}
+                              label="Copiar Tx"
+                            />
+                          </Group>
+                        )}
+                      </Group>
+
+                      <Group justify="space-between">
+                        <Text size="sm">
+                          Monto:&nbsp;
+                          <strong>
+                            ${row.amount.toLocaleString("es-CO")}{" "}
+                            {row.currency ?? "COP"}
+                          </strong>
+                        </Text>
+                        <Text size="xs" c="gray.6">
+                          Creado: {created} · Actualizado: {updated}
+                        </Text>
+                      </Group>
+                    </Box>
+                  );
+                })}
+              </Stack>
             )}
           </Paper>
         </Stack>

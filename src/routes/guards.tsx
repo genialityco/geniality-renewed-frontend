@@ -21,6 +21,7 @@ function CenterLoader({ label = "Cargando..." }: { label?: string }) {
   );
 }
 
+// src/routes/guards.tsx
 export function RequireAuth() {
   const { loading, firebaseUser } = useUser();
   const location = useLocation();
@@ -29,10 +30,20 @@ export function RequireAuth() {
   if (loading) return <CenterLoader label="Verificando sesión..." />;
 
   if (!firebaseUser) {
-    // Redirige al login de la org si existe, conservando la ruta destino
+    // Guarda el token del query
+    const usp = new URLSearchParams(location.search);
+    const t = usp.get("token");
+    if (t) sessionStorage.setItem("recovery_token", t);
+
+    // 👉 Arma el "next" con pathname + search (incluye ?token=...)
+    const next = encodeURIComponent(location.pathname + location.search);
+
+    // Redirige al login de la org con ?next=...
     const loginPath = organizationId
-      ? `/organization/${organizationId}/iniciar-sesion`
-      : `/`;
+      ? `/organization/${organizationId}/iniciar-sesion?next=${next}`
+      : `/?next=${next}`;
+
+    // Nota: mantenemos state.from por si ya lo usabas
     return <Navigate to={loginPath} replace state={{ from: location }} />;
   }
 
@@ -85,7 +96,8 @@ export function RequireMembership({
               (typeof orgUser?.organization_id === "object" &&
                 orgUser?.organization_id !== null &&
                 " _id" in orgUser.organization_id &&
-                (orgUser.organization_id as { _id: string })._id === organizationId);
+                (orgUser.organization_id as { _id: string })._id ===
+                  organizationId);
             if (!belongs) {
               setHasAccess(false);
               return;
