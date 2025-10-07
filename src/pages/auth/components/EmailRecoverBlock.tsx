@@ -14,12 +14,7 @@ type Props = {
 /** -----------------------------------
  *  Subcomponente: Recuperación por Email
  *  ----------------------------------- */
-export default function EmailRecoverBlock({
-  email,
-  setEmail,
-  organizationId,
-  onBack,
-}: Props) {
+export default function EmailRecoverBlock({ email, setEmail, onBack }: Props) {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState("");
   const [resetError, setResetError] = useState("");

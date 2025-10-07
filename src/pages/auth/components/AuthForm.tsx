@@ -549,52 +549,44 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
                 Iniciar sesión
               </Button>
             )}
+          </Group>
 
-            <Button
-              variant="subtle"
-              onClick={async () => {
-                // al alternar, resetea validación y limpia sesión si va a registro
-                const goingToRegister = !isRegister;
-                setIsRegister(goingToRegister);
-                setSubmittedOnce(false);
-                setFieldErrors({});
-                setFormError(null);
-                if (goingToRegister) {
-                  try {
-                    await ensureCleanAuthSession();
-                  } catch {}
-                }
-              }}
-            >
-              {isRegister ? "Ya tengo cuenta" : "Crear cuenta"}
-            </Button>
-
-            {!isRegister && (
+          {/* Ambos botones al mismo nivel */}
+          {!isRegister && (
+            <Group mt="xs" grow>
               <Button
                 variant="light"
-                fullWidth
-                mt="xs"
+                color="orange"
+                onClick={async () => {
+                  const goingToRegister = !isRegister;
+                  setIsRegister(goingToRegister);
+                  setSubmittedOnce(false);
+                  setFieldErrors({});
+                  setFormError(null);
+                  if (goingToRegister) {
+                    try {
+                      await ensureCleanAuthSession();
+                    } catch {}
+                  }
+                }}
+              >
+                Crear cuenta
+              </Button>
+
+              <Button
+                variant="light"
                 onClick={() => {
                   setIsResetPassword(true);
                   cleanResetStates();
                 }}
               >
-                ¿Olvidaste tu contraseña?
+                ¿Olvidaste tus datos?
               </Button>
-            )}
-          </Group>
-
-          {/* Mantengo tu código comentado tal cual */}
-          {/* <VincularTelefonoModal
-            opened={modalOpen}
-            organizationId={organization._id}
-            organizationUser={organizationUserData}
-            onClose={() => setModalOpen(false)}
-          /> */}
+            </Group>
+          )}
         </>
       )}
 
-      {/* 🧩 Modal con el listado de faltantes - VERSION MEJORADA */}
       <Modal
         opened={modalOpened}
         onClose={() => setModalOpened(false)}
