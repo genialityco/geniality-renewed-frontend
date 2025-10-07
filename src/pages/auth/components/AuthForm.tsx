@@ -432,7 +432,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
           {isRegister
             ? "Crear cuenta"
             : isResetPassword
-            ? "Recuperar contraseña"
+            ? "Recuperar datos de acceso"
             : "Iniciar sesión"}
         </Text>
 
