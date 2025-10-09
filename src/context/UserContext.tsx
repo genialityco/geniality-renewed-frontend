@@ -362,6 +362,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       uid,
       email,
       names: fullName, // ¡Envíalo así!
+      password
       // ...otros (no sobrescribir names con properties)
     });
 

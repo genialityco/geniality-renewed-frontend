@@ -32,7 +32,7 @@ import useOrganizationAuth from "../useOrganizationAuth";
 import shouldRenderProperty from "../../../utils/shouldRenderProperty";
 import DynamicField from "./DynamicField";
 import EmailRecoverBlock from "./EmailRecoverBlock";
-import SmsRecoverBlock from "./SmsRecoverBlock";
+// import SmsRecoverBlock from "./SmsRecoverBlock";
 import { validateRegistrationAll } from "../components/Validators";
 
 declare global {
@@ -213,7 +213,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     setSubmitting(true);
     setFormError(null);
     try {
-      await signIn(email, password);
+      await signIn(email.trim(), String(password).trim());
       // ⬇️ mínimo cambio: respeta next si viene; si no, cae al default
       navigate(nextPath, { replace: true });
     } catch (err: any) {
@@ -254,6 +254,9 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     const getLabel = (field: string, fallback: string) =>
       (props.find((p) => p.name === field)?.label as string) || fallback;
 
+    const rawId = String(formValues[idField] ?? "");
+    const normalizedId = rawId.replace(/\D+/g, ""); // solo dígitos
+
     const upsertModal = (name: string, label: string, msg: string) => {
       const idx = modalItems.findIndex((it) => it.name === name);
       const item = { name, label, msg };
@@ -274,8 +277,11 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
       errors[idField] = msg;
       upsertModal(idField, label, msg);
     } else {
-      const digits = String(passwordValue).replace(/\D+/g, "");
-      if (!/^\d+$/.test(digits) || digits.length < 6 || digits.length > 15) {
+      if (
+        !/^\d+$/.test(normalizedId) ||
+        normalizedId.length < 6 ||
+        normalizedId.length > 15
+      ) {
         const label = getLabel(idField, "ID");
         const msg = "Debe contener solo números y entre 6 y 15 dígitos.";
         errors[idField] = msg;
@@ -316,8 +322,8 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
 
       await signUp({
         email: emailValue,
-        password: passwordValue, // (signUp prioriza ID)
-        properties: { ...formValues, email: emailValue, ID: passwordValue },
+        password: normalizedId, // (signUp prioriza ID)
+        properties: { ...formValues, email: emailValue, ID: normalizedId },
         organizationId: organization._id,
         positionId: organization.default_position_id,
         rolId: "5c1a59b2f33bd40bb67f2322",
@@ -454,13 +460,13 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
               <Button variant="light" onClick={() => setResetMethod("email")}>
                 Recuperar por Email
               </Button>
-              <Button
+              {/* <Button
                 variant="light"
                 color="teal"
                 onClick={() => setResetMethod("sms")}
               >
                 Recuperar por SMS
-              </Button>
+              </Button> */}
             </Group>
           )}
 
@@ -473,7 +479,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
             />
           )}
 
-          {resetMethod === "sms" && (
+          {/* {resetMethod === "sms" && (
             <SmsRecoverBlock
               onCancelToChooser={() => setResetMethod(null)}
               onSuccessChangePassword={() => {
@@ -481,7 +487,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
                 cleanResetStates();
               }}
             />
-          )}
+          )} */}
 
           <Button
             variant="light"
