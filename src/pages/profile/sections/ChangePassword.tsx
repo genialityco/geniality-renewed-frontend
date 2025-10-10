@@ -82,7 +82,7 @@ const ChangePassword = () => {
     setSuccess(false);
 
     if (newPassword !== confirmPassword) {
-      setError("Las contraseñas no coinciden.");
+      setError("Los datos no coinciden.");
       setLoading(false);
       return;
     }

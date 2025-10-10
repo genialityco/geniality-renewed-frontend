@@ -29,7 +29,7 @@ export default function EmailRecoverBlock({ email, setEmail, onBack }: Props) {
       //   url: `${window.location.origin}/organization/${organizationId}`,
       // });
       await sendPasswordResetEmail(email);
-      setResetMessage("¡Revisa tu correo para restablecer tu contraseña!");
+      setResetMessage("¡Revisa tu correo!");
     } catch (err: any) {
       setResetError(
         err?.code === "auth/user-not-found"

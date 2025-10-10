@@ -221,7 +221,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
       if (err?.code === "auth/user-not-found")
         msg = "No existe una cuenta con este correo.";
       else if (err?.code === "auth/invalid-credential")
-        msg = "Email o contraseña incorrecta.";
+        msg = "Email o cédula/ID incorrecto.";
       else if (err?.code === "auth/too-many-requests")
         msg = "Demasiados intentos fallidos. Intenta más tarde.";
       setFormError(msg);
