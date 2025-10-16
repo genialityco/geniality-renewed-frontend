@@ -9,19 +9,24 @@ import {
   Stack,
   Badge,
 } from "@mantine/core";
-import { FaPencil } from "react-icons/fa6";
+import { FaPencil, FaTrash } from "react-icons/fa6";
 import { Event } from "../../../services/types";
 
 interface Props {
   events: Event[];
   onCreate: () => void;
   onEdit: (eventId: string) => void;
+  onDelete: (eventId: string) => void;
 }
 
-export default function EventsTab({ events, onCreate, onEdit }: Props) {
+export default function EventsTab({
+  events,
+  onCreate,
+  onEdit,
+  onDelete,
+}: Props) {
   return (
     <Stack p="xs" gap="md">
-      {/* Acción crear evento */}
       <Group justify="flex-start">
         <Button onClick={onCreate}>Crear Nuevo Evento</Button>
       </Group>
@@ -105,6 +110,15 @@ export default function EventsTab({ events, onCreate, onEdit }: Props) {
                       onClick={() => onEdit(event._id!)}
                     >
                       Editar
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="subtle"
+                      color="red"
+                      leftSection={<FaTrash size={12} />}
+                      onClick={() => onDelete(event._id!)}
+                    >
+                      Eliminar
                     </Button>
                   </Table.Td>
                 </Table.Tr>
