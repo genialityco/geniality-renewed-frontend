@@ -13,11 +13,16 @@ import {
   Stack,
   Divider,
   Paper,
+  Modal,
+  Button,
 } from "@mantine/core";
 import { FaList, FaUsers, FaGear } from "react-icons/fa6";
 
 import { useOrganization } from "../../context/OrganizationContext";
-import { fetchEventsByOrganizer } from "../../services/eventService";
+import {
+  fetchEventsByOrganizer,
+  deleteEvent,
+} from "../../services/eventService";
 import type { Event } from "../../services/types";
 
 import EventsTab from "./events/EventsTab";
@@ -39,6 +44,23 @@ export default function AdminOrganizationEvents() {
   const [activeSection, setActiveSection] = useState<Section>("events");
   // Si estamos editando/creando un evento, guardamos su ID
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [deletingLoading, setDeletingLoading] = useState(false);
+
+  const handleDeleteEvent = async () => {
+    if (!deletingEventId) return;
+    try {
+      setDeletingLoading(true);
+      await deleteEvent(deletingEventId);
+      setEvents((prev) => prev.filter((e) => e._id !== deletingEventId));
+      setDeletingEventId(null); // Cerrar el diálogo
+    } catch (err) {
+      console.error("Error eliminando evento:", err);
+    } finally {
+      setDeletingLoading(false);
+    }
+  };
 
   // Carga inicial y reload
   const loadEvents = () => {
@@ -177,6 +199,7 @@ export default function AdminOrganizationEvents() {
               events={events}
               onCreate={() => setEditingEventId("new")}
               onEdit={(id) => setEditingEventId(id)}
+              onDelete={(id) => setDeletingEventId(id)}
             />
           )
         ) : activeSection === "members" ? (
@@ -185,6 +208,37 @@ export default function AdminOrganizationEvents() {
           <AdminOrganizationPage organizationId={orgId} />
         )}
       </Container>
+
+      {/* MODAL CONFIRMACIÓN ELIMINAR */}
+      <Modal
+        opened={!!deletingEventId}
+        onClose={() => !deletingLoading && setDeletingEventId(null)}
+        title="Confirmar eliminación"
+        centered
+      >
+        <Stack gap="md">
+          <Text>
+            ¿Seguro que deseas eliminar este evento? Esta acción no se puede
+            deshacer.
+          </Text>
+          <Group justify="flex-end">
+            <Button
+              variant="default"
+              onClick={() => setDeletingEventId(null)}
+              disabled={deletingLoading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              color="red"
+              onClick={handleDeleteEvent}
+              loading={deletingLoading}
+            >
+              Eliminar
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </>
   );
 }

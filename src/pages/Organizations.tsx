@@ -70,11 +70,11 @@ export default function Organizations() {
         <Text size="xl" fw={700}>
           Organizaciones
         </Text>
-        {organizations.length > 0 && (
+        {/* {organizations.length > 0 && (
           <Button onClick={load} variant="subtle">
             Actualizar
           </Button>
-        )}
+        )} */}
       </Group>
 
       {organizations.length === 0 ? (
