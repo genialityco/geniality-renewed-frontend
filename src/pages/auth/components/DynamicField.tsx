@@ -74,12 +74,117 @@ export default function DynamicField({
 
   const [errorText, setErrorText] = useState<string | undefined>(undefined);
 
-  // ====== OBLIGATORIEDAD DINÁMICA (depto/city cuando pais=Colombia) ======
-  const selectedCountryName = (formValues?.pais ?? "") as string;
+  // ====== Internacionalización de países (nombres en ES) ======
+  const regionES = useMemo(() => {
+    const AnyIntl: any = Intl as any;
+    try {
+      return AnyIntl?.DisplayNames
+        ? new AnyIntl.DisplayNames(["es"], { type: "region" })
+        : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // ====== País / Departamento / Ciudad ======
+  const countries = useMemo(() => Country.getAllCountries(), []);
+  const countryOptions = useMemo(
+    () =>
+      countries.map((c) => {
+        const es = regionES?.of?.(c.isoCode) || c.name; // "España" | "Colombia" | ...
+        return { value: c.isoCode, label: es };
+      }),
+    [countries, regionES]
+  );
+
+  const countryByCode = useMemo(() => {
+    const m = new Map<
+      string,
+      { nameEN: string; nameES: string; iso: string; phonecode?: string | null }
+    >();
+    for (const c of countries) {
+      const nameES = regionES?.of?.(c.isoCode) || c.name;
+      m.set(c.isoCode, {
+        nameEN: c.name,
+        nameES,
+        iso: c.isoCode,
+        phonecode: (c as any).phonecode ?? null,
+      });
+    }
+    return m;
+  }, [countries, regionES]);
+
+  // Lookup por nombre EN y ES → ISO
+  const codeByName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of countries) {
+      const es = regionES?.of?.(c.isoCode) || c.name;
+      m.set(c.name, c.isoCode); // inglés
+      m.set(es, c.isoCode); // español
+    }
+    return m;
+  }, [countries, regionES]);
+
+  // Resolver país seleccionado (acepta ISO, nombre EN o ES)
+  const rawPais = (formValues?.pais ?? "") as string; // nombre guardado (visible)
+  const rawPaisISO = (formValues?.pais_iso ?? "") as string; // ISO guardado (interno)
+
+  const selectedCountryCode =
+    (rawPaisISO && countryByCode.has(rawPaisISO) && rawPaisISO) ||
+    (rawPais.length === 2 && countryByCode.has(rawPais) && rawPais) ||
+    codeByName.get(rawPais) ||
+    "";
+
+  // Estados/Deptos del país
+  const states = useMemo(
+    () =>
+      selectedCountryCode ? State.getStatesOfCountry(selectedCountryCode) : [],
+    [selectedCountryCode]
+  );
+  const stateOptions = useMemo(
+    () => states.map((s) => ({ value: s.isoCode, label: s.name })),
+    [states]
+  );
+  const stateByCode = useMemo(() => {
+    const m = new Map<string, { name: string; code: string }>();
+    for (const s of states) m.set(s.isoCode, { name: s.name, code: s.isoCode });
+    return m;
+  }, [states]);
+
+  const selectedStateName = (formValues?.departamento ?? "") as string;
+  const selectedStateCode =
+    states.find((s) => s.name === selectedStateName)?.isoCode || "";
+
+  // Ciudades
+  const cities = useMemo(() => {
+    if (!selectedCountryCode) return [];
+    if (selectedStateCode)
+      return City.getCitiesOfState(selectedCountryCode, selectedStateCode);
+    return City.getCitiesOfCountry(selectedCountryCode);
+  }, [selectedCountryCode, selectedStateCode]);
+
+  const cityOptions = useMemo(
+    () =>
+      cities?.map((c) => ({
+        value: `${c.name}::${c.stateCode ?? ""}`,
+        label: c.name,
+      })),
+    [cities]
+  );
+
+  const selectedCityName = (value as string) || "";
+  const selectedCityKey = useMemo(() => {
+    if (!selectedCityName) return null;
+    if (selectedStateCode) return `${selectedCityName}::${selectedStateCode}`;
+    const found = cities?.find((c) => c.name === selectedCityName);
+    return found ? `${found.name}::${found.stateCode ?? ""}` : null;
+  }, [selectedCityName, selectedStateCode, cities]);
+
+  // ====== OBLIGATORIEDAD DINÁMICA (depto/city solo cuando país = CO) ======
   const isLocationField = lname === "departamento" || lname === "city";
+  const isColombia = selectedCountryCode === "CO";
   const effectiveMandatory =
-    (prop.mandatory ?? false) ||
-    (isLocationField && selectedCountryName === "Colombia");
+    (prop.mandatory ?? false) || (isLocationField && isColombia);
 
   const isEmpty = value == null || value === "";
   const requiredError =
@@ -89,6 +194,23 @@ export default function DynamicField({
 
   // Error a mostrar (prioridad: externo > interno > requerido)
   const composedError = externalError ?? errorText ?? requiredError;
+
+  // ====== Indicativo de país (auto)
+  const getNormalizedPhoneCode = (code?: string | null) => {
+    if (!code) return "";
+    const first = String(code).split(",")[0].trim();
+    return first ? `+${first.replace(/^\+/, "")}` : "";
+  };
+
+  useEffect(() => {
+    if (!selectedCountryCode) return;
+    const phonecode = countryByCode.get(selectedCountryCode)?.phonecode ?? null;
+    const normalized = getNormalizedPhoneCode(phonecode);
+    if (normalized && formValues?.indicativodepais !== normalized) {
+      onChange("indicativodepais", normalized);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCountryCode]);
 
   // ====== Sanitización en onChange (incluye recorte a 15) ======
   const sanitizeOnChange = useCallback(
@@ -149,95 +271,6 @@ export default function DynamicField({
     },
     [isNamesField, isSurnamesField, isEmailField, isIdField, isPhoneField]
   );
-
-  // ====== País / Departamento / Ciudad ======
-  const countries = useMemo(() => Country.getAllCountries(), []);
-  const countryOptions = useMemo(
-    () => countries.map((c) => ({ value: c.isoCode, label: c.name })),
-    [countries]
-  );
-  const countryByCode = useMemo(() => {
-    const m = new Map<
-      string,
-      { name: string; iso: string; phonecode?: string | null }
-    >();
-    for (const c of countries)
-      m.set(c.isoCode, {
-        name: c.name,
-        iso: c.isoCode,
-        phonecode: (c as any).phonecode ?? null,
-      });
-    return m;
-  }, [countries]);
-  const countryCodeByName = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const c of countries) m.set(c.name, c.isoCode);
-    return m;
-  }, [countries]);
-
-  const selectedCountryCode = countryCodeByName.get(selectedCountryName) || "";
-
-  // Estados/Deptos del país
-  const states = useMemo(
-    () =>
-      selectedCountryCode ? State.getStatesOfCountry(selectedCountryCode) : [],
-    [selectedCountryCode]
-  );
-  const stateOptions = useMemo(
-    () => states.map((s) => ({ value: s.isoCode, label: s.name })),
-    [states]
-  );
-  const stateByCode = useMemo(() => {
-    const m = new Map<string, { name: string; code: string }>();
-    for (const s of states) m.set(s.isoCode, { name: s.name, code: s.isoCode });
-    return m;
-  }, [states]);
-
-  const selectedStateName = (formValues?.departamento ?? "") as string;
-  const selectedStateCode =
-    states.find((s) => s.name === selectedStateName)?.isoCode || "";
-
-  // Ciudades
-  const cities = useMemo(() => {
-    if (!selectedCountryCode) return [];
-    if (selectedStateCode)
-      return City.getCitiesOfState(selectedCountryCode, selectedStateCode);
-    return City.getCitiesOfCountry(selectedCountryCode);
-  }, [selectedCountryCode, selectedStateCode]);
-
-  const cityOptions = useMemo(
-    () =>
-      cities?.map((c) => ({
-        value: `${c.name}::${c.stateCode ?? ""}`,
-        label: c.name,
-      })),
-    [cities]
-  );
-
-  const selectedCityName = (value as string) || "";
-  const selectedCityKey = useMemo(() => {
-    if (!selectedCityName) return null;
-    if (selectedStateCode) return `${selectedCityName}::${selectedStateCode}`;
-    const found = cities?.find((c) => c.name === selectedCityName);
-    return found ? `${found.name}::${found.stateCode ?? ""}` : null;
-  }, [selectedCityName, selectedStateCode, cities]);
-
-  // Indicativo de país (auto)
-  const getNormalizedPhoneCode = (code?: string | null) => {
-    if (!code) return "";
-    const first = String(code).split(",")[0].trim();
-    return first ? `+${first.replace(/^\+/, "")}` : "";
-  };
-
-  useEffect(() => {
-    if (!selectedCountryCode) return;
-    const phonecode = countryByCode.get(selectedCountryCode)?.phonecode ?? null;
-    const normalized = getNormalizedPhoneCode(phonecode);
-    if (normalized && formValues?.indicativodepais !== normalized) {
-      onChange("indicativodepais", normalized);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCountryCode]);
 
   // ====== Helpers para bloqueo duro en input ======
   const numericKeyDown = (
@@ -308,7 +341,7 @@ export default function DynamicField({
     // Si cabe, dejamos que siga y sanitizeOnChange reforzará
   };
 
-  // Props comunes para TextInput/Textarea
+  // ====== Props comunes para TextInput/Textarea ======
   const common = {
     label: prop.label,
     placeholder: isPhoneField ? "3121234567" : prop.label,
@@ -335,28 +368,29 @@ export default function DynamicField({
         placeholder={prop.label}
         searchable
         clearable
-        data={countryOptions}
-        value={selectedCountryCode || null}
+        data={countryOptions} // etiquetas en español
+        value={selectedCountryCode || null} // trabajamos con ISO
         required={effectiveMandatory}
         withAsterisk={!!effectiveMandatory}
         error={composedError}
         onChange={(code) => {
-          const countryName = code ? countryByCode.get(code)?.name ?? "" : "";
-          onChange(prop.name, countryName); // guardas NOMBRE
+          const info = code ? countryByCode.get(code) : undefined;
+          const countryNameES = info?.nameES ?? "";
 
-          // Indicativo de país (auto)
-          const phonecode = code
-            ? countryByCode.get(code)?.phonecode ?? null
-            : null;
-          const normalized = getNormalizedPhoneCode(phonecode);
+          // Guarda ambos (recomendado)
+          onChange("pais_iso", code || ""); // ISO: "ES"
+          onChange(prop.name, countryNameES); // Nombre mostrado: "España"
+
+          // Indicativo
+          const normalized = getNormalizedPhoneCode(info?.phonecode ?? null);
           onChange("indicativodepais", normalized);
 
-          // Reglas de dpto/ciudad
-          const isColombia = countryName === "Colombia";
+          // Reglas de dpto/ciudad (por ISO)
+          const isCol = code === "CO";
           if ("departamento" in (formValues ?? {}))
-            onChange("departamento", isColombia ? "" : "No aplica");
+            onChange("departamento", isCol ? "" : "No aplica");
           if ("city" in (formValues ?? {}))
-            onChange("city", isColombia ? "" : "No aplica");
+            onChange("city", isCol ? "" : "No aplica");
         }}
         mb="sm"
         description={hintText}
@@ -364,8 +398,8 @@ export default function DynamicField({
     );
   }
 
-  // Mostrar/ocultar depto/ciudad según país
-  const shouldShowDeptoCity = selectedCountryName === "Colombia";
+  // Mostrar/ocultar depto/ciudad según país (ISO CO)
+  const shouldShowDeptoCity = selectedCountryCode === "CO";
 
   if (lname === "departamento") {
     if (!shouldShowDeptoCity) {
@@ -434,13 +468,19 @@ export default function DynamicField({
           if ("departamento" in (formValues ?? {}))
             onChange("departamento", stateName);
 
-          // Mantener país correcto por NOMBRE
-          const countryName =
-            countryByCode.get(selectedCountryCode)?.name ?? "";
+          // Mantener país correcto por NOMBRE (ES) e ISO
+          const info = selectedCountryCode
+            ? countryByCode.get(selectedCountryCode)
+            : undefined;
           if ("pais" in (formValues ?? {})) {
             const current = (formValues?.pais as string) || "";
-            if (!current || current !== countryName)
-              onChange("pais", countryName);
+            const nameES = info?.nameES ?? "";
+            if (!current || current !== nameES) onChange("pais", nameES);
+          }
+          if ("pais_iso" in (formValues ?? {})) {
+            const currentISO = (formValues?.pais_iso as string) || "";
+            if (!currentISO || currentISO !== selectedCountryCode)
+              onChange("pais_iso", selectedCountryCode);
           }
         }}
         mb="sm"
