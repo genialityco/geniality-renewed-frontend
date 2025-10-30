@@ -22,7 +22,7 @@ export default function EventsGrid({
             >
               {(event.picture || event.styles?.event_image) && (
                 <Image
-                  src={event.picture || event.styles?.event_image}
+                  src={event.picture || event.styles?.banner_image}
                   alt={event.name}
                   style={{ objectFit: "contain" }}
                 />
