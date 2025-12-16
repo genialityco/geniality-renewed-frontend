@@ -57,8 +57,8 @@ function ActivityMiniCard({ activity, host, onClick }: ActivityMiniCardProps) {
       p="sm"
       style={{
         cursor: "pointer",
-        minWidth: 160,
-        maxWidth: 160,
+        minWidth: 180,
+        maxWidth: 180,
         position: "relative",
         background: "white",
       }}
