@@ -85,8 +85,8 @@ function ActivityCard({ activity, hosts, onClick }: ActivityCardProps) {
           <Avatar
             src={activityHosts[0].image}
             alt={activityHosts[0].name}
-            size={60}
-            radius="xl"
+            size={100}
+            radius="md"
           />
         ) : (
           <Avatar size={60} radius="xl" />
