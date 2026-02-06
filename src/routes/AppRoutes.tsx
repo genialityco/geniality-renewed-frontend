@@ -14,6 +14,7 @@ import AdminOrganizationEvents from "../pages/admin/index";
 import PaymentStatus from "../pages/payment/PaymentStatus";
 import OrganizationLanding from "../pages/organizationLanding";
 import SuperAdmin from "../pages/superadmin";
+import ExamPage from "../pages/course/ExamPage";
 
 import { RequireAuth, RequireMembership } from "./guards";
 
@@ -57,6 +58,7 @@ export default function AppRoutes() {
 
           {/* ⭐ NUEVA ruta protegida: /organization/:organizationId/recuperar-datos?token=... */}
           <Route path="recuperar-datos" element={<Recovery />} />
+          <Route path="course/:eventId/exam" element={<ExamPage />} />
         </Route>
 
         {/* Rutas que requieren rol admin (si luego agregas RequireAdmin, envuélvela) */}

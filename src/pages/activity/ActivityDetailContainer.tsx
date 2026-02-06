@@ -11,7 +11,7 @@ import { getActivityById } from "../../services/activityService";
 import ActivityDetail from "../../components/ActivityDetail";
 
 // Importa tu componente QuizDrawer
-import QuizDrawer from "../../components/QuizDrawer";
+//import QuizDrawer from "../../components/QuizDrawer";
 
 // (Opcional) función para formatear el tiempo
 function formatTime(seconds: number): string {
@@ -114,12 +114,12 @@ export default function ActivityDetailContainer() {
       />
 
       {/* 8. Renderiza aquí tu QuizDrawer con transcript, que se abre/cierra por el estado */}
-      <QuizDrawer
+      {/* <QuizDrawer
         opened={drawerQuestionnaireOpen}
         onClose={() => setDrawerQuestionnaireOpen(false)}
         transcript={activity.description || ""}
         activityId=""
-      />
+      /> */}
     </ Container>
   );
 }

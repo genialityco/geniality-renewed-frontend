@@ -22,11 +22,12 @@ import {
   createOrUpdateActivityAttendee,
   ActivityAttendeePayload,
 } from "../services/activityAttendeeService";
-import { fetchQuizByActivity } from "../services/quizService";
-import { fetchQuizAttemptsByUserAndQuiz } from "../services/quizAttemptService";
+//import { fetchQuizByActivity } from "../services/quizService";
+//import { fetchQuizAttemptsByUserAndQuiz } from "../services/quizAttemptService";
 
 import { useUser } from "../context/UserContext";
-import { Activity, Host, Quiz, QuizAttempt } from "../services/types";
+import { Activity, Host } from "../services/types";
+//import { Activity, Host, Quiz, QuizAttempt } from "../services/types";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 interface Fragment {
@@ -40,12 +41,12 @@ interface ActivityDetailProps {
   activity: Activity | null; // Actividad seleccionada
   eventId: string; // ID del evento (para enlaces, etc.)
   shareUrl: string; // URL para compartir
-  onStartQuestionnaire: () => void; // Callback para abrir el quiz (Drawer)
   activities: Activity[]; // Lista de actividades
-
+  
   videoTime?: number | null;
   fragments?: Fragment[];
   formatTime?: (seconds: number) => string;
+  onStartQuestionnaire?: () => void; // Callback para abrir el quiz (Drawer)
 }
 
 export default function ActivityDetail({
@@ -106,20 +107,20 @@ export default function ActivityDetail({
   const [fragments, _setFragments] = useState<Fragment[]>(
     fragmentsFromUrl.length > 0
       ? [...fragmentsFromUrl].sort((a, b) => a.startTime - b.startTime)
-      : _frags
+      : _frags,
   );
 
   const [videoTime, setVideoTime] = useState<number | null>(
-    !isNaN(tParam) && tParam >= 0 ? tParam : null
+    !isNaN(tParam) && tParam >= 0 ? tParam : null,
   );
 
   // STATES
   const [videoProgress, setVideoProgress] = useState<number>(
-    activity?.video_progress || 0
+    activity?.video_progress || 0,
   );
   const [hosts, setHosts] = useState<Host[]>([]);
-  const [_quiz, setQuiz] = useState<Quiz | null>(null);
-  const [_quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
+  //const [_quiz, setQuiz] = useState<Quiz | null>(null);
+  //const [_quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
   const [shareNotification, setShareNotification] = useState(false);
 
   const [player, setPlayer] = useState<Player | null>(null);
@@ -146,34 +147,34 @@ export default function ActivityDetail({
   };
 
   // B) Cargar quiz
-  const loadQuizAndAttempts = async () => {
-    if (!activity) return;
+  // const loadQuizAndAttempts = async () => {
+  //   if (!activity) return;
 
-    if (!userId || !activity._id) return;
-    try {
-      const quizResult = await fetchQuizByActivity(activity._id);
-      if (quizResult) {
-        setQuiz(quizResult);
-        // Cargar intentos
-        const atts = await fetchQuizAttemptsByUserAndQuiz(
-          quizResult._id,
-          userId
-        );
-        setQuizAttempts(atts);
-      } else {
-        setQuiz(null);
-        setQuizAttempts([]);
-      }
-    } catch (error) {
-      console.error("No se pudo cargar el quiz o intentos:", error);
-      setQuiz(null);
-      setQuizAttempts([]);
-    }
-  };
+  //   if (!userId || !activity._id) return;
+  //   try {
+  //     const quizResult = await fetchQuizByActivity(activity._id);
+  //     if (quizResult) {
+  //       setQuiz(quizResult);
+  //       // Cargar intentos
+  //       const atts = await fetchQuizAttemptsByUserAndQuiz(
+  //         quizResult._id,
+  //         userId
+  //       );
+  //       setQuizAttempts(atts);
+  //     } else {
+  //       setQuiz(null);
+  //       setQuizAttempts([]);
+  //     }
+  //   } catch (error) {
+  //     console.error("No se pudo cargar el quiz o intentos:", error);
+  //     setQuiz(null);
+  //     setQuizAttempts([]);
+  //   }
+  // };
 
   useEffect(() => {
     loadHosts();
-    loadQuizAndAttempts();
+    //loadQuizAndAttempts();
   }, [activity, userId]);
 
   // ==================================================
@@ -203,7 +204,7 @@ export default function ActivityDetail({
       } catch (err) {
         console.error(
           "Error inscribiendo al usuario en la actividad/curso:",
-          err
+          err,
         );
       }
     };
@@ -323,7 +324,7 @@ export default function ActivityDetail({
         {/* Mostrar flecha solo si la URL es organizations/:orgId/activitydetail/:activityId */}
         {(() => {
           const match = window.location.pathname.match(
-            /^\/organization\/[^/]+\/activitydetail\/[^/]+/
+            /^\/organization\/[^/]+\/activitydetail\/[^/]+/,
           );
           if (match) {
             return (
@@ -336,7 +337,7 @@ export default function ActivityDetail({
                     : window.location.assign(
                         `/organization/${
                           window.location.pathname.split("/")[2]
-                        }`
+                        }`,
                       );
                 }}
               />

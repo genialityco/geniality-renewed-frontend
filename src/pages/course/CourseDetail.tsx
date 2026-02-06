@@ -19,6 +19,7 @@ import {
   Image,
   Avatar,
   Stack,
+  Button, // ✅ faltaba
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -34,7 +35,6 @@ import { getModulesByEventId } from "../../services/moduleService";
 import { getActivitiesByEvent } from "../../services/activityService";
 import { Event, Module, Activity, Host } from "../../services/types";
 
-import QuizDrawer from "../../components/QuizDrawer";
 import ActivityDetail from "../../components/ActivityDetail";
 
 // IMPORTACIONES PARA REGISTRO DE CURSO
@@ -55,7 +55,7 @@ interface ActivityCardProps {
 function ActivityCard({ activity, hosts, onClick }: ActivityCardProps) {
   const progress = activity.video_progress || 0;
   let statusLabel = "Sin ver";
-  let statusColor = "gray";
+  let statusColor: any = "gray";
 
   if (progress > 0 && progress < 100) {
     statusLabel = "Viendo";
@@ -67,7 +67,7 @@ function ActivityCard({ activity, hosts, onClick }: ActivityCardProps) {
 
   // Filtramos los hosts asignados a esta actividad
   const activityHosts = hosts.filter((host) =>
-    host.activities_ids?.includes(activity._id)
+    host.activities_ids?.includes(activity._id),
   );
 
   return (
@@ -121,8 +121,8 @@ function ActivityCard({ activity, hosts, onClick }: ActivityCardProps) {
 
 export default function CourseDetail() {
   const { eventId } = useParams<{ eventId: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { organizationId } = useParams<{ organizationId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const [event, setEvent] = useState<Event | null>(null);
@@ -133,7 +133,7 @@ export default function CourseDetail() {
 
   // Actividad seleccionada
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
-    null
+    null,
   );
 
   // Control de apertura/colapso navbar
@@ -143,11 +143,18 @@ export default function CourseDetail() {
   const [drawerChatOpen, setDrawerChatOpen] = useState(false);
   const [drawerForumOpen, setDrawerForumOpen] = useState(false);
 
-  // Drawer del Cuestionario
-  const [drawerQuestionnaireOpen, setDrawerQuestionnaireOpen] = useState(false);
-
   // Obtener el userId desde el contexto
   const { userId } = useUser();
+
+  // ✅ Ir al componente/página de examen
+  const handleGoToExam = () => {
+    if (!organizationId || !eventId) {
+      console.error("Falta organizationId o eventId para navegar al examen");
+      return;
+    }
+    // No pases userId por URL; se toma del contexto en ExamPage
+    navigate(`/organization/${organizationId}/course/${eventId}/exam`);
+  };
 
   // Cargar datos iniciales (Evento, Módulos, Actividades, Hosts)
   useEffect(() => {
@@ -170,7 +177,7 @@ export default function CourseDetail() {
           const activityParam = searchParams.get("activity");
           if (activityParam) {
             const foundActivity = activitiesData.find(
-              (act) => act._id === activityParam
+              (act) => act._id === activityParam,
             );
             if (foundActivity) {
               setSelectedActivity(foundActivity);
@@ -209,11 +216,6 @@ export default function CourseDetail() {
   if (loading) return <Loader />;
   if (!event) return <Text>Curso no encontrado</Text>;
 
-  // Handler para iniciar el cuestionario (abrir el Drawer)
-  const handleStartQuestionnaire = () => {
-    setDrawerQuestionnaireOpen(true);
-  };
-
   function getShareUrl(activity: Activity) {
     return `${window.location.origin}/organization/${organizationId}/course/${eventId}?activity=${activity._id}`;
   }
@@ -229,22 +231,22 @@ export default function CourseDetail() {
       }
     };
 
-    // Obtiene la fecha válida del objeto actividad
     const getCreatedDate = (activity: Activity) => {
-      // Intenta los distintos campos posibles
       return (
+        // @ts-ignore
         activity.create_at ||
         activity.created_at ||
+        // @ts-ignore
         activity.createAt ||
+        // @ts-ignore
         activity.createdAt ||
         null
       );
     };
 
-    // Ordena por la fecha encontrada (ascendente)
     const sortedActivities = [...activities].sort((a, b) => {
-      const dateA = new Date(getCreatedDate(a)).getTime();
-      const dateB = new Date(getCreatedDate(b)).getTime();
+      const dateA = new Date(getCreatedDate(a) as any).getTime();
+      const dateB = new Date(getCreatedDate(b) as any).getTime();
       return dateA - dateB;
     });
 
@@ -271,16 +273,15 @@ export default function CourseDetail() {
   const renderModules = () => {
     if (!modules.length) return <Text size="sm">No hay módulos</Text>;
 
-    // Ordenar por el campo "order" ascendente (de menor a mayor)
     const orderedModules = [...modules].sort(
-      (a, b) => (a.order ?? 0) - (b.order ?? 0)
+      (a, b) => (a.order ?? 0) - (b.order ?? 0),
     );
 
     return (
       <Accordion variant="separated" multiple>
         {orderedModules.map((module) => {
           const actividadesDelModulo = activities.filter(
-            (activity) => activity.module_id === module._id
+            (activity) => activity.module_id === module._id,
           );
 
           const totalActividades = actividadesDelModulo.length;
@@ -288,12 +289,12 @@ export default function CourseDetail() {
             totalActividades > 0
               ? actividadesDelModulo.reduce(
                   (acc, activity) => acc + (activity.video_progress || 0),
-                  0
+                  0,
                 ) / totalActividades
               : 0;
 
           let moduloStatus = "Sin progreso";
-          let moduloColor = "gray";
+          let moduloColor: any = "gray";
 
           if (progresoModulo > 0 && progresoModulo < 100) {
             moduloStatus = "En progreso";
@@ -308,7 +309,7 @@ export default function CourseDetail() {
               <Accordion.Control>
                 <Group justify="space-between">
                   <Text>{module.module_name}</Text>
-                  <Text size="xs" color={moduloColor}>
+                  <Text size="xs" c={moduloColor}>
                     {moduloStatus} ({Math.round(progresoModulo)}%)
                   </Text>
                 </Group>
@@ -331,7 +332,7 @@ export default function CourseDetail() {
                     />
                   ))
                 ) : (
-                  <Text size="sm" color="dimmed">
+                  <Text size="sm" c="dimmed">
                     Sin actividades
                   </Text>
                 )}
@@ -343,31 +344,36 @@ export default function CourseDetail() {
     );
   };
 
-  // Render principal: si no hay actividad seleccionada, mostramos un mensaje
+  // Render principal
   const renderMainContent = () => {
     const sortedActivities = [...activities].sort(
       (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        new Date((a as any).created_at).getTime() -
+        new Date((b as any).created_at).getTime(),
     );
+
     if (!selectedActivity) {
       return (
-        <Card shadow="sm" radius="md">
-          <Text size="md" fw={500}>
-            Bienvenido(a) al curso {event.name}.
-          </Text>
-          <Text size="sm" c="dimmed">
-            Selecciona una actividad para ver detalles
-          </Text>
+        <Card shadow="sm" radius="md" p="md">
+          <Group justify="space-between" mb="sm" align="center">
+            <Text size="md" fw={500}>
+              Bienvenido(a) al curso {event.name}.
+            </Text>
+
+            <Button onClick={handleGoToExam}>Realizar examen</Button>
+          </Group>
+
           <Text size="lg" fw={600}>
             Módulos y actividades
           </Text>
+
           {modules.length ? renderModules() : renderActivities()}
 
-          {/* Mostrar conferencistas debajo de módulos/actividades */}
           <Divider my="lg" />
           <Text size="lg" fw={600} mb="sm">
             Conferencistas
           </Text>
+
           {hosts.length === 0 ? (
             <Text size="sm" c="dimmed">
               No hay conferencistas asignados.
@@ -400,14 +406,12 @@ export default function CourseDetail() {
       );
     }
 
-    // Si hay actividad seleccionada, mostramos el detalle
     return (
       <div>
-        <Image src={event.styles.banner_footer} fit="contain" />
+        <Image src={(event as any).styles?.banner_footer} fit="contain" />
         <ActivityDetail
           activity={selectedActivity}
           eventId={event._id}
-          onStartQuestionnaire={handleStartQuestionnaire}
           shareUrl={selectedActivity ? getShareUrl(selectedActivity) : ""}
           activities={sortedActivities}
         />
@@ -418,14 +422,11 @@ export default function CourseDetail() {
   // Handler para navegación hacia atrás
   const handleBack = () => {
     if (searchParams.has("activity")) {
-      // Si hay actividad seleccionada por query param, limpia el query param y selecciona null
       setSearchParams({});
       setSelectedActivity(null);
     } else if (organizationId && eventId) {
-      // Si está en /organization/:organizationId/course/:eventId sin query, navega a la lista de organizaciones
       window.location.href = `${window.location.origin}/organization/${organizationId}`;
     } else {
-      // Fallback: navega a la raíz de organizaciones
       window.location.href = `${window.location.origin}/organization`;
     }
   };
@@ -460,9 +461,10 @@ export default function CourseDetail() {
             <Group>
               <img
                 height={40}
-                src={event.styles.event_image}
+                src={(event as any).styles?.event_image}
                 alt="Evento"
                 onClick={handleBackHome}
+                style={{ cursor: "pointer" }}
               />
             </Group>
             <Group>
@@ -477,7 +479,7 @@ export default function CourseDetail() {
         </Flex>
       </AppShell.Header>
 
-      {/* NAVBAR LATERAL */}
+      {/* NAVBAR */}
       <AppShell.Navbar p="md" onMouseLeave={() => opened && close()}>
         <ScrollArea style={{ height: "calc(100vh - 80px)" }} type="auto">
           <Text size="xs" fw={700} mb="xs">
@@ -538,16 +540,8 @@ export default function CourseDetail() {
         size="lg"
         position="right"
       >
-        <Text>Sección de foro, Q&A o discusiones del curso...</Text>
+        <Text>Sección de foro, Q&amp;A o discusiones del curso...</Text>
       </Drawer>
-
-      {/* DRAWER - CUESTIONARIO (Quiz) */}
-      <QuizDrawer
-        opened={drawerQuestionnaireOpen}
-        onClose={() => setDrawerQuestionnaireOpen(false)}
-        transcript={selectedActivity?.description || ""}
-        activityId={selectedActivity?._id || ""}
-      />
     </AppShell>
   );
 }

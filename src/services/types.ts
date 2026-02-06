@@ -127,16 +127,16 @@ export interface CourseAttendee {
   createdAt?: string;
   updatedAt?: string;
 }
+export type QuizUserResult = { userId: string; result: number };
 
-
-// Interfaz en TypeScript para tu Quiz
-export interface Quiz {
-  _id: string;
-  activity_id: string;      // ID de la actividad
-  quiz_json: any;           // El JSON de Survey
+export type Quiz = {
+  id: string; // quizId (uuid)
+  eventId: string;
+  questions: any; // tu array o json
+  listUser: QuizUserResult[];
   createdAt?: string;
   updatedAt?: string;
-}
+};
 
 export interface QuizAttempt {
   _id: string;
@@ -186,12 +186,13 @@ export enum PropertyType {
 // 2) La interfaz que describe cada propiedad de registro
 export interface UserProperty {
   dependency: any;
-  name: string;               // clave interna (p. ej. "ID", "pais", "phone"…)
+  name: string; // clave interna (p. ej. "ID", "pais", "phone"…)
   label: string;
-  unique: boolean,         // etiqueta para mostrar
-  type: PropertyType;         // uno de los valores de PropertyType
-  mandatory: boolean;         // si es obligatorio
-  options?: {                 // solo para type === LIST
+  unique: boolean; // etiqueta para mostrar
+  type: PropertyType; // uno de los valores de PropertyType
+  mandatory: boolean; // si es obligatorio
+  options?: {
+    // solo para type === LIST
     label: string;
     value: string;
   }[];
@@ -214,5 +215,5 @@ export type UserOrganizationCard = {
     properties?: any;
     created_at?: string;
     updated_at?: string;
-  }
+  };
 };
