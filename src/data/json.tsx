@@ -2,9 +2,7 @@
 export const quizConfig = {
   title: "Quiz",
   showQuestionNumbers: "off",
-  showTimer: true,
-  timeLimitPerPage: 60,
-  timeLimit: 60
+  showTimer: false,
 };
 
 // Mensajes tras completar el cuestionario
