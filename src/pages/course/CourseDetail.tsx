@@ -46,8 +46,7 @@ import {
 import { fetchHostsByEventId } from "../../services/hostsService";
 
 // IMPORTACIONES PARA QUIZ/EXAMEN
-import { fetchStudentQuiz, fetchUserQuizAttempts } from "../../services/quizService";
-import { AttemptResult, StudentQuizDTO } from "../../types/quiz.types";
+import { fetchUserQuizAttempts } from "../../services/quizService";
 
 // Componente auxiliar para renderizar la tarjeta de actividad
 interface ActivityCardProps {
@@ -136,8 +135,7 @@ export default function CourseDetail() {
   const [loading, setLoading] = useState(true);
 
   // Estados para Quiz/Examen
-  const [quiz, setQuiz] = useState<StudentQuizDTO | null>(null);
-  const [userAttempts, setUserAttempts] = useState<AttemptResult[]>([]);
+  const [userAttempts, setUserAttempts] = useState<any>(null);
 
   // Actividad seleccionada
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
@@ -211,35 +209,34 @@ export default function CourseDetail() {
     enrollInCourse();
   }, [event, userId]);
 
-  // Efecto para cargar el quiz (examen) del evento
+  // Efecto para cargar los intentos del usuario
   useEffect(() => {
-    if (!eventId) return;
+    if (!eventId || !userId) {
+      console.log("⚠️ Falta eventId o userId para cargar intentos:", { eventId, userId });
+      setUserAttempts(null);
+      return;
+    }
 
-    const loadQuizData = async () => {
+    const loadUserAttempts = async () => {
       try {
-        // Obtener el quiz si existe
-        const quizData = await fetchStudentQuiz(eventId);
-        setQuiz(quizData);
-
-        // Si existe quiz y hay userId, obtener los intentos del usuario
-        if (quizData && userId) {
-          try {
-            const attempts = await fetchUserQuizAttempts(eventId, userId);
-            setUserAttempts(attempts);
-          } catch (error) {
-            console.error("Error cargando intentos del usuario:", error);
-            setUserAttempts([]);
-          }
+        console.log("📡 Cargando intentos del usuario para eventId:", eventId, "userId:", userId);
+        const attempts = await fetchUserQuizAttempts(eventId, userId);
+        console.log("✅ Intentos cargados (raw):", attempts);
+        
+        // Si es un objeto único, usarlo directamente
+        if (attempts && typeof attempts === 'object' && !Array.isArray(attempts)) {
+          console.log("✅ Intentos asignado:", attempts);
+          setUserAttempts(attempts as any);
+        } else {
+          setUserAttempts(null);
         }
       } catch (error) {
-        console.error("Error cargando quiz:", error);
-        setQuiz(null);
-        setUserAttempts([]);
-      } finally {
+        console.error("❌ Error cargando intentos del usuario:", error);
+        setUserAttempts(null);
       }
     };
 
-    loadQuizData();
+    loadUserAttempts();
   }, [eventId, userId]);
 
   if (loading) return <Loader />;
@@ -251,32 +248,48 @@ export default function CourseDetail() {
 
   // Función para renderizar los botones del examen
   const renderExamButtons = () => {
-    // Si no hay quiz, no mostrar nada
-    if (!quiz) {
-      return null;
-    }
+    console.log("🎯 renderExamButtons - userAttempts:", userAttempts);
+    
+    const listUser = (userAttempts as any)?.listUser;
+    const hasAttempts = userAttempts && listUser && listUser.length > 0;
+    
+    if (hasAttempts) {
+      // El usuario ya realizó el examen
+      const userAttemptData = listUser[0];
+      console.log("👤 Usuario ha intentado: true");
+      console.log("📝 Intento del usuario:", userAttemptData);
+      console.log("📝 Propiedades disponibles:", Object.keys(userAttemptData));
+      console.log("📝 quizAttemptId:", userAttemptData.quizAttemptId);
+      console.log("📝 userId:", userAttemptData.userId);
+      console.log("📝 result:", userAttemptData.result);
+      
+      const result = userAttemptData.result || 0;
+      const maxScore = 5; // Valor por defecto
+      const percentage = Math.round((result / maxScore) * 100);
+      
+      console.log("📊 Resultado:", result, "Máx:", maxScore, "Porcentaje:", percentage);
+      
+      const attemptIdToUse = userAttemptData.quizAttemptId;
+      console.log("🔗 URL que se usará:", `/organization/${organizationId}/course/${eventId}/exam-results/${attemptIdToUse}`);
 
-    // Verificar si el usuario ya realizó el examen
-    const userHasAttempted = userAttempts && userAttempts.length > 0;
-
-    if (userHasAttempted) {
-      // Si ya realizó el examen, mostrar botón para ver resultados
-      const lastAttempt = userAttempts[0];
       return (
-        <Group mt="md" mb="md">
-          <Button
-            color="gray"
-            variant="light"
-            onClick={() => {
-              navigate(`/organization/${organizationId}/course/${eventId}/exam-results/${lastAttempt.id}`);
-            }}
-          >
-            Ver resultados de examen
-          </Button>
+        <Group mt="md" mb="md" align="flex-start">
+          <div style={{ flex: 1 }}>
+            <Button
+              color="gray"
+              onClick={() => {
+                console.log("📌 Navegando con attemptId:", attemptIdToUse);
+                navigate(`/organization/${organizationId}/course/${eventId}/exam-results/${attemptIdToUse}`);
+              }}
+            >
+              Revisión de examen
+            </Button>
+          </div>
         </Group>
       );
     } else {
-      // Si no ha realizado el examen, mostrar botón para hacerlo
+      // El usuario aún no ha realizado el examen
+      console.log("✏️ Usuario aún no ha realizado el examen");
       return (
         <Group mt="md" mb="md">
           <Button

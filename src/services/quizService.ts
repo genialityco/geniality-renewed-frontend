@@ -254,6 +254,7 @@ export const evaluateAttempt = async (
   attemptId: string
 ): Promise<any> => {
   try {
+    console.log('🔍 Llamando evaluateAttempt con:', { eventId, attemptId });
     const response = await api.get<any>(
       `/quiz/${eventId}/attempt/${attemptId}/evaluate`
     );
@@ -261,6 +262,8 @@ export const evaluateAttempt = async (
     return response.data;
   } catch (error: any) {
     console.error('❌ Error evaluateAttempt:', {
+      eventId,
+      attemptId,
       status: error?.response?.status,
       data: error?.response?.data,
       message: error.message

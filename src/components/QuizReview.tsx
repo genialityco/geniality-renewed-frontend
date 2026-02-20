@@ -1,4 +1,14 @@
-import { Stack, Card, Text, Box, Badge, Grid, Button, Group, Alert } from "@mantine/core";
+import {
+  Stack,
+  Card,
+  Text,
+  Box,
+  Badge,
+  Grid,
+  Button,
+  Group,
+  Alert,
+} from "@mantine/core";
 import { QuestionWithBlocks } from "./QuizEditor/types";
 import BlocksRenderer from "./BlocksRenderer";
 
@@ -7,6 +17,12 @@ interface QuizReviewProps {
   answers: Record<string, any>;
   correctAnswers?: QuestionWithBlocks[];
   onClose?: () => void;
+  result?: number;
+  statistics?: {
+    correctCount: number;
+    totalCount: number;
+    percentage: number;
+  };
 }
 
 export default function QuizReview({
@@ -14,6 +30,8 @@ export default function QuizReview({
   answers,
   correctAnswers = [],
   onClose,
+  result,
+  statistics,
 }: QuizReviewProps) {
   if (!questions || questions.length === 0) {
     return <Text>No hay preguntas para mostrar.</Text>;
@@ -21,35 +39,35 @@ export default function QuizReview({
 
   const getOptionLabel = (option: any): string => {
     if (!option) return "";
-    
+
     // Caso 1: opción es directamente un bloque de texto
     if (option.type === "text" && option.content) {
       return option.content;
     }
-    
+
     // Caso 2: opción contiene un array de bloques
     if (option.blocks && Array.isArray(option.blocks)) {
       const textBlock = option.blocks.find((b: any) => b.type === "text");
       return textBlock?.content || "";
     }
-    
+
     return "";
   };
 
   const getItemLabel = (item: any): string => {
     if (!item) return "";
-    
+
     // Caso 1: item es directamente un bloque de texto (para matching)
     if (item.type === "text" && item.content) {
       return item.content;
     }
-    
+
     // Caso 2: item contiene un array de bloques (para opciones)
     if (item.blocks && Array.isArray(item.blocks)) {
       const textBlock = item.blocks.find((b: any) => b.type === "text");
       return textBlock?.content || "";
     }
-    
+
     return "";
   };
 
@@ -60,6 +78,21 @@ export default function QuizReview({
 
   return (
     <Stack gap="lg">
+      {(result !== undefined || statistics) && (
+        <Card withBorder p="md" radius="md" style={{ backgroundColor: "rgba(59, 130, 246, 0.05)" }}>
+          <Stack gap="sm">
+            <Group justify="space-between" align="center">
+              <div>
+                <Text fw={600} size="lg">Calificación</Text>
+                <Text size="sm" c="dimmed">Revisión del examen</Text>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <Text fw={700} size="xl" c="blue">{result}/5</Text>
+              </div>
+            </Group>
+          </Stack>
+        </Card>
+      )}
       {questions.map((question, qIdx) => {
         const userAnswer = answers[question.id];
         let isCorrect = false;
@@ -70,15 +103,18 @@ export default function QuizReview({
           if (question.type === "single-choice") {
             const q = question as any;
             const opciones = Array.isArray(q.opciones) ? q.opciones : [];
-            
+
             // Obtener respuesta correcta del array correctAnswers
-            const correctQData = getCorrectAnswerForQuestion(question.id) as any;
-            const respuestaCorrecta = typeof correctQData?.respuestacorrecta === "number" 
-              ? correctQData.respuestacorrecta 
-              : -1;
-            
+            const correctQData = getCorrectAnswerForQuestion(
+              question.id,
+            ) as any;
+            const respuestaCorrecta =
+              typeof correctQData?.respuestacorrecta === "number"
+                ? correctQData.respuestacorrecta
+                : -1;
+
             isCorrect = userAnswer === respuestaCorrecta;
-            
+
             correctAnswerDisplay = (
               <Text>
                 Respuesta correcta:{" "}
@@ -89,7 +125,7 @@ export default function QuizReview({
                 </strong>
               </Text>
             );
-            
+
             userAnswerDisplay = (
               <Text>
                 Tu respuesta:{" "}
@@ -103,20 +139,26 @@ export default function QuizReview({
           } else if (question.type === "multiple-choice") {
             const q = question as any;
             const opciones = Array.isArray(q.opciones) ? q.opciones : [];
-            
+
             // Obtener respuestas correctas del array correctAnswers
-            const correctQData = getCorrectAnswerForQuestion(question.id) as any;
-            const respuestasCorrectas = Array.isArray(correctQData?.respuestascorrectas) 
-              ? correctQData.respuestascorrectas 
+            const correctQData = getCorrectAnswerForQuestion(
+              question.id,
+            ) as any;
+            const respuestasCorrectas = Array.isArray(
+              correctQData?.respuestascorrectas,
+            )
+              ? correctQData.respuestascorrectas
               : [];
             const userAnswerArray = Array.isArray(userAnswer) ? userAnswer : [];
-            
+
             const userAnswerSorted = [...userAnswerArray].sort();
             const correctAnswersSorted = [...respuestasCorrectas].sort();
-            
+
             isCorrect =
               userAnswerSorted.length === correctAnswersSorted.length &&
-              userAnswerSorted.every((val, idx) => val === correctAnswersSorted[idx]);
+              userAnswerSorted.every(
+                (val, idx) => val === correctAnswersSorted[idx],
+              );
 
             correctAnswerDisplay = (
               <Box>
@@ -125,7 +167,8 @@ export default function QuizReview({
                   {respuestasCorrectas.length > 0 ? (
                     respuestasCorrectas.map((idx: number) => (
                       <Text key={idx}>
-                        • {opciones[idx] ? getOptionLabel(opciones[idx]) : "N/A"}
+                        •{" "}
+                        {opciones[idx] ? getOptionLabel(opciones[idx]) : "N/A"}
                       </Text>
                     ))
                   ) : (
@@ -142,7 +185,8 @@ export default function QuizReview({
                   {userAnswerArray.length > 0 ? (
                     userAnswerArray.map((idx: number) => (
                       <Text key={idx}>
-                        • {opciones[idx] ? getOptionLabel(opciones[idx]) : "N/A"}
+                        •{" "}
+                        {opciones[idx] ? getOptionLabel(opciones[idx]) : "N/A"}
                       </Text>
                     ))
                   ) : (
@@ -154,22 +198,23 @@ export default function QuizReview({
           } else if (question.type === "matching") {
             const q = question as any;
             const pairs = Array.isArray(q.pairs) ? q.pairs : [];
-            
-            // Obtener emparejamientos correctos del array correctAnswers
-            const correctQData = getCorrectAnswerForQuestion(question.id) as any;
-            const correctPairings = Array.isArray(correctQData?.correctPairings) 
-              ? correctQData.correctPairings 
-              : [];
-            
-            const userAnswerObj = typeof userAnswer === "object" ? userAnswer : {};
-            
+
+            // Obtener emparejamientos correctos del objeto correctAnswers
+            const correctQData = getCorrectAnswerForQuestion(
+              question.id,
+            ) as any;
+            const correctPairingMap = correctQData?.correctPairings || {};
+
+            const userAnswerObj =
+              typeof userAnswer === "object" ? userAnswer : {};
+
             let allCorrect = true;
 
-            if (pairs.length > 0 && correctPairings.length > 0) {
+            if (pairs.length > 0) {
               for (let i = 0; i < pairs.length; i++) {
                 const pairId = pairs[i].id;
                 const userRightIdx = userAnswerObj[pairId];
-                const correctRightIdx = correctPairings[i];
+                const correctRightIdx = correctPairingMap[pairId];
                 if (userRightIdx !== correctRightIdx) {
                   allCorrect = false;
                   break;
@@ -186,14 +231,18 @@ export default function QuizReview({
                 <Text fw={600}>Emparejamientos correctos:</Text>
                 <Stack gap={8} mt={8}>
                   {pairs.length > 0 ? (
-                    pairs.map((pair: any, pairIdx: number) => {
-                      const correctRightIdx = correctPairings[pairIdx];
+                    pairs.map((pair: any) => {
+                      const correctRightIdx = correctPairingMap[pair.id];
                       const rightBlock =
                         correctRightIdx >= 0 && pair.rightBlocks
                           ? pair.rightBlocks[correctRightIdx]
                           : null;
                       return (
-                        <Box key={pairIdx} pl="md" style={{ borderLeft: "2px solid green" }}>
+                        <Box
+                          key={pair.id}
+                          pl="md"
+                          style={{ borderLeft: "2px solid green" }}
+                        >
                           <Text size="sm">{getItemLabel(pair.leftBlocks)}</Text>
                           <Text size="sm" c="green" fw={600}>
                             ↔ {rightBlock ? getItemLabel(rightBlock) : "N/A"}
@@ -213,9 +262,9 @@ export default function QuizReview({
                 <Text fw={600}>Tus emparejamientos:</Text>
                 <Stack gap={8} mt={8}>
                   {pairs.length > 0 ? (
-                    pairs.map((pair: any, pairIdx: number) => {
+                    pairs.map((pair: any) => {
                       const userRightIdx = userAnswerObj[pair.id];
-                      const correctRightIdx = correctPairings[pairIdx];
+                      const correctRightIdx = correctPairingMap[pair.id];
                       const isMatchCorrect = userRightIdx === correctRightIdx;
                       const borderColor = isMatchCorrect ? "green" : "red";
                       const textColor = isMatchCorrect ? "green" : "red";
@@ -226,7 +275,7 @@ export default function QuizReview({
 
                       return (
                         <Box
-                          key={pairIdx}
+                          key={pair.id}
                           pl="md"
                           style={{ borderLeft: `2px solid ${borderColor}` }}
                         >
@@ -249,18 +298,22 @@ export default function QuizReview({
           } else if (question.type === "ordering") {
             const q = question as any;
             const items = Array.isArray(q.items) ? q.items : [];
-            
+
             // Obtener orden correcto del array correctAnswers
-            const correctQData = getCorrectAnswerForQuestion(question.id) as any;
-            const correctOrder = Array.isArray(correctQData?.correctOrder) 
-              ? correctQData.correctOrder 
+            const correctQData = getCorrectAnswerForQuestion(
+              question.id,
+            ) as any;
+            const correctOrder = Array.isArray(correctQData?.correctOrder)
+              ? correctQData.correctOrder
               : [];
-            
+
             const userAnswerArray = Array.isArray(userAnswer) ? userAnswer : [];
-            
+
             isCorrect =
               userAnswerArray.length === correctOrder.length &&
-              userAnswerArray.every((id: string, idx: number) => id === correctOrder[idx]);
+              userAnswerArray.every(
+                (id: string, idx: number) => id === correctOrder[idx],
+              );
 
             correctAnswerDisplay = (
               <Box>

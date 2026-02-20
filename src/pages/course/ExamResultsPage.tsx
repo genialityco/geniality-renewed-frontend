@@ -9,15 +9,14 @@ import {
   Stack,
   Title,
   Badge,
-  Progress,
-  Alert,
   Container,
+  Alert,
 } from "@mantine/core";
 import { AttemptResult } from "../../types/quiz.types";
 import { useUser } from "../../context/UserContext";
 import { FaArrowLeft } from "react-icons/fa6";
-import QuizResponseReview from "../../components/QuizResponseReview";
-import { fetchAttemptResult } from "../../services/quizService";
+import QuizReview from "../../components/QuizReview";
+import { evaluateAttempt } from "../../services/quizService";
 
 export default function ExamResultsPage() {
   const { eventId, organizationId, attemptId } = useParams<{
@@ -33,6 +32,8 @@ export default function ExamResultsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showReview, setShowReview] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState<any[] | null>(null);
+  const [userAnswers, setUserAnswers] = useState<Record<string, any> | null>(null);
 
   useEffect(() => {
     if (!eventId || !organizationId || !attemptId) {
@@ -46,11 +47,124 @@ export default function ExamResultsPage() {
         setLoading(true);
         setError(null);
 
-        // Obtener el resultado del intento desde el backend
-        const response = await fetchAttemptResult(eventId, attemptId);
-        setAttempt(response);
+        console.log("📥 Cargando evaluación para eventId:", eventId, "attemptId:", attemptId);
+        
+        // Obtener la evaluación del intento (como en el admin)
+        const evaluation = await evaluateAttempt(eventId, attemptId);
+        console.log('📥 Evaluación cargada:', evaluation);
+        
+        console.log("🔍 Estructura de evaluation:", {
+          tieneQuiz: !!evaluation.quiz,
+          tienePreguntasEnQuiz: !!evaluation.quiz?.questions,
+          cantidadPreguntasEnQuiz: evaluation.quiz?.questions?.length,
+          tieneEvaluation: !!evaluation.evaluation,
+          cantidadItemsEnEvaluation: evaluation.evaluation?.length
+        });
+
+        // Guardar preguntas del quiz
+        if (evaluation.quiz?.questions) {
+          console.log("✅ Preguntas cargadas:", evaluation.quiz.questions.length);
+          setQuizQuestions(evaluation.quiz.questions);
+        } else {
+          console.warn("⚠️ No hay preguntas en evaluation.quiz");
+        }
+        
+        // Convertir respuestas del usuario al formato esperado por QuizReview
+        const answersMap: Record<string, any> = {};
+        
+        // Crear correctAnswers transformadas con las respuestas correctas
+        const correctAnswersTransformed: any[] = [];
+        
+        if (Array.isArray(evaluation.evaluation) && evaluation.quiz?.questions) {
+          console.log("📝 Evaluación items:", evaluation.evaluation.length);
+          console.log("📋 Preguntas disponibles para mapeo:", evaluation.quiz.questions.map((q: any) => q.id));
+          
+          evaluation.evaluation.forEach((item: any, idx: number) => {
+            console.log(`\n🔄 Procesando item ${idx}:`, {
+              questionId: item.questionId,
+              type: item.type,
+              hasUserAnswer: !!item.userAnswer,
+              correctAnswer: item.correctAnswer
+            });
+            
+            // Obtener la pregunta original
+            const originalQuestion = evaluation.quiz.questions.find((q: any) => q.id === item.questionId);
+            
+            if (!originalQuestion) {
+              console.warn(`⚠️ Pregunta no encontrada para questionId: ${item.questionId}`);
+              console.warn("   IDs disponibles:", evaluation.quiz.questions.map((q: any) => q.id));
+              return;
+            }
+            
+            console.log(`✅ Pregunta encontrada para ${item.questionId}`);
+            
+            // Crear respuesta correcta transformada según el tipo
+            let transformedCorrectQuestion: any = { ...originalQuestion };
+            
+            console.log(`   Tipo: ${item.type}`);
+            if (item.type === "single-choice") {
+              transformedCorrectQuestion.respuestacorrecta = item.correctAnswer;
+              console.log(`   Single-choice respuesta correcta:`, item.correctAnswer);
+            } else if (item.type === "multiple-choice") {
+              transformedCorrectQuestion.respuestascorrectas = item.correctAnswer;
+              console.log(`   Multiple-choice respuestas correctas:`, item.correctAnswer);
+            } else if (item.type === "matching") {
+              // Para matching, convertir el array de pairings correctos al mismo formato que userAnswer
+              // item.correctAnswer es: [{pairId: '...', correctIndex: 0}, {pairId: '...', correctIndex: 1}]
+              // Necesitamos: {pairId: 0, pairId: 1}
+              const correctPairsMap: Record<string, number> = {};
+              if (Array.isArray(item.correctAnswer)) {
+                item.correctAnswer.forEach((pair: any) => {
+                  if (pair.pairId || pair.id) {
+                    correctPairsMap[pair.pairId || pair.id] = pair.correctIndex ?? 0;
+                  }
+                });
+              }
+              transformedCorrectQuestion.correctPairings = correctPairsMap;
+              console.log(`   Matching correctPairings transformadas:`, correctPairsMap);
+              console.log(`   Matching correctAnswer original:`, item.correctAnswer);
+            } else if (item.type === "ordering") {
+              transformedCorrectQuestion.correctOrder = item.correctAnswer;
+              console.log(`   Ordering order:`, item.correctAnswer);
+            }
+            
+            correctAnswersTransformed.push(transformedCorrectQuestion);
+            console.log(`✨ Item ${idx} agregado a correctAnswersTransformed`);
+            
+            // Procesar respuesta del usuario
+            let response = item.userAnswer?.selectedOptionIndex 
+                        ?? item.userAnswer?.selectedOptionIndices 
+                        ?? item.userAnswer?.pairs 
+                        ?? item.userAnswer?.orderedItemIds;
+            
+            // Convertir pairs: strings a números para matching
+            if (item.userAnswer?.pairs && typeof item.userAnswer.pairs === 'object') {
+              const convertedPairs: Record<string, number> = {};
+              for (const [key, val] of Object.entries(item.userAnswer.pairs)) {
+                convertedPairs[key] = typeof val === 'string' ? parseInt(val, 10) : (val as number);
+              }
+              response = convertedPairs;
+            }
+            
+            answersMap[item.questionId] = response;
+          });
+        } else {
+          console.warn("⚠️ Evaluation no es un array o no hay preguntas:", {
+            esArray: Array.isArray(evaluation.evaluation),
+            tienePreguntas: !!evaluation.quiz?.questions
+          });
+        }
+        
+        console.log("📦 Respuestas del usuario:", answersMap);
+        console.log("✅ Respuestas correctas transformadas:", correctAnswersTransformed);
+        setUserAnswers(answersMap);
+        // Pasar las respuestas correctas transformadas en lugar de las preguntas originales
+        setQuizQuestions(correctAnswersTransformed);
+        setAttempt(evaluation);
       } catch (err: any) {
-        console.error("Error cargando resultados:", err);
+        console.error("❌ Error cargando resultados:", err);
+        console.error("❌ Status:", err?.status);
+        console.error("❌ Response data:", err?.data);
         setError(err?.message || "Error cargando los resultados del examen");
       } finally {
         setLoading(false);
@@ -122,8 +236,7 @@ export default function ExamResultsPage() {
     );
   }
 
-  const percentage = Math.round(((attempt.grade || 0) / (attempt.maxScore || 5)) * 100);
-  const isPassed = percentage >= 60;
+  const percentage = Math.round(((attempt.result || 0) / 5) * 100);
 
   return (
     <Container>
@@ -138,78 +251,27 @@ export default function ExamResultsPage() {
         </Group>
 
         <Stack gap="md">
-          {/* Resumen de puntaje */}
-          <Card withBorder p="md" bg={isPassed ? "green.0" : "red.0"}>
-            <Group justify="space-between" align="flex-start">
-              <div>
-                <Text size="sm" c="dimmed">
-                  Calificación
-                </Text>
-                <Title order={2}>
-                  {(attempt.grade || 0).toFixed(1)} / {attempt.maxScore || 5}
-                </Title>
-                <Text size="sm" fw={500}>
-                  {percentage}%
-                </Text>
-              </div>
-              <Badge
-                color={isPassed ? "green" : "red"}
-                size="lg"
-                variant="light"
-              >
-                {isPassed ? "Aprobado" : "No aprobado"}
-              </Badge>
-            </Group>
-            <Progress value={percentage} mb="md" color={isPassed ? "green" : "red"} />
-            <Text size="xs" c="dimmed">
-              Fecha: {attempt.createdAt ? new Date(attempt.createdAt).toLocaleDateString("es-ES") : "N/A"} -{" "}
-              {attempt.createdAt ? new Date(attempt.createdAt).toLocaleTimeString("es-ES") : ""}
-            </Text>
-          </Card>
-
-          {/* Información del usuario */}
-          <Card withBorder p="md">
-            <Text fw={600} mb="xs">
-              Información del Estudiante
-            </Text>
-            <Stack gap="xs">
-              <div>
-                <Text size="sm" c="dimmed">
-                  Nombre
-                </Text>
-                <Text size="sm">{attempt.userName}</Text>
-              </div>
-              <div>
-                <Text size="sm" c="dimmed">
-                  Email
-                </Text>
-                <Text size="sm">{attempt.userEmail}</Text>
-              </div>
-            </Stack>
-          </Card>
-
-          {/* Nota: Detalles de respuestas cuando el endpoint esté disponible */}
+          {/* Botón para ver respuestas */}
           {!showReview && (
-            <>
-              <Alert color="blue" title="Información">
-                Puedes revisar tus respuestas y ver cuáles fueron correctas.
-              </Alert>
-
-              <Group>
-                <Button
-                  onClick={() => setShowReview(true)}
-                  variant="filled"
-                >
-                  Revisar mis respuestas
-                </Button>
-              </Group>
-            </>
+            <Group>
+              <Button
+                onClick={() => setShowReview(true)}
+                variant="light"
+                leftSection="👁"
+              >
+                Ver revisión del examen
+              </Button>
+            </Group>
           )}
 
           {/* Revisión de respuestas */}
-          {showReview && attempt && (
-            <QuizResponseReview
-              attempt={attempt}
+          {showReview && quizQuestions && userAnswers && (
+            <QuizReview
+              questions={quizQuestions}
+              answers={userAnswers}
+              correctAnswers={quizQuestions}
+              result={attempt.result}
+              statistics={attempt.statistics}
               onClose={() => setShowReview(false)}
             />
           )}
