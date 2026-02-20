@@ -212,26 +212,21 @@ export default function CourseDetail() {
   // Efecto para cargar los intentos del usuario
   useEffect(() => {
     if (!eventId || !userId) {
-      console.log("⚠️ Falta eventId o userId para cargar intentos:", { eventId, userId });
       setUserAttempts(null);
       return;
     }
 
     const loadUserAttempts = async () => {
       try {
-        console.log("📡 Cargando intentos del usuario para eventId:", eventId, "userId:", userId);
         const attempts = await fetchUserQuizAttempts(eventId, userId);
-        console.log("✅ Intentos cargados (raw):", attempts);
         
         // Si es un objeto único, usarlo directamente
         if (attempts && typeof attempts === 'object' && !Array.isArray(attempts)) {
-          console.log("✅ Intentos asignado:", attempts);
           setUserAttempts(attempts as any);
         } else {
           setUserAttempts(null);
         }
       } catch (error) {
-        console.error("❌ Error cargando intentos del usuario:", error);
         setUserAttempts(null);
       }
     };
@@ -248,29 +243,13 @@ export default function CourseDetail() {
 
   // Función para renderizar los botones del examen
   const renderExamButtons = () => {
-    console.log("🎯 renderExamButtons - userAttempts:", userAttempts);
-    
     const listUser = (userAttempts as any)?.listUser;
     const hasAttempts = userAttempts && listUser && listUser.length > 0;
     
     if (hasAttempts) {
       // El usuario ya realizó el examen
       const userAttemptData = listUser[0];
-      console.log("👤 Usuario ha intentado: true");
-      console.log("📝 Intento del usuario:", userAttemptData);
-      console.log("📝 Propiedades disponibles:", Object.keys(userAttemptData));
-      console.log("📝 quizAttemptId:", userAttemptData.quizAttemptId);
-      console.log("📝 userId:", userAttemptData.userId);
-      console.log("📝 result:", userAttemptData.result);
-      
-      const result = userAttemptData.result || 0;
-      const maxScore = 5; // Valor por defecto
-      const percentage = Math.round((result / maxScore) * 100);
-      
-      console.log("📊 Resultado:", result, "Máx:", maxScore, "Porcentaje:", percentage);
-      
       const attemptIdToUse = userAttemptData.quizAttemptId;
-      console.log("🔗 URL que se usará:", `/organization/${organizationId}/course/${eventId}/exam-results/${attemptIdToUse}`);
 
       return (
         <Group mt="md" mb="md" align="flex-start">
@@ -278,7 +257,6 @@ export default function CourseDetail() {
             <Button
               color="gray"
               onClick={() => {
-                console.log("📌 Navegando con attemptId:", attemptIdToUse);
                 navigate(`/organization/${organizationId}/course/${eventId}/exam-results/${attemptIdToUse}`);
               }}
             >
@@ -289,7 +267,6 @@ export default function CourseDetail() {
       );
     } else {
       // El usuario aún no ha realizado el examen
-      console.log("✏️ Usuario aún no ha realizado el examen");
       return (
         <Group mt="md" mb="md">
           <Button
