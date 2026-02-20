@@ -37,7 +37,7 @@ export default function QuizComponent({
   eventId,
   onFinished,
 }: QuizComponentProps) {
-  const { userId, name: userName, email: userEmail } = useUser();
+  const { userId } = useUser();
 
   // Estado del quiz
   const { setSubmitted, setReviewing, isEditing, isSubmitted } = useQuizState('editing');
@@ -204,13 +204,11 @@ export default function QuizComponent({
       await submit(
         eventId,
         userId,
-        userName || 'Usuario',
-        userEmail || userId,
         answers,
         questions
       );
     },
-    [userId, userName, userEmail, eventId, questions, submit]
+    [userId, eventId, questions, submit]
   );
 
   if (isLoading) return <LoadingSpinner message="Cargando quiz..." />;

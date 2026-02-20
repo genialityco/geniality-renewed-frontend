@@ -16,6 +16,8 @@ import {
 import { AttemptResult } from "../../types/quiz.types";
 import { useUser } from "../../context/UserContext";
 import { FaArrowLeft } from "react-icons/fa6";
+import QuizResponseReview from "../../components/QuizResponseReview";
+import { fetchAttemptResult } from "../../services/quizService";
 
 export default function ExamResultsPage() {
   const { eventId, organizationId, attemptId } = useParams<{
@@ -27,9 +29,10 @@ export default function ExamResultsPage() {
   const navigate = useNavigate();
   const { userId } = useUser();
 
-  const [attempt, _setAttempt] = useState<AttemptResult | null>(null);
+  const [attempt, setAttempt] = useState<AttemptResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showReview, setShowReview] = useState(false);
 
   useEffect(() => {
     if (!eventId || !organizationId || !attemptId) {
@@ -43,15 +46,9 @@ export default function ExamResultsPage() {
         setLoading(true);
         setError(null);
 
-        // TODO: Implementar endpoint para obtener un intento específico
-        // Por ahora, usaremos datos ficticios
-        // const response = await fetchAttemptResult(eventId, attemptId);
-        // setAttempt(response);
-
-        // NOTA: Cuando se implemente el endpoint en el backend, usar:
-        // const response = await api.get(`/quiz/${eventId}/attempt/${attemptId}`);
-        
-        setError("Endpoint de resultados aún no implementado en el backend");
+        // Obtener el resultado del intento desde el backend
+        const response = await fetchAttemptResult(eventId, attemptId);
+        setAttempt(response);
       } catch (err: any) {
         console.error("Error cargando resultados:", err);
         setError(err?.message || "Error cargando los resultados del examen");
@@ -125,7 +122,7 @@ export default function ExamResultsPage() {
     );
   }
 
-  const percentage = Math.round((attempt.grade / attempt.maxScore) * 100);
+  const percentage = Math.round(((attempt.grade || 0) / (attempt.maxScore || 5)) * 100);
   const isPassed = percentage >= 60;
 
   return (
@@ -149,7 +146,7 @@ export default function ExamResultsPage() {
                   Calificación
                 </Text>
                 <Title order={2}>
-                  {attempt.grade.toFixed(1)} / {attempt.maxScore}
+                  {(attempt.grade || 0).toFixed(1)} / {attempt.maxScore || 5}
                 </Title>
                 <Text size="sm" fw={500}>
                   {percentage}%
@@ -165,8 +162,8 @@ export default function ExamResultsPage() {
             </Group>
             <Progress value={percentage} mb="md" color={isPassed ? "green" : "red"} />
             <Text size="xs" c="dimmed">
-              Fecha: {new Date(attempt.createdAt).toLocaleDateString("es-ES")} -{" "}
-              {new Date(attempt.createdAt).toLocaleTimeString("es-ES")}
+              Fecha: {attempt.createdAt ? new Date(attempt.createdAt).toLocaleDateString("es-ES") : "N/A"} -{" "}
+              {attempt.createdAt ? new Date(attempt.createdAt).toLocaleTimeString("es-ES") : ""}
             </Text>
           </Card>
 
@@ -192,17 +189,39 @@ export default function ExamResultsPage() {
           </Card>
 
           {/* Nota: Detalles de respuestas cuando el endpoint esté disponible */}
-          <Alert color="blue" title="Información">
-            Los detalles de las preguntas y respuestas se mostrarán cuando el
-            endpoint de resultados esté completamente implementado en el backend.
-          </Alert>
+          {!showReview && (
+            <>
+              <Alert color="blue" title="Información">
+                Puedes revisar tus respuestas y ver cuáles fueron correctas.
+              </Alert>
+
+              <Group>
+                <Button
+                  onClick={() => setShowReview(true)}
+                  variant="filled"
+                >
+                  Revisar mis respuestas
+                </Button>
+              </Group>
+            </>
+          )}
+
+          {/* Revisión de respuestas */}
+          {showReview && attempt && (
+            <QuizResponseReview
+              attempt={attempt}
+              onClose={() => setShowReview(false)}
+            />
+          )}
         </Stack>
 
-        <Group mt="md">
-          <Button variant="light" onClick={handleBack}>
-            Volver al curso
-          </Button>
-        </Group>
+        {!showReview && (
+          <Group mt="md">
+            <Button variant="light" onClick={handleBack}>
+              Volver al curso
+            </Button>
+          </Group>
+        )}
       </Card>
     </Container>
   );

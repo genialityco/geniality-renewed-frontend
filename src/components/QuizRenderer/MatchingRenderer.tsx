@@ -47,7 +47,7 @@ export default function MatchingRenderer({
         {/* Lado derecho */}
         <Grid.Col span={6}>
           <Stack gap="sm">
-            {pairs.map((pair, pairIdx) => {
+            {pairs.map((pair, _pairIdx) => {
               // Obtener etiqueta de cada opción del lado derecho
               const rightOptions = pair.rightBlocks.map((blockItem: any, idx: number) => {
                 const blocks = Array.isArray(blockItem) ? blockItem : blockItem.blocks || [blockItem];

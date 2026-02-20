@@ -79,15 +79,16 @@ export interface AttemptResult {
   id: string;
   eventId: string;
   userId: string;
-  userName: string;
-  userEmail: string;
+  userName?: string;
+  userEmail?: string;
   answers: AnswerDto[];
   quiz?: AdminQuizDTO;
-  grade: number;
-  totalScore: number;
-  maxScore: number;
-  createdAt: string;
-  updatedAt: string;
+  grade?: number;
+  result?: number; // Para compatibilidad con respuestas del backend
+  totalScore?: number;
+  maxScore?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface QuizResultsAggregate {

@@ -9,7 +9,8 @@ import {
   ScoringResult,
 } from "../services/quizScoringService";
 import { submitQuizAttempt, saveQuizResult } from "../services/quizService";
-import { SubmitQuizPayload, SaveQuizResultPayload } from "../services/types";
+import { AnswerDto } from "../types/quiz.types";
+import { SaveQuizResultPayload } from "../services/types";
 import { notifications } from "@mantine/notifications";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "../constants/quizConstants";
 
@@ -89,8 +90,6 @@ export function useQuizSubmit(options?: UseQuizSubmitOptions) {
   const submit = async (
     eventId: string,
     userId: string,
-    userName: string,
-    userEmail: string,
     answers: Record<string, any>,
     questions?: QuestionWithBlocks[],
   ) => {
@@ -121,11 +120,20 @@ export function useQuizSubmit(options?: UseQuizSubmitOptions) {
         (finalCalculatedResult.correctCount / finalCalculatedResult.totalQuestions) * 5 * 10
       ) / 10;
 
-      // ✅ PASO 4: Guardar el resultado calculado en el servidor
-      const saveResponse = await saveQuizResult(eventId, {
+      // ✅ PASO 4: Transformar respuestas al formato del backend
+      const answerDtos = transformAnswersForBackend(answers, questions || []);
+
+      // ✅ PASO 5: Guardar el resultado calculado y las respuestas en el servidor
+      const payload: SaveQuizResultPayload = {
         userId,
         result: resultIn0To5,
-      });
+        answers: answerDtos,
+      };
+
+      console.log('📤 Enviando saveQuizResult - Payload del body:', payload);
+      console.log('📤 Enviando a URL: /quiz/' + eventId + '/save-result');
+
+      await saveQuizResult(eventId, payload);
 
       const completeResult = {
         ...finalCalculatedResult,

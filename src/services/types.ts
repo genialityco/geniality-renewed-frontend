@@ -212,6 +212,7 @@ export interface SubmitQuizPayload {
 export interface SaveQuizResultPayload {
   userId: string;
   result: number; // nota entre 0 y 5
+  answers?: AnswerDto[]; // Respuestas del usuario
 }
 
 export interface Quiz {

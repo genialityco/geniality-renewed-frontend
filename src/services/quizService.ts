@@ -11,6 +11,7 @@ import {
   QuizResultsAggregate,
   StudentQuizDTO,
 } from "../types/quiz.types";
+import { SaveQuizResultPayload } from "./types";
 
 /**
  * Get quiz for student (without correct answers)
@@ -151,18 +152,33 @@ export const submitQuizAttempt = async (
  * POST /quiz/:eventId/save-result
  * 
  * Saves the calculated result to database after client-side scoring
+ * Body debe estar limpio: { userId, result, answers }
  */
 export const saveQuizResult = async (
   eventId: string,
-  payload: { userId: string; result: number }
+  payload: SaveQuizResultPayload
 ): Promise<{ id: string; eventId: string; attempt: { userId: string; result: number } }> => {
   try {
+    console.log('🔍 saveQuizResult - Body a enviar (antes de post):', {
+      userId: payload.userId,
+      result: payload.result,
+      answers: payload.answers ? `[${payload.answers.length} answers]` : undefined,
+      fullPayload: JSON.stringify(payload, null, 2)
+    });
+    
+    // Enviar el payload directamente como body sin wrapper
     const response = await api.post(
       `/quiz/${eventId}/save-result`,
       payload
     );
+    console.log('✅ Response:', response.data);
     return response.data;
   } catch (error: any) {
+    console.error('❌ Error en saveQuizResult - Status:', error?.response?.status);
+    console.error('❌ Error en saveQuizResult - Mensaje:', error?.response?.data?.message);
+    console.error('❌ Error en saveQuizResult - Data:', JSON.stringify(error?.response?.data, null, 2));
+    console.error('❌ Error en saveQuizResult - URL:', error?.config?.url);
+    console.error('❌ Error en saveQuizResult - Request Body:', error?.config?.data);
     handleQuizError(error);
   }
 };
@@ -191,18 +207,64 @@ export const fetchQuizResults = async (
 
 /**
  * Get single attempt result by ID
- * GET /quiz/:eventId
+ * GET /quiz-attempts/:attemptId
+ * Solo obtiene las respuestas del usuario, no el quiz completo
  */
 export const fetchAttemptResult = async (
   eventId: string,
-  _attemptId: string
-): Promise<AttemptResult> => {
+  attemptId: string
+): Promise<any> => {
   try {
-    const response = await api.get<AttemptResult>(
-      `/quiz/${eventId}`
+    // Intentar endpoint específico de intentos
+    const response = await api.get<any>(
+      `/quiz-attempts/${attemptId}`
     );
+    console.log('✅ Respuestas del intento cargadas:', response.data);
     return response.data;
   } catch (error: any) {
+    // Fallback al endpoint anterior si no existe
+    if (error?.response?.status === 404) {
+      console.warn('Intentando endpoint alterno...');
+      try {
+        const response = await api.get<any>(
+          `/quiz/${eventId}/attempt/${attemptId}`
+        );
+        return response.data;
+      } catch (fallbackError) {
+        console.error('❌ Error en ambos endpoints:', fallbackError);
+        handleQuizError(fallbackError);
+      }
+    } else {
+      console.error('❌ Error fetchAttemptResult:', {
+        status: error?.response?.status,
+        data: error?.response?.data
+      });
+      handleQuizError(error);
+    }
+  }
+};
+
+/**
+ * Evaluate quiz attempt (compare user answers with correct answers)
+ * GET /quiz/:eventId/attempt/:attemptId/evaluate
+ * Backend hace la comparación y devuelve isCorrect para cada pregunta
+ */
+export const evaluateAttempt = async (
+  eventId: string,
+  attemptId: string
+): Promise<any> => {
+  try {
+    const response = await api.get<any>(
+      `/quiz/${eventId}/attempt/${attemptId}/evaluate`
+    );
+    console.log('✅ Evaluación del intento cargada:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error evaluateAttempt:', {
+      status: error?.response?.status,
+      data: error?.response?.data,
+      message: error.message
+    });
     handleQuizError(error);
   }
 };

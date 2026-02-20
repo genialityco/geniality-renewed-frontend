@@ -140,7 +140,7 @@ function checkMatching(question: any, userAnswer: any): boolean {
   // Comparar con correctPairings
   return (
     userAnswerArray.length === question.correctPairings.length &&
-    userAnswerArray.every((val, idx) => val === question.correctPairings[idx])
+    userAnswerArray.every((val: any, idx: number) => val === question.correctPairings[idx])
   );
 }
 
