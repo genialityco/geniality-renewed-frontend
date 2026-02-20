@@ -9,8 +9,8 @@ import BlocksRenderer from "../BlocksRenderer";
 interface MatchingRendererProps {
   questionId: string;
   pairs: MatchingPair[];
-  answers: Record<number, number>;
-  onChange: (pairIndex: number, selectedRightIndex: number) => void;
+  answers: Record<string, number>; // pairId -> rightIndex
+  onChange: (pairId: string, selectedRightIndex: number) => void;
 }
 
 export default function MatchingRenderer({
@@ -63,11 +63,11 @@ export default function MatchingRenderer({
                 <Select
                   key={`select-${pair.id}`}
                   placeholder="Selecciona una opción"
-                  value={answers[pairIdx] !== undefined ? answers[pairIdx].toString() : ""}
+                  value={answers[pair.id] !== undefined ? answers[pair.id].toString() : ""}
                   onChange={(value) => {
-                    console.log(`✅ Matching - Par ${pairIdx}: valor seleccionado = ${value}`);
+                    console.log(`✅ Matching - Par ${pair.id}: valor seleccionado = ${value}, answers[pair.id] pregunta = ${answers[pair.id]}`);
                     if (value !== null) {
-                      onChange(pairIdx, parseInt(value));
+                      onChange(pair.id, parseInt(value));
                     }
                   }}
                   data={rightOptions}

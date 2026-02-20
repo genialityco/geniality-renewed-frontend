@@ -309,10 +309,54 @@ export function createEmptyQuestion(type: string = 'single-choice'): QuestionWit
         ...baseQuestion,
         type: 'multiple-choice',
         opciones: [
-          { id: uuidv4(), blocks: [] },
-          { id: uuidv4(), blocks: [] },
-          { id: uuidv4(), blocks: [] },
-          { id: uuidv4(), blocks: [] },
+          {
+            id: uuidv4(),
+            blocks: [
+              {
+                type: 'text' as const,
+                id: uuidv4(),
+                content: '',
+                format: 'plain' as const,
+                listType: 'none' as const,
+              },
+            ],
+          },
+          {
+            id: uuidv4(),
+            blocks: [
+              {
+                type: 'text' as const,
+                id: uuidv4(),
+                content: '',
+                format: 'plain' as const,
+                listType: 'none' as const,
+              },
+            ],
+          },
+          {
+            id: uuidv4(),
+            blocks: [
+              {
+                type: 'text' as const,
+                id: uuidv4(),
+                content: '',
+                format: 'plain' as const,
+                listType: 'none' as const,
+              },
+            ],
+          },
+          {
+            id: uuidv4(),
+            blocks: [
+              {
+                type: 'text' as const,
+                id: uuidv4(),
+                content: '',
+                format: 'plain' as const,
+                listType: 'none' as const,
+              },
+            ],
+          },
         ],
         respuestascorrectas: [],
       } as MultipleChoiceQuestion;
@@ -322,17 +366,90 @@ export function createEmptyQuestion(type: string = 'single-choice'): QuestionWit
         ...baseQuestion,
         type: 'matching',
         pairs: [
-          { id: uuidv4(), leftBlocks: [], rightBlocks: [] },
-          { id: uuidv4(), leftBlocks: [], rightBlocks: [] },
+          {
+            id: uuidv4(),
+            leftBlocks: [
+              {
+                type: 'text' as const,
+                id: uuidv4(),
+                content: '',
+                format: 'plain' as const,
+                listType: 'none' as const,
+              },
+            ],
+            rightBlocks: [
+              {
+                type: 'text' as const,
+                id: uuidv4(),
+                content: '',
+                format: 'plain' as const,
+                listType: 'none' as const,
+              },
+            ],
+          },
+          {
+            id: uuidv4(),
+            leftBlocks: [
+              {
+                type: 'text' as const,
+                id: uuidv4(),
+                content: '',
+                format: 'plain' as const,
+                listType: 'none' as const,
+              },
+            ],
+            rightBlocks: [
+              {
+                type: 'text' as const,
+                id: uuidv4(),
+                content: '',
+                format: 'plain' as const,
+                listType: 'none' as const,
+              },
+            ],
+          },
         ],
         correctPairings: [0, 1],
       } as MatchingQuestion;
 
     case 'ordering':
       const orderingItems = [
-        { id: uuidv4(), blocks: [] },
-        { id: uuidv4(), blocks: [] },
-        { id: uuidv4(), blocks: [] },
+        {
+          id: uuidv4(),
+          blocks: [
+            {
+              type: 'text' as const,
+              id: uuidv4(),
+              content: '',
+              format: 'plain' as const,
+              listType: 'none' as const,
+            },
+          ],
+        },
+        {
+          id: uuidv4(),
+          blocks: [
+            {
+              type: 'text' as const,
+              id: uuidv4(),
+              content: '',
+              format: 'plain' as const,
+              listType: 'none' as const,
+            },
+          ],
+        },
+        {
+          id: uuidv4(),
+          blocks: [
+            {
+              type: 'text' as const,
+              id: uuidv4(),
+              content: '',
+              format: 'plain' as const,
+              listType: 'none' as const,
+            },
+          ],
+        },
       ];
       return {
         ...baseQuestion,
@@ -347,10 +464,54 @@ export function createEmptyQuestion(type: string = 'single-choice'): QuestionWit
         ...baseQuestion,
         type: 'single-choice',
         opciones: [
-          { id: uuidv4(), blocks: [] },
-          { id: uuidv4(), blocks: [] },
-          { id: uuidv4(), blocks: [] },
-          { id: uuidv4(), blocks: [] },
+          {
+            id: uuidv4(),
+            blocks: [
+              {
+                type: 'text' as const,
+                id: uuidv4(),
+                content: '',
+                format: 'plain' as const,
+                listType: 'none' as const,
+              },
+            ],
+          },
+          {
+            id: uuidv4(),
+            blocks: [
+              {
+                type: 'text' as const,
+                id: uuidv4(),
+                content: '',
+                format: 'plain' as const,
+                listType: 'none' as const,
+              },
+            ],
+          },
+          {
+            id: uuidv4(),
+            blocks: [
+              {
+                type: 'text' as const,
+                id: uuidv4(),
+                content: '',
+                format: 'plain' as const,
+                listType: 'none' as const,
+              },
+            ],
+          },
+          {
+            id: uuidv4(),
+            blocks: [
+              {
+                type: 'text' as const,
+                id: uuidv4(),
+                content: '',
+                format: 'plain' as const,
+                listType: 'none' as const,
+              },
+            ],
+          },
         ],
         respuestacorrecta: 0,
       } as SingleChoiceQuestion;

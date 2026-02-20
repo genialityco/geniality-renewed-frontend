@@ -21,16 +21,36 @@ export default function QuizReview({
 
   const getOptionLabel = (option: any): string => {
     if (!option) return "";
-    if (!option.blocks) return "";
-    const textBlock = option.blocks.find((b: any) => b.type === "text");
-    return textBlock?.content || "";
+    
+    // Caso 1: opción es directamente un bloque de texto
+    if (option.type === "text" && option.content) {
+      return option.content;
+    }
+    
+    // Caso 2: opción contiene un array de bloques
+    if (option.blocks && Array.isArray(option.blocks)) {
+      const textBlock = option.blocks.find((b: any) => b.type === "text");
+      return textBlock?.content || "";
+    }
+    
+    return "";
   };
 
   const getItemLabel = (item: any): string => {
     if (!item) return "";
-    if (!item.blocks) return "";
-    const textBlock = item.blocks.find((b: any) => b.type === "text");
-    return textBlock?.content || "";
+    
+    // Caso 1: item es directamente un bloque de texto (para matching)
+    if (item.type === "text" && item.content) {
+      return item.content;
+    }
+    
+    // Caso 2: item contiene un array de bloques (para opciones)
+    if (item.blocks && Array.isArray(item.blocks)) {
+      const textBlock = item.blocks.find((b: any) => b.type === "text");
+      return textBlock?.content || "";
+    }
+    
+    return "";
   };
 
   // Obtener respuesta correcta del array correctAnswers
@@ -146,8 +166,11 @@ export default function QuizReview({
             let allCorrect = true;
 
             if (pairs.length > 0 && correctPairings.length > 0) {
-              for (let i = 0; i < correctPairings.length; i++) {
-                if (userAnswerObj[i] !== correctPairings[i]) {
+              for (let i = 0; i < pairs.length; i++) {
+                const pairId = pairs[i].id;
+                const userRightIdx = userAnswerObj[pairId];
+                const correctRightIdx = correctPairings[i];
+                if (userRightIdx !== correctRightIdx) {
                   allCorrect = false;
                   break;
                 }
@@ -191,7 +214,7 @@ export default function QuizReview({
                 <Stack gap={8} mt={8}>
                   {pairs.length > 0 ? (
                     pairs.map((pair: any, pairIdx: number) => {
-                      const userRightIdx = userAnswerObj[pairIdx];
+                      const userRightIdx = userAnswerObj[pair.id];
                       const correctRightIdx = correctPairings[pairIdx];
                       const isMatchCorrect = userRightIdx === correctRightIdx;
                       const borderColor = isMatchCorrect ? "green" : "red";

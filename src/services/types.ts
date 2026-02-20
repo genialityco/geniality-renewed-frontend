@@ -206,10 +206,12 @@ export interface AnswerDto {
 }
 
 export interface SubmitQuizPayload {
+  userId: string; // Solo userId, sin result
+}
+
+export interface SaveQuizResultPayload {
   userId: string;
-  userName: string;
-  userEmail: string;
-  answers: AnswerDto[];
+  result: number; // nota entre 0 y 5
 }
 
 export interface Quiz {

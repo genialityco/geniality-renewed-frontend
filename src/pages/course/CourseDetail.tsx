@@ -19,7 +19,7 @@ import {
   Image,
   Avatar,
   Stack,
-
+  Button,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -44,6 +44,10 @@ import {
   CourseAttendeePayload,
 } from "../../services/courseAttendeeService";
 import { fetchHostsByEventId } from "../../services/hostsService";
+
+// IMPORTACIONES PARA QUIZ/EXAMEN
+import { fetchStudentQuiz, fetchUserQuizAttempts } from "../../services/quizService";
+import { AttemptResult, StudentQuizDTO } from "../../types/quiz.types";
 
 // Componente auxiliar para renderizar la tarjeta de actividad
 interface ActivityCardProps {
@@ -131,6 +135,10 @@ export default function CourseDetail() {
   const [hosts, setHosts] = useState<Host[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Estados para Quiz/Examen
+  const [quiz, setQuiz] = useState<StudentQuizDTO | null>(null);
+  const [userAttempts, setUserAttempts] = useState<AttemptResult[]>([]);
+
   // Actividad seleccionada
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
     null,
@@ -203,12 +211,86 @@ export default function CourseDetail() {
     enrollInCourse();
   }, [event, userId]);
 
+  // Efecto para cargar el quiz (examen) del evento
+  useEffect(() => {
+    if (!eventId) return;
+
+    const loadQuizData = async () => {
+      try {
+        // Obtener el quiz si existe
+        const quizData = await fetchStudentQuiz(eventId);
+        setQuiz(quizData);
+
+        // Si existe quiz y hay userId, obtener los intentos del usuario
+        if (quizData && userId) {
+          try {
+            const attempts = await fetchUserQuizAttempts(eventId, userId);
+            setUserAttempts(attempts);
+          } catch (error) {
+            console.error("Error cargando intentos del usuario:", error);
+            setUserAttempts([]);
+          }
+        }
+      } catch (error) {
+        console.error("Error cargando quiz:", error);
+        setQuiz(null);
+        setUserAttempts([]);
+      } finally {
+      }
+    };
+
+    loadQuizData();
+  }, [eventId, userId]);
+
   if (loading) return <Loader />;
   if (!event) return <Text>Curso no encontrado</Text>;
 
   function getShareUrl(activity: Activity) {
     return `${window.location.origin}/organization/${organizationId}/course/${eventId}?activity=${activity._id}`;
   }
+
+  // Función para renderizar los botones del examen
+  const renderExamButtons = () => {
+    // Si no hay quiz, no mostrar nada
+    if (!quiz) {
+      return null;
+    }
+
+    // Verificar si el usuario ya realizó el examen
+    const userHasAttempted = userAttempts && userAttempts.length > 0;
+
+    if (userHasAttempted) {
+      // Si ya realizó el examen, mostrar botón para ver resultados
+      const lastAttempt = userAttempts[0];
+      return (
+        <Group mt="md" mb="md">
+          <Button
+            color="gray"
+            variant="light"
+            onClick={() => {
+              navigate(`/organization/${organizationId}/course/${eventId}/exam-results/${lastAttempt.id}`);
+            }}
+          >
+            Ver resultados de examen
+          </Button>
+        </Group>
+      );
+    } else {
+      // Si no ha realizado el examen, mostrar botón para hacerlo
+      return (
+        <Group mt="md" mb="md">
+          <Button
+            color="blue"
+            onClick={() => {
+              navigate(`/organization/${organizationId}/course/${eventId}/exam`);
+            }}
+          >
+            Realizar examen
+          </Button>
+        </Group>
+      );
+    }
+  };
 
   // Función para renderizar las actividades en la barra lateral
   const renderActivities = () => {
@@ -350,6 +432,9 @@ export default function CourseDetail() {
               Bienvenido(a) al curso {event.name}.
             </Text>
           </Group>
+
+          {/* Renderizar botones de examen si existe */}
+          {renderExamButtons()}
 
           <Text size="lg" fw={600}>
             Módulos y actividades

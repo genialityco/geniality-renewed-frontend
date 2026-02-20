@@ -7,6 +7,8 @@ import NotFound from "../components/NotFound";
 
 import OrganizationLayout from "../layouts/OrganizationLayout";
 import CourseDetail from "../pages/course/CourseDetail";
+import ExamPage from "../pages/course/ExamPage";
+import ExamResultsPage from "../pages/course/ExamResultsPage";
 import ActivityDetailContainer from "../pages/activity/ActivityDetailContainer";
 import Profile from "../pages/profile";
 
@@ -45,6 +47,8 @@ export default function AppRoutes() {
         {/* Rutas que requieren membresía activa */}
         <Route element={<RequireMembership />}>
           <Route path="course/:eventId" element={<CourseDetail />} />
+          <Route path="course/:eventId/exam" element={<ExamPage />} />
+          <Route path="course/:eventId/exam-results/:attemptId" element={<ExamResultsPage />} />
           <Route
             path="activitydetail/:activityId"
             element={<ActivityDetailContainer />}

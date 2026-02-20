@@ -58,14 +58,14 @@ export default function QuizRenderer({
   // Manejo de cambios para emparejamiento
   const handleMatchingChange = (
     questionId: string,
-    pairIdx: number,
+    pairId: string,
     rightOptionIdx: number
   ) => {
     setAnswers((prev) => ({
       ...prev,
       [questionId]: {
         ...(prev[questionId] || {}),
-        [pairIdx]: rightOptionIdx,
+        [pairId]: rightOptionIdx,
       },
     }));
   };
@@ -125,12 +125,6 @@ export default function QuizRenderer({
     for (const [questionId, order] of Object.entries(orderedItems)) {
       finalAnswers[questionId] = order;
     }
-
-    console.log('📤 RESPUESTAS FINALES A ENVIAR:', {
-      answers,
-      orderedItems,
-      finalAnswers
-    });
 
     onSubmit(finalAnswers);
   };

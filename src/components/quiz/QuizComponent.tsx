@@ -229,9 +229,9 @@ export default function QuizComponent({
           {/* Revisión: mostrar respuestas - Nuevo formato */}
           {isNewFormat && (
             <QuizReview
-              questions={result.correctAnswers}
-              answers={userAnswers}
-              correctAnswers={result.correctAnswers || []}
+              questions={(result as any).correctAnswers || questions}
+              answers={userAnswers || (result as any).userAnswers}
+              correctAnswers={(result as any).correctAnswers || questions || []}
               onClose={() => setSubmitted()}
             />
           )}

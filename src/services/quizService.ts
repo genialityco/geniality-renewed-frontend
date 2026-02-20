@@ -7,7 +7,6 @@ import api from "./api";
 import {
   AdminQuizDTO,
   AttemptResult,
-  AttemptSubmitPayload,
   QuizApiError,
   QuizResultsAggregate,
   StudentQuizDTO,
@@ -15,14 +14,14 @@ import {
 
 /**
  * Get quiz for student (without correct answers)
- * GET /events/:eventId/quiz
+ * GET /quiz/event/:eventId
  */
 export const fetchStudentQuiz = async (
   eventId: string
 ): Promise<StudentQuizDTO | null> => {
   try {
     const response = await api.get<StudentQuizDTO>(
-      `/events/${eventId}/quiz`
+      `/quiz/event/${eventId}`
     );
     // Backend devuelve el quiz directamente, no envuelto en {data: ...}
     return response.data;
@@ -38,14 +37,14 @@ export const fetchStudentQuiz = async (
 
 /**
  * Get quiz for admin with correct answers
- * GET /events/:eventId/quiz/admin
+ * GET /quiz/:eventId
  */
 export const fetchAdminQuiz = async (
   eventId: string
 ): Promise<AdminQuizDTO | null> => {
   try {
     const response = await api.get<AdminQuizDTO>(
-      `/events/${eventId}/quiz/admin`
+      `/quiz/${eventId}`
     );
     // Backend devuelve el quiz directamente, no envuelto en {data: ...}
     return response.data;
@@ -72,7 +71,7 @@ export const fetchQuizForRun = fetchStudentQuiz;
 
 /**
  * Create or update quiz
- * POST/PUT /events/:eventId/quiz
+ * POST /quiz
  */
 export const createOrUpdateQuiz = async (
   eventId: string,
@@ -83,7 +82,7 @@ export const createOrUpdateQuiz = async (
 
 /**
  * Save or update quiz
- * PUT /events/:eventId/quiz
+ * POST /quiz
  */
 export const saveQuiz = async (
   eventId: string,
@@ -93,20 +92,53 @@ export const saveQuiz = async (
     // Crear un payload limpio sin campos backend
     const { id: _id, _id: _mongoId, createdAt: _createdAt, updatedAt: _updatedAt, ...payload } = quiz;
 
-    // El payload ya tiene la estructura correcta con 'meta'
-    // Solo aseguramos que eventId esté incluido
+    // El payload debe tener solo eventId y questions
+    // Sin intentar agregar 'points' o 'meta' que no están en los DTOs
     const transformedPayload = {
-      ...payload,
-      eventId, // Asegurar que eventId esté en el payload
-      questions: payload.questions.map((q: any) => ({
-        ...q,
-        points: q.points || 1, // Asegurar que points siempre tenga un valor
-      })),
+      eventId,
+      questions: payload.questions || [],
     };
 
-    const response = await api.put<AdminQuizDTO>(
-      `/events/${eventId}/quiz`,
+    console.log("📤 Enviando quiz:", {
+      url: "/quiz",
+      payload: transformedPayload,
+      questionsCount: transformedPayload.questions?.length || 0,
+    });
+
+    const response = await api.post<AdminQuizDTO>(
+      `/quiz`,
       transformedPayload
+    );
+    console.log("✅ Quiz guardado exitosamente:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("❌ Error guardando quiz:", {
+      status: error.response?.status,
+      message: error.response?.data?.message,
+      error: error.message,
+    });
+    handleQuizError(error);
+  }
+};
+
+/**
+ * Submit quiz attempt - Step 1
+ * POST /quiz/:eventId/submit
+ * 
+ * Takes userId, returns questions with correct answers for scoring
+ * Does NOT save result to database
+ *
+ * Error codes:
+ * - 404: Quiz not available
+ */
+export const submitQuizAttempt = async (
+  eventId: string,
+  payload: { userId: string }
+): Promise<{ id: string; eventId: string; userId: string; questions: any[] }> => {
+  try {
+    const response = await api.post(
+      `/quiz/${eventId}/submit`,
+      payload
     );
     return response.data;
   } catch (error: any) {
@@ -115,20 +147,18 @@ export const saveQuiz = async (
 };
 
 /**
- * Submit quiz attempt
- * POST /events/:eventId/quiz/attempts/submit
- *
- * Error codes:
- * - 409: Max attempts exceeded
- * - 404: Quiz not available
+ * Save quiz result - Step 2
+ * POST /quiz/:eventId/save-result
+ * 
+ * Saves the calculated result to database after client-side scoring
  */
-export const submitQuizAttempt = async (
+export const saveQuizResult = async (
   eventId: string,
-  payload: AttemptSubmitPayload
-): Promise<AttemptResult> => {
+  payload: { userId: string; result: number }
+): Promise<{ id: string; eventId: string; attempt: { userId: string; result: number } }> => {
   try {
-    const response = await api.post<AttemptResult>(
-      `/events/${eventId}/quiz/attempts/submit`,
+    const response = await api.post(
+      `/quiz/${eventId}/save-result`,
       payload
     );
     return response.data;
@@ -139,14 +169,14 @@ export const submitQuizAttempt = async (
 
 /**
  * Get quiz results for admin
- * GET /events/:eventId/quiz/results
+ * GET /quiz/:eventId
  */
 export const fetchQuizResults = async (
   eventId: string
 ): Promise<QuizResultsAggregate | null> => {
   try {
     const response = await api.get<QuizResultsAggregate>(
-      `/events/${eventId}/quiz/results`
+      `/quiz/${eventId}`
     );
     return response.data;
   } catch (error: any) {
@@ -161,15 +191,15 @@ export const fetchQuizResults = async (
 
 /**
  * Get single attempt result by ID
- * GET /events/:eventId/quiz/attempts/:attemptId
+ * GET /quiz/:eventId
  */
 export const fetchAttemptResult = async (
   eventId: string,
-  attemptId: string
+  _attemptId: string
 ): Promise<AttemptResult> => {
   try {
     const response = await api.get<AttemptResult>(
-      `/events/${eventId}/quiz/attempts/${attemptId}`
+      `/quiz/${eventId}`
     );
     return response.data;
   } catch (error: any) {
@@ -179,15 +209,15 @@ export const fetchAttemptResult = async (
 
 /**
  * Get user's quiz attempts
- * GET /events/:eventId/quiz/attempts/user/:userId
+ * GET /quiz/:eventId
  */
 export const fetchUserQuizAttempts = async (
   eventId: string,
-  userId: string
+  _userId: string
 ): Promise<AttemptResult[]> => {
   try {
     const response = await api.get<AttemptResult[]>(
-      `/events/${eventId}/quiz/attempts/user/${userId}`
+      `/quiz/${eventId}`
     );
     return response.data;
   } catch (error: any) {

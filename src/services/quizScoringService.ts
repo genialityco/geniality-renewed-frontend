@@ -118,19 +118,30 @@ function checkMultipleChoice(question: any, userAnswer: any): boolean {
 
 /**
  * Verifica respuesta de emparejamiento
+ * correctPairings es un array donde cada índice corresponde al pair en el mismo orden
+ * userAnswer es un objeto con pairId -> rightBlockIndex
  */
 function checkMatching(question: any, userAnswer: any): boolean {
-  if (!question.correctPairings || typeof userAnswer !== "object") {
+  if (!question.correctPairings || !Array.isArray(question.correctPairings)) {
     return false;
   }
 
-  for (let i = 0; i < question.correctPairings.length; i++) {
-    if (userAnswer[i] !== question.correctPairings[i]) {
-      return false;
-    }
+  if (!question.pairs || !Array.isArray(question.pairs)) {
+    return false;
   }
 
-  return true;
+  if (typeof userAnswer !== "object" || userAnswer === null) {
+    return false;
+  }
+
+  // Convertir userAnswer a array en el mismo orden de pairs
+  const userAnswerArray = question.pairs.map((pair: any) => userAnswer[pair.id]);
+
+  // Comparar con correctPairings
+  return (
+    userAnswerArray.length === question.correctPairings.length &&
+    userAnswerArray.every((val, idx) => val === question.correctPairings[idx])
+  );
 }
 
 /**

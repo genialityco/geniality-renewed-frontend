@@ -8,8 +8,8 @@ import {
   calculateQuizScore,
   ScoringResult,
 } from "../services/quizScoringService";
-import { submitQuizAttempt } from "../services/quizService";
-import { AnswerDto, SubmitQuizPayload } from "../services/types";
+import { submitQuizAttempt, saveQuizResult } from "../services/quizService";
+import { SubmitQuizPayload, SaveQuizResultPayload } from "../services/types";
 import { notifications } from "@mantine/notifications";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "../constants/quizConstants";
 
@@ -106,49 +106,34 @@ export function useQuizSubmit(options?: UseQuizSubmitOptions) {
         throw new Error(ERROR_MESSAGES.MISSING_EVENT_ID);
       }
 
-      // Paso 1: Transformar respuestas al formato esperado por backend
-      const answersDto = questions
-        ? transformAnswersForBackend(answers, questions)
-        : [];
+      // ✅ PASO 1: Enviar userId al servidor y obtener preguntas con respuestas correctas
+      const submitResponse = await submitQuizAttempt(eventId, { userId });
+      const questionsWithCorrectAnswers = submitResponse.questions;
 
-      // Paso 2: Preparar payload para submit (SIN resultado - backend lo calcula)
-      const payload: SubmitQuizPayload = {
-        userId,
-        userName,
-        userEmail,
-        answers: answersDto,
-      };
-
-      console.log("📤 PAYLOAD ENVIADO AL BACKEND:", payload);
-
-      // Paso 3: Enviar respuestas al servidor
-      // Backend calcula el resultado basado en validación de respuestas
-      const submitResponse = await submitQuizAttempt(eventId, payload);
-
-      console.log("📥 RESPUESTA DEL BACKEND:", submitResponse);
-      console.log("📥 Questions en response:", submitResponse.quiz?.questions);
-
-      // Paso 4: El backend devuelve el resultado calculado y preguntas con respuestas correctas
-      // Usar las preguntas del backend (con respuestas correctas) para calcular resultado local para mostrar
-      const questionsFromBackend = (submitResponse as any).quiz?.questions || [];
-      console.log("🧮 Calculando score con questions:", questionsFromBackend.length);
-
-      const calculatedResult = calculateQuizScore(
-        questionsFromBackend,
+      // ✅ PASO 2: Calcular el score con las preguntas que tienen respuestas correctas
+      const finalCalculatedResult = calculateQuizScore(
+        questionsWithCorrectAnswers,
         answers
       );
 
-      console.log("✅ Resultado calculado:", calculatedResult);
+      // ✅ PASO 3: Calcular resultado como (preguntas acertadas / total) * 5
+      const resultIn0To5 = Math.round(
+        (finalCalculatedResult.correctCount / finalCalculatedResult.totalQuestions) * 5 * 10
+      ) / 10;
+
+      // ✅ PASO 4: Guardar el resultado calculado en el servidor
+      const saveResponse = await saveQuizResult(eventId, {
+        userId,
+        result: resultIn0To5,
+      });
 
       const completeResult = {
-        ...calculatedResult,
-        correctAnswers: questionsFromBackend,
+        ...finalCalculatedResult,
+        correctAnswers: questionsWithCorrectAnswers,
+        userAnswers: answers,
       };
 
-      console.log("🎯 CompleteResult con correctAnswers:", completeResult);
-
       setResult(completeResult);
-      console.log("✅ setResult() llamado");
 
       notifications.show({
         message: SUCCESS_MESSAGES.QUIZ_SUBMITTED,

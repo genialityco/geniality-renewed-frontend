@@ -9,6 +9,7 @@ import BasicEventData from "./BasicEventData";
 import AdminModules from "./AdminModules";
 import AdminActivities from "./AdminActivities";
 import AdminHosts from "./AdminHosts";
+import AdminQuizPanel from "./AdminQuizPanel";
 
 interface Props {
   organizationId: string;
@@ -48,6 +49,7 @@ export default function AdminEventEdit({
           <Tabs.Tab value="modulos">Módulos</Tabs.Tab>
           <Tabs.Tab value="actividades">Actividades</Tabs.Tab>
           <Tabs.Tab value="hosts">Hosts</Tabs.Tab>
+          <Tabs.Tab value="quiz">Examen</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="basicos" pt="md">
@@ -88,6 +90,13 @@ export default function AdminEventEdit({
             <AdminHosts organizationId={organizationId} eventId={eventId} />
           ) : (
             <Text mb="md">Guarda primero el evento para gestionar hosts.</Text>
+          )}
+        </Tabs.Panel>
+        <Tabs.Panel value="quiz" pt="md">
+          {isEditing ? (
+            <AdminQuizPanel eventId={eventId} />
+          ) : (
+            <Text mb="md">Guarda primero el evento para gestionar examen.</Text>
           )}
         </Tabs.Panel>
       </Tabs>
