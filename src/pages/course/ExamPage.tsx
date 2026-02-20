@@ -3,8 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Card, Text, Loader, Button, Group } from "@mantine/core";
 
 import { fetchQuizForRun } from "../../services/quizService";
-import { useUser } from "../../context/UserContext";
-import QuizComponent from "../../components/QuizComponent/QuizComponent"; // ajusta ruta real
+import QuizComponent from "../../components/quiz/QuizComponent";
 
 export default function ExamPage() {
   const { eventId, organizationId } = useParams<{
@@ -13,7 +12,6 @@ export default function ExamPage() {
   }>();
 
   const navigate = useNavigate();
-  const { userId } = useUser();
 
   const [loading, setLoading] = useState(true);
   const [quiz, setQuiz] = useState<{
@@ -39,11 +37,15 @@ export default function ExamPage() {
         // Trae el examen "safe" para rendir
         const data = await fetchQuizForRun(eventId);
         // data: { id, eventId, questions }
-        setQuiz({
-          id: data.id,
-          eventId: data.eventId,
-          questions: data.questions || [],
-        });
+        if (data) {
+          setQuiz({
+            id: data.id,
+            eventId: data.eventId,
+            questions: data.questions || [],
+          });
+        } else {
+          setError("No se pudo cargar el examen.");
+        }
       } catch (e: any) {
         const status = e?.response?.status;
         if (status === 404) setError("Este curso no tiene examen.");
@@ -106,7 +108,7 @@ export default function ExamPage() {
       {/* userId lo toma el QuizComponent desde el contexto */}
       <QuizComponent
         quizJson={quiz.questions}
-        quizId={quiz.id}
+        _quizId={quiz.id}
         eventId={eventId!}
       />
     </Card>

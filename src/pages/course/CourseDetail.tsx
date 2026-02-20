@@ -19,7 +19,7 @@ import {
   Image,
   Avatar,
   Stack,
-  Button, // ✅ faltaba
+
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -145,16 +145,6 @@ export default function CourseDetail() {
 
   // Obtener el userId desde el contexto
   const { userId } = useUser();
-
-  // ✅ Ir al componente/página de examen
-  const handleGoToExam = () => {
-    if (!organizationId || !eventId) {
-      console.error("Falta organizationId o eventId para navegar al examen");
-      return;
-    }
-    // No pases userId por URL; se toma del contexto en ExamPage
-    navigate(`/organization/${organizationId}/course/${eventId}/exam`);
-  };
 
   // Cargar datos iniciales (Evento, Módulos, Actividades, Hosts)
   useEffect(() => {
@@ -359,8 +349,6 @@ export default function CourseDetail() {
             <Text size="md" fw={500}>
               Bienvenido(a) al curso {event.name}.
             </Text>
-
-            <Button onClick={handleGoToExam}>Realizar examen</Button>
           </Group>
 
           <Text size="lg" fw={600}>

@@ -127,28 +127,6 @@ export interface CourseAttendee {
   createdAt?: string;
   updatedAt?: string;
 }
-export type QuizUserResult = { userId: string; result: number };
-
-export type Quiz = {
-  id: string; // quizId (uuid)
-  eventId: string;
-  questions: any; // tu array o json
-  listUser: QuizUserResult[];
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-export interface QuizAttempt {
-  _id: string;
-  quiz_id: string;
-  user_id: string;
-  attempt_number: number;
-  answers_data: any;
-  total_score: number;
-  max_score: number;
-  createdAt?: string | number | Date;
-  updatedAt?: string;
-}
 
 export interface OrganizationUser {
   _id: string;
@@ -217,3 +195,31 @@ export type UserOrganizationCard = {
     updated_at?: string;
   };
 };
+
+// Quiz Types - Re-export for convenience
+export interface AnswerDto {
+  questionId: string;
+  selectedOptionIndex?: number;
+  selectedOptionIndices?: number[];
+  pairs?: Record<string, string>;
+  orderedItemIds?: string[];
+}
+
+export interface SubmitQuizPayload {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  answers: AnswerDto[];
+}
+
+export interface Quiz {
+  id: string;
+  eventId: string;
+  questions: any[];
+  meta?: {
+    title?: string;
+    description?: string;
+  };
+  listUser?: any[]; // Para compatibilidad con AdminQuizPanel
+  [key: string]: any; // Permitir propiedades adicionales
+}

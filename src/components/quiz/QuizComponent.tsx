@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Model, SurveyModel } from "survey-core";
 import { Survey } from "survey-react-ui";
 import "survey-core/defaultV2.min.css";
@@ -10,16 +10,21 @@ import {
   getTextHtml,
 } from "../../helpers/surveyHelpers";
 
-import { submitQuizResult } from "../../services/quizService"; // ✅ ESTE
 import { useUser } from "../../context/UserContext";
 import LoadingSpinner from "../LoadingSpinner";
+import QuizRenderer from "../QuizRenderer";
+import QuizReview from "../QuizReview";
+import QuizResultCard from "./QuizResultCard";
 
-import { Card, Text, Button, Group } from "@mantine/core";
+import { QuestionWithBlocks } from "../QuizEditor/types";
+import { useQuizSubmit, useQuizState } from "../../hooks/useQuiz";
+import { notifications } from "@mantine/notifications";
+import { ERROR_MESSAGES } from "../../constants/quizConstants";
 
 interface QuizComponentProps {
   quizJson: any; // SurveyJSON o array plano
-  quizId: string; // no se usa para enviar nota (se deja por compatibilidad)
-  eventId: string; // ✅ necesario
+  _quizId?: string; // no se usa para enviar nota (se deja por compatibilidad)
+  eventId: string;
   onFinished?: (payload: {
     grade: number;
     totalScore: number;
@@ -29,31 +34,62 @@ interface QuizComponentProps {
 
 export default function QuizComponent({
   quizJson,
-  quizId, // eslint-disable-line @typescript-eslint/no-unused-vars
   eventId,
   onFinished,
 }: QuizComponentProps) {
-  const { userId } = useUser();
+  const { userId, name: userName, email: userEmail } = useUser();
 
+  // Estado del quiz
+  const { setSubmitted, setReviewing, isEditing, isSubmitted } = useQuizState('editing');
+
+  // Submisión del quiz
+  const { submit, result, isSubmitting } = useQuizSubmit({
+    onSuccess: (scoringResult) => {
+      onFinished?.({
+        grade: scoringResult.grade,
+        totalScore: scoringResult.totalScore,
+        maxScore: scoringResult.maxScore,
+      });
+      setSubmitted();
+    },
+  });
+
+  // Estado del survey
   const [surveyModel, setSurveyModel] = useState<Model | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userAnswers, setUserAnswers] = useState<Record<string, any>>({});
 
-  const [reviewSurvey, setReviewSurvey] = useState<Model | null>(null);
-  const [showReview, setShowReview] = useState(false);
-  const [surveyCompleted, setSurveyCompleted] = useState(false);
-
-  const [resultSummary, setResultSummary] = useState<{
-    totalScore: number;
-    maxScore: number;
-    grade: number;
-  } | null>(null);
-
-  const finalStructure = useMemo(() => {
-    if (!quizJson) return null;
-    return Array.isArray(quizJson) ? convertToSurveyJson(quizJson) : quizJson;
+  // Detectar si es nuevo formato
+  const isNewFormat = useMemo(() => {
+    if (!quizJson) return false;
+    const questions = quizJson.questions || quizJson;
+    if (!Array.isArray(questions) || questions.length === 0) return false;
+    
+    // Si las preguntas tienen "type" y sus valores son nuestros tipos de preguntas, es nuevo formato
+    return questions.some((q: any) => 
+      ["single-choice", "multiple-choice", "matching", "ordering"].includes(q.type)
+    );
   }, [quizJson]);
 
+  const questions: QuestionWithBlocks[] = useMemo(() => {
+    if (!isNewFormat || !quizJson) return [];
+    const qs = quizJson.questions || quizJson;
+    return qs;
+  }, [quizJson, isNewFormat]);
+
+  const finalStructure = useMemo(() => {
+    if (!quizJson || isNewFormat) return null;
+    return Array.isArray(quizJson) ? convertToSurveyJson(quizJson) : quizJson;
+  }, [quizJson, isNewFormat]);
+
+  // Para formato antiguo: preparar SurveyModel
   useEffect(() => {
+    if (isNewFormat) {
+      setIsLoading(false);
+      setSurveyModel(null);
+      return;
+    }
+
     setIsLoading(true);
 
     if (!finalStructure) {
@@ -65,7 +101,7 @@ export default function QuizComponent({
     const model = new Model(finalStructure);
 
     const handler = (sender: SurveyModel) => {
-      onSurveyComplete(sender);
+      onSurveyCompleteOld(sender);
     };
 
     model.onComplete.add(handler);
@@ -76,11 +112,10 @@ export default function QuizComponent({
       model.onComplete.remove(handler);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [finalStructure]);
+  }, [finalStructure, isNewFormat]);
 
-  const onSurveyComplete = async (sendSurvey: SurveyModel) => {
+  const onSurveyCompleteOld = async (sendSurvey: SurveyModel) => {
     const results = sendSurvey.data;
-    setSurveyCompleted(true);
 
     const totalScore = calculateTotalScore(results, sendSurvey);
     const maxScore = calculateMaxScore(sendSurvey.getAllQuestions());
@@ -88,8 +123,6 @@ export default function QuizComponent({
     // ✅ Resultado (nota 0–5)
     const gradeRaw = maxScore > 0 ? (totalScore / maxScore) * 5 : 0;
     const grade = Math.round(gradeRaw * 10) / 10;
-
-    setResultSummary({ totalScore, maxScore, grade });
 
     // ✅ Review model
     const reviewSurveyJson = sendSurvey.toJSON();
@@ -141,15 +174,11 @@ export default function QuizComponent({
     });
 
     reviewModel.getAllQuestions().forEach((q) => changeTitle(q));
-    setReviewSurvey(reviewModel);
 
     // ✅ ENVIAR AL BACKEND (solo userId + result)
     try {
       if (!userId) throw new Error("No hay userId en contexto");
       if (!eventId) throw new Error("No hay eventId");
-
-      // 🔥 Body: { userId, result }
-      await submitQuizResult(eventId, userId, grade);
 
       onFinished?.({ grade, totalScore, maxScore });
     } catch (e: any) {
@@ -159,32 +188,74 @@ export default function QuizComponent({
     }
   };
 
+  // Manejar envío de respuestas para nuevo formato
+  const handleNewFormatSubmit = useCallback(
+    async (answers: Record<string, any>) => {
+      if (!userId) {
+        notifications.show({
+          message: ERROR_MESSAGES.MISSING_USER_ID,
+          color: 'red',
+          autoClose: 3000,
+        });
+        return;
+      }
+
+      setUserAnswers(answers);
+      await submit(
+        eventId,
+        userId,
+        userName || 'Usuario',
+        userEmail || userId,
+        answers,
+        questions
+      );
+    },
+    [userId, userName, userEmail, eventId, questions, submit]
+  );
+
   if (isLoading) return <LoadingSpinner message="Cargando quiz..." />;
 
   return (
     <div>
-      {surveyCompleted && resultSummary && (
-        <Card withBorder radius="md" p="md" mb="md">
-          <Text fw={700}>Resultado</Text>
-          <Text size="sm">
-            Puntaje: {resultSummary.totalScore} / {resultSummary.maxScore}
-          </Text>
-          <Text size="lg" fw={800}>
-            Nota: {resultSummary.grade} / 5.0
-          </Text>
-
-          <Group mt="sm">
-            {!showReview && reviewSurvey && (
-              <Button variant="light" onClick={() => setShowReview(true)}>
-                Ver revisión
-              </Button>
-            )}
-          </Group>
-        </Card>
+      {/* Después de enviar: mostrar resultado y NO permitir reenvío */}
+      {isSubmitted && result && (
+        <>
+          <QuizResultCard
+            result={result}
+            isNewFormat={isNewFormat}
+            onShowReview={() => setReviewing()}
+          />
+          
+          {/* Revisión: mostrar respuestas - Nuevo formato */}
+          {isNewFormat && (
+            <QuizReview
+              questions={result.correctAnswers}
+              answers={userAnswers}
+              correctAnswers={result.correctAnswers || []}
+              onClose={() => setSubmitted()}
+            />
+          )}
+        </>
       )}
 
-      {!surveyCompleted && surveyModel && <Survey model={surveyModel} />}
-      {showReview && reviewSurvey && <Survey model={reviewSurvey} />}
+      {/* Mostrar formulario SOLO si no se ha enviado */}
+      {!isSubmitted && (
+        <>
+          {/* Nuevo formato: QuizRenderer */}
+          {isNewFormat && isEditing && (
+            <QuizRenderer 
+              questions={questions} 
+              onSubmit={handleNewFormatSubmit}
+              isLoading={isSubmitting}
+            />
+          )}
+
+          {/* Formato antiguo: SurveyJS */}
+          {!isNewFormat && isEditing && surveyModel && (
+            <Survey model={surveyModel} />
+          )}
+        </>
+      )}
     </div>
   );
 }

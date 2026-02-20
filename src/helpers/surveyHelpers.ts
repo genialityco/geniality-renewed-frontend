@@ -1,6 +1,7 @@
 import { Model, Question } from "survey-core";
 import { quizConfig, quizResults } from "../data/json";
 import { generateQuestionnaire } from "../services/questionnaireService";
+import { ContentBlock, TextBlock } from "../components/QuizEditor/types";
 
 const correctStr = "Correct";
 const incorrectStr = "Incorrect";
@@ -56,8 +57,60 @@ export function getTextHtml(text: string, str: string, isCorrect: boolean) {
 }
 
 /**
+ * Extrae texto de un array de bloques de contenido
+ */
+function extractTextFromBlocks(blocks: ContentBlock[]): string {
+  if (!blocks || !Array.isArray(blocks)) return "";
+  
+  return blocks
+    .filter((block) => block.type === "text")
+    .map((block) => (block as TextBlock).content)
+    .join("\n");
+}
+
+/**
+ * Obtiene el título de una pregunta (soporta tanto estructura antigua como nueva)
+ */
+function getQuestionTitle(q: any): string {
+  // Nueva estructura con bloques
+  if (q.blocks && Array.isArray(q.blocks)) {
+    return extractTextFromBlocks(q.blocks);
+  }
+  
+  // Estructura antigua con pregunta string
+  if (q.pregunta && typeof q.pregunta === "string") {
+    return q.pregunta;
+  }
+  
+  return "";
+}
+
+/**
+ * Obtiene el texto de una opción (soporta tanto estructura antigua como nueva)
+ */
+function getOptionText(option: any): string {
+  // Nueva estructura con bloques
+  if (option.blocks && Array.isArray(option.blocks)) {
+    return extractTextFromBlocks(option.blocks);
+  }
+  
+  // Estructura antigua simple (string)
+  if (typeof option === "string") {
+    return option;
+  }
+  
+  // Si la opción tiene propiedades como { text: "", blocks: [] }
+  if (option.text && typeof option.text === "string") {
+    return option.text;
+  }
+  
+  return "";
+}
+
+/**
  * Convierte el arreglo de preguntas que devuelve `generateQuestionnaire` en
  * un objeto JSON que entiende SurveyJS.
+ * Soporta ambas estructuras: antigua (q.pregunta) y nueva (q.blocks)
  */
 export function convertToSurveyJson(questions: any[]) {
   return {
@@ -67,18 +120,31 @@ export function convertToSurveyJson(questions: any[]) {
     // Armamos las páginas
     pages: [
       {
-        elements: questions.map((q: { pregunta: any; opciones: { [x: string]: any; }; respuestacorrecta: string | number; }, index: number) => {
+        elements: questions.map((q: any, index: number) => {
+          const title = getQuestionTitle(q);
+          
+          // Procesar opciones (pueden ser strings o objetos con bloques)
+          let choices: any[] = [];
+          if (q.opciones && Array.isArray(q.opciones)) {
+            choices = q.opciones.map((opt: any) => getOptionText(opt));
+          }
+          
+          // Obtener respuesta correcta
+          let correctAnswer: any = undefined;
+          if (q.opciones && q.respuestacorrecta !== undefined) {
+            correctAnswer = getOptionText(q.opciones[q.respuestacorrecta]);
+          }
+          
           return {
             type: "radiogroup",
             // Nombre único por pregunta
             name: `question${index + 1}`,
-            // Título tomado de tu propiedad `pregunta`
-            title: q.pregunta,
-            // Arreglo con las 4 opciones
-            choices: q.opciones,
-            // En SurveyJS la respuesta correcta debe ser el *texto* de la opción correcta,
-            // es decir `opciones[respuestacorrecta]`
-            correctAnswer: q.opciones[q.respuestacorrecta],
+            // Título tomado de la estructura nueva o antigua
+            title: title || `Pregunta ${index + 1}`,
+            // Arreglo con las opciones (ahora solo texto)
+            choices,
+            // Respuesta correcta
+            correctAnswer,
           };
         }),
       },

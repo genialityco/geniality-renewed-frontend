@@ -37,7 +37,7 @@ export default function ActivityDetailContainer() {
   const [_fragments, setFragments] = useState<{ startTime: number; text: string }[]>([]);
 
   // **Estado para el Drawer del Cuestionario**
-  const [drawerQuestionnaireOpen, setDrawerQuestionnaireOpen] = useState(false);
+  const [, setDrawerQuestionnaireOpen] = useState(false);
 
   // 3. Hacer fetch de la actividad
   useEffect(() => {
