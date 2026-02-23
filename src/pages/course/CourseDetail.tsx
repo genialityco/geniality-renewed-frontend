@@ -34,7 +34,6 @@ import { getModulesByEventId } from "../../services/moduleService";
 import { getActivitiesByEvent } from "../../services/activityService";
 import { Event, Module, Activity, Host } from "../../services/types";
 
-import QuizDrawer from "../../components/QuizDrawer";
 import ActivityDetail from "../../components/ActivityDetail";
 
 // IMPORTACIONES PARA REGISTRO DE CURSO
@@ -143,9 +142,6 @@ export default function CourseDetail() {
   const [drawerChatOpen, setDrawerChatOpen] = useState(false);
   const [drawerForumOpen, setDrawerForumOpen] = useState(false);
 
-  // Drawer del Cuestionario
-  const [drawerQuestionnaireOpen, setDrawerQuestionnaireOpen] = useState(false);
-
   // Obtener el userId desde el contexto
   const { userId } = useUser();
 
@@ -208,11 +204,6 @@ export default function CourseDetail() {
 
   if (loading) return <Loader />;
   if (!event) return <Text>Curso no encontrado</Text>;
-
-  // Handler para iniciar el cuestionario (abrir el Drawer)
-  const handleStartQuestionnaire = () => {
-    setDrawerQuestionnaireOpen(true);
-  };
 
   function getShareUrl(activity: Activity) {
     return `${window.location.origin}/organization/${organizationId}/course/${eventId}?activity=${activity._id}`;
@@ -407,7 +398,6 @@ export default function CourseDetail() {
         <ActivityDetail
           activity={selectedActivity}
           eventId={event._id}
-          onStartQuestionnaire={handleStartQuestionnaire}
           shareUrl={selectedActivity ? getShareUrl(selectedActivity) : ""}
           activities={sortedActivities}
         />
@@ -541,13 +531,7 @@ export default function CourseDetail() {
         <Text>Sección de foro, Q&A o discusiones del curso...</Text>
       </Drawer>
 
-      {/* DRAWER - CUESTIONARIO (Quiz) */}
-      <QuizDrawer
-        opened={drawerQuestionnaireOpen}
-        onClose={() => setDrawerQuestionnaireOpen(false)}
-        transcript={selectedActivity?.description || ""}
-        activityId={selectedActivity?._id || ""}
-      />
+
     </AppShell>
   );
 }

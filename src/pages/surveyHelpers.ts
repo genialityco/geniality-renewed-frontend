@@ -1,19 +1,5 @@
-import { Model } from "survey-core";
-import { json } from "../components/QuizComponent/json";
-
 const correctStr = "Correct";
 const incorrectStr = "Incorrect";
-
-export const fetchSurveyData = async () => {
-  try {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    const survey = new Model(json);
-    return survey;
-  } catch (error) {
-    console.error("Error fetching survey data:", error);
-    return null;
-  }
-};
 
 export const changeTitle = (q: { isAnswerCorrect: () => any; prevTitle: string; title: string; }) => {
   if (!q) return;

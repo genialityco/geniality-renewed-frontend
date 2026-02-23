@@ -129,26 +129,7 @@ export interface CourseAttendee {
 }
 
 
-// Interfaz en TypeScript para tu Quiz
-export interface Quiz {
-  _id: string;
-  activity_id: string;      // ID de la actividad
-  quiz_json: any;           // El JSON de Survey
-  createdAt?: string;
-  updatedAt?: string;
-}
 
-export interface QuizAttempt {
-  _id: string;
-  quiz_id: string;
-  user_id: string;
-  attempt_number: number;
-  answers_data: any;
-  total_score: number;
-  max_score: number;
-  createdAt?: string | number | Date;
-  updatedAt?: string;
-}
 
 export interface OrganizationUser {
   _id: string;

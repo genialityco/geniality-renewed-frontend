@@ -10,9 +10,6 @@ import { getActivityById } from "../../services/activityService";
 // Importa tu componente “completo” (la ActivityDetail)
 import ActivityDetail from "../../components/ActivityDetail";
 
-// Importa tu componente QuizDrawer
-import QuizDrawer from "../../components/QuizDrawer";
-
 // (Opcional) función para formatear el tiempo
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -35,9 +32,6 @@ export default function ActivityDetailContainer() {
 
   // Fragmentos de texto
   const [_fragments, setFragments] = useState<{ startTime: number; text: string }[]>([]);
-
-  // **Estado para el Drawer del Cuestionario**
-  const [drawerQuestionnaireOpen, setDrawerQuestionnaireOpen] = useState(false);
 
   // 3. Hacer fetch de la actividad
   useEffect(() => {
@@ -95,31 +89,19 @@ export default function ActivityDetailContainer() {
     );
   }
 
-  // 6. Handler para abrir el Drawer
-  const handleStartQuestionnaire = () => {
-    setDrawerQuestionnaireOpen(true);
-  };
-
-  // 7. Renderizar el componente “completo” pasándole la actividad y otras props
+  // 6. Renderizar el componente "completo" pasandole la actividad y otras props
   return (
     <Container id="main-container" fluid style={{overflow: "auto", maxHeight: "100vh"}}>
       <ActivityDetail
         activity={activity}
         eventId=""
         shareUrl={getShareUrl(activity)} 
-        onStartQuestionnaire={handleStartQuestionnaire}
+        
         videoTime={videoTime}
         formatTime={formatTime}
         activities={[]}
       />
-
-      {/* 8. Renderiza aquí tu QuizDrawer con transcript, que se abre/cierra por el estado */}
-      <QuizDrawer
-        opened={drawerQuestionnaireOpen}
-        onClose={() => setDrawerQuestionnaireOpen(false)}
-        transcript={activity.description || ""}
-        activityId=""
-      />
-    </ Container>
+    </Container>
   );
 }
+

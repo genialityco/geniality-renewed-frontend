@@ -1,5 +1,4 @@
 import { Model, Question } from "survey-core";
-import { quizConfig, quizResults } from "../data/json";
 import { generateQuestionnaire } from "../services/questionnaireService";
 
 const correctStr = "Correct";
@@ -61,9 +60,6 @@ export function getTextHtml(text: string, str: string, isCorrect: boolean) {
  */
 export function convertToSurveyJson(questions: any[]) {
   return {
-    // Puedes fusionar la config de tu quizConfig si lo deseas:
-    ...quizConfig,
-    completedHtmlOnCondition: quizResults,
     // Armamos las páginas
     pages: [
       {
