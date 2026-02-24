@@ -1,0 +1,659 @@
+// @ts-nocheck
+import React, { useEffect, useState } from "react";
+import {
+  getQuizByEventId,
+  getAttempt,
+  UserAttempt,
+  Quiz,
+  Question,
+  UserAnswer,
+  AttemptResult,
+  EditorBlock,
+} from "../services/quizService";
+import { fetchUserById } from "../services/userService";
+
+// ─────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────
+
+interface AttemptRow {
+  userId: string;
+  names: string;
+  score: number;
+  attemptedAt: string;
+}
+
+interface QuizListProps {
+  eventId: string;
+}
+
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
+
+function scoreColor(score: number): string {
+  if (score >= 80) return "#68D391";
+  if (score >= 50) return "#F6AD55";
+  return "#FC8181";
+}
+
+function scoreBg(score: number): string {
+  if (score >= 80) return "#1C3A2A";
+  if (score >= 50) return "#3A2A10";
+  return "#3D1515";
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** Extrae texto plano de una lista de EditorBlock */
+function blocksToText(blocks: EditorBlock[]): string {
+  return (blocks ?? []).map((b) => b.content).join(" ").trim();
+}
+
+// ─────────────────────────────────────────────
+// Sub-componente: panel de respuestas de un intento
+// ─────────────────────────────────────────────
+
+function AttemptAnswersPanel({
+  quizId,
+  userId,
+  questions,
+}: {
+  quizId: string;
+  userId: string;
+  questions: Question[];
+}) {
+  const [attempt, setAttempt] = useState<AttemptResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await getAttempt(quizId, userId);
+        setAttempt(data);
+      } catch (e: any) {
+        setError(e?.response?.data?.message ?? "No se pudieron cargar las respuestas.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [quizId, userId]);
+
+  if (loading)
+    return (
+      <div style={answersPanelStyle}>
+        <style>{spinKeyframe}</style>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={spinnerStyle} />
+          <span style={{ ...mutedText, fontSize: 12 }}>Cargando respuestas…</span>
+        </div>
+      </div>
+    );
+
+  if (error)
+    return (
+      <div style={answersPanelStyle}>
+        <span style={{ color: "#FC8181", fontSize: 12 }}>{error}</span>
+      </div>
+    );
+
+  if (!attempt)
+    return (
+      <div style={answersPanelStyle}>
+        <span style={mutedText}>Sin datos de intento.</span>
+      </div>
+    );
+
+  // Mapa de questionId → UserAnswer para acceso rápido
+  const answerMap: Record<string, UserAnswer> = {};
+  (attempt.userAnswers ?? []).forEach((ua) => {
+    answerMap[ua.questionId] = ua;
+  });
+
+  return (
+    <div style={answersPanelStyle}>
+      {questions.map((q, i) => {
+        const userAnswer = answerMap[q.id];
+        const qText = blocksToText(q.blocks) || `Pregunta ${i + 1}`;
+
+        return (
+          <div key={q.id} style={questionBlockStyle}>
+            {/* Número + enunciado */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+              <span style={questionNumStyle}>{i + 1}</span>
+              <span style={{ fontSize: 12, color: "#CDCDCD", flex: 1 }}>{qText}</span>
+            </div>
+
+            {/* Respuesta del usuario */}
+            {!userAnswer ? (
+              <span style={{ fontSize: 11, color: "#555" }}>Sin respuesta</span>
+            ) : q.type === "single" ? (
+              // single → string = option id
+              renderSingleAnswer(q, userAnswer.answer as string)
+            ) : q.type === "multiple" ? (
+              // multiple → string[]
+              renderMultipleAnswer(q, userAnswer.answer as string[])
+            ) : q.type === "sorting" ? (
+              // sorting → string[]
+              renderSortingAnswer(q, userAnswer.answer as string[])
+            ) : q.type === "matching" ? (
+              // matching → MatchingAnswer[]
+              renderMatchingAnswer(q, userAnswer.answer as any[])
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Renderers de respuesta por tipo
+// ─────────────────────────────────────────────
+
+function renderSingleAnswer(q: Question, selectedId: string) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      {(q.options ?? []).map((opt) => {
+        const isSelected = opt.id === selectedId;
+        const isCorrect = opt.id === q.correctAnswer;
+        const text = blocksToText(opt.blocks) || "(sin texto)";
+        let bg = "transparent";
+        let border = "1px solid #2a2a2a";
+        let color = "#666";
+        if (isSelected && isCorrect) { bg = "#1C3A2A"; border = "1px solid #68D391"; color = "#68D391"; }
+        else if (isSelected && !isCorrect) { bg = "#3D1515"; border = "1px solid #FC8181"; color = "#FC8181"; }
+        else if (!isSelected && isCorrect) { bg = "#162C1D"; border = "1px dashed #68D391"; color = "#68D391"; }
+        return (
+          <div key={opt.id} style={{ ...optionRowStyle, background: bg, border, color }}>
+            <span style={{ marginRight: 6 }}>
+              {isSelected ? (isCorrect ? "✓" : "✗") : isCorrect ? "○" : "·"}
+            </span>
+            {text}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function renderMultipleAnswer(q: Question, selectedIds: string[]) {
+  const sel = selectedIds ?? [];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      {(q.options ?? []).map((opt) => {
+        const isSelected = sel.includes(opt.id);
+        const isCorrect = (q.correctAnswers ?? []).includes(opt.id);
+        const text = blocksToText(opt.blocks) || "(sin texto)";
+        let bg = "transparent";
+        let border = "1px solid #2a2a2a";
+        let color = "#666";
+        if (isSelected && isCorrect) { bg = "#1C3A2A"; border = "1px solid #68D391"; color = "#68D391"; }
+        else if (isSelected && !isCorrect) { bg = "#3D1515"; border = "1px solid #FC8181"; color = "#FC8181"; }
+        else if (!isSelected && isCorrect) { bg = "#162C1D"; border = "1px dashed #68D391"; color = "#68D391"; }
+        return (
+          <div key={opt.id} style={{ ...optionRowStyle, background: bg, border, color }}>
+            <span style={{ marginRight: 6 }}>
+              {isSelected ? (isCorrect ? "✓" : "✗") : isCorrect ? "○" : "·"}
+            </span>
+            {text}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function renderSortingAnswer(q: Question, userOrder: string[]) {
+  const order = (userOrder ?? []).length > 0 ? userOrder : (q.options ?? []).map((o) => o.id);
+  const correct = q.correctOrder ?? [];
+  const optMap = Object.fromEntries((q.options ?? []).map((o) => [o.id, blocksToText(o.blocks)]));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      {order.map((id, i) => {
+        const isCorrectPos = correct[i] === id;
+        return (
+          <div
+            key={id}
+            style={{
+              ...optionRowStyle,
+              background: isCorrectPos ? "#1C3A2A" : "#3D1515",
+              border: isCorrectPos ? "1px solid #68D391" : "1px solid #FC8181",
+              color: isCorrectPos ? "#68D391" : "#FC8181",
+            }}
+          >
+            <span style={{ marginRight: 8, fontWeight: 700, fontSize: 10, opacity: 0.7 }}>
+              {i + 1}
+            </span>
+            {optMap[id] || id}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function renderMatchingAnswer(q: Question, matchingAnswers: any[]) {
+  const colA = (q.columns ?? []).find((c) => c.label === "A");
+  const otherCols = (q.columns ?? []).filter((c) => c.label !== "A");
+  // Construir mapa: columnAId → { colLabel → selectedId }
+  const matchMap: Record<string, Record<string, string>> = {};
+  (matchingAnswers ?? []).forEach((ma: any) => {
+    matchMap[ma.columnAId] = ma.matches ?? {};
+  });
+  // Mapa de optionId → texto para todas las columnas
+  const optTextMap: Record<string, string> = {};
+  (q.columns ?? []).forEach((col) => {
+    col.options.forEach((opt) => {
+      optTextMap[opt.id] = blocksToText(opt.blocks) || "(sin texto)";
+    });
+  });
+  // Respuestas correctas: de q.matchingAnswers (estructura del quiz)
+  const correctMap: Record<string, Record<string, string>> = {};
+  (q.matchingAnswers ?? []).forEach((ma: any) => {
+    correctMap[ma.columnAId] = ma.matches ?? {};
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {(colA?.options ?? []).map((aOpt) => {
+        const aText = optTextMap[aOpt.id];
+        return (
+          <div key={aOpt.id} style={{ marginBottom: 2 }}>
+            <span style={{ fontSize: 11, color: "#AFAFAF", fontWeight: 600 }}>{aText}</span>
+            <div style={{ marginLeft: 12, marginTop: 3, display: "flex", flexDirection: "column", gap: 2 }}>
+              {otherCols.map((col) => {
+                const selectedId = matchMap[aOpt.id]?.[col.label];
+                const correctId = correctMap[aOpt.id]?.[col.label];
+                const isCorrect = selectedId === correctId;
+                return (
+                  <div
+                    key={col.label}
+                    style={{
+                      ...optionRowStyle,
+                      background: selectedId ? (isCorrect ? "#1C3A2A" : "#3D1515") : "transparent",
+                      border: selectedId
+                        ? isCorrect ? "1px solid #68D391" : "1px solid #FC8181"
+                        : "1px solid #2a2a2a",
+                      color: selectedId ? (isCorrect ? "#68D391" : "#FC8181") : "#666",
+                    }}
+                  >
+                    <span style={{ opacity: 0.5, marginRight: 6, fontSize: 10 }}>{col.label}:</span>
+                    {selectedId ? optTextMap[selectedId] ?? selectedId : "Sin respuesta"}
+                    {selectedId && !isCorrect && correctId && (
+                      <span style={{ marginLeft: 8, fontSize: 10, color: "#68D391", opacity: 0.8 }}>
+                        → {optTextMap[correctId] ?? correctId}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Componente principal
+// ─────────────────────────────────────────────
+
+export default function QuizList({ eventId }: QuizListProps) {
+  const [rows, setRows] = useState<AttemptRow[]>([]);
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  // userId expandido (null = ninguno)
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!eventId) return;
+
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const quizData = await getQuizByEventId(eventId);
+
+        if (!quizData || quizData.listUserAttempts.length === 0) {
+          setRows([]);
+          return;
+        }
+
+        setQuiz(quizData);
+
+        const settled = await Promise.allSettled(
+          quizData.listUserAttempts.map((attempt: UserAttempt) =>
+            fetchUserById(attempt.userId).then((user) => ({
+              userId: attempt.userId,
+              names: user.names ?? "Usuario desconocido",
+              score: attempt.score,
+              attemptedAt: attempt.attemptedAt,
+            })),
+          ),
+        );
+
+        const resolved: AttemptRow[] = settled.map((result, i) => {
+          if (result.status === "fulfilled") return result.value;
+          return {
+            userId: quizData.listUserAttempts[i].userId,
+            names: "Usuario desconocido",
+            score: quizData.listUserAttempts[i].score,
+            attemptedAt: quizData.listUserAttempts[i].attemptedAt,
+          };
+        });
+
+        resolved.sort((a, b) => b.score - a.score);
+        setRows(resolved);
+      } catch (e: any) {
+        setError(e?.response?.data?.message ?? "Error al cargar los resultados.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [eventId]);
+
+  const toggleExpand = (userId: string) => {
+    setExpandedUserId((prev) => (prev === userId ? null : userId));
+  };
+
+  if (loading) {
+    return (
+      <div style={wrapStyle}>
+        <style>{spinKeyframe}</style>
+        <div style={centerStyle}>
+          <div style={spinnerStyle} />
+          <span style={mutedText}>Cargando resultados…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={wrapStyle}>
+        <div style={centerStyle}>
+          <span style={{ color: "#FC8181", fontSize: 14 }}>{error}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div style={wrapStyle}>
+        <div style={centerStyle}>
+          <span style={{ fontSize: 32, marginBottom: 12 }}>📭</span>
+          <span style={mutedText}>Nadie ha realizado el quiz todavía.</span>
+        </div>
+      </div>
+    );
+  }
+
+  const avg = Math.round(rows.reduce((s, r) => s + r.score, 0) / rows.length);
+
+  return (
+    <div style={wrapStyle}>
+      <style>{spinKeyframe}</style>
+
+      {/* Header */}
+      <div style={headerStyle}>
+        <div>
+          <h2 style={titleStyle}>Resultados del Quiz</h2>
+          <p style={subtitleStyle}>
+            {rows.length} {rows.length === 1 ? "participante" : "participantes"}
+          </p>
+        </div>
+        <div style={avgBadge}>
+          <span style={{ fontSize: 11, color: "#6B6B6B", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            Promedio
+          </span>
+          <span style={{ fontSize: 26, fontWeight: 700, color: scoreColor(avg) }}>
+            {avg}%
+          </span>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div style={tableWrap}>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={{ ...thStyle, width: 40 }}>#</th>
+              <th style={thStyle}>Participante</th>
+              <th style={{ ...thStyle, textAlign: "center" }}>Puntaje</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>Fecha</th>
+              <th style={{ ...thStyle, width: 40 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => {
+              const isExpanded = expandedUserId === row.userId;
+              return (
+                <React.Fragment key={row.userId}>
+                  <tr
+                    style={{ ...trStyle, cursor: "pointer" }}
+                    onClick={() => toggleExpand(row.userId)}
+                  >
+                    <td style={{ ...tdStyle, color: "#555", fontSize: 12 }}>{i + 1}</td>
+                    <td style={tdStyle}>
+                      <div style={nameCell}>
+                        <div style={avatarStyle}>{row.names.charAt(0).toUpperCase()}</div>
+                        <span style={{ color: "#EDEDED", fontSize: 14 }}>{row.names}</span>
+                      </div>
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <span
+                        style={{
+                          ...scorePill,
+                          color: scoreColor(row.score),
+                          background: scoreBg(row.score),
+                          border: `1px solid ${scoreColor(row.score)}33`,
+                        }}
+                      >
+                        {row.score}%
+                      </span>
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "right", color: "#555", fontSize: 12 }}>
+                      {formatDate(row.attemptedAt)}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <span style={{ fontSize: 10, color: "#555", userSelect: "none" }}>
+                        {isExpanded ? "▲" : "▼"}
+                      </span>
+                    </td>
+                  </tr>
+
+                  {/* Panel de respuestas expandible */}
+                  {isExpanded && quiz && (
+                    <tr>
+                      <td colSpan={5} style={{ padding: 0, borderBottom: "1px solid #161616" }}>
+                        <AttemptAnswersPanel
+                          quizId={quiz._id}
+                          userId={row.userId}
+                          questions={quiz.questions}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────
+
+const spinKeyframe = `@keyframes spin { to { transform: rotate(360deg); } }`;
+
+const wrapStyle: React.CSSProperties = {
+  background: "#111",
+  borderRadius: 12,
+  border: "1px solid #1e1e1e",
+  overflow: "hidden",
+  fontFamily: '"Geist", "Inter", ui-sans-serif, system-ui, sans-serif',
+};
+
+const headerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-end",
+  padding: "20px 24px 16px",
+  borderBottom: "1px solid #1e1e1e",
+};
+
+const titleStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 18,
+  fontWeight: 700,
+  color: "#EDEDED",
+};
+
+const subtitleStyle: React.CSSProperties = {
+  margin: "4px 0 0",
+  fontSize: 12,
+  color: "#555",
+};
+
+const avgBadge: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-end",
+  gap: 2,
+};
+
+const tableWrap: React.CSSProperties = {
+  overflowX: "auto",
+};
+
+const tableStyle: React.CSSProperties = {
+  width: "100%",
+  borderCollapse: "collapse",
+  fontSize: 14,
+};
+
+const thStyle: React.CSSProperties = {
+  padding: "10px 16px",
+  textAlign: "left",
+  fontSize: 11,
+  fontWeight: 600,
+  color: "#555",
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  borderBottom: "1px solid #1e1e1e",
+  background: "#141414",
+};
+
+const trStyle: React.CSSProperties = {
+  borderBottom: "1px solid #161616",
+};
+
+const tdStyle: React.CSSProperties = {
+  padding: "12px 16px",
+  verticalAlign: "middle",
+};
+
+const nameCell: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+};
+
+const avatarStyle: React.CSSProperties = {
+  width: 30,
+  height: 30,
+  borderRadius: "50%",
+  background: "#1e1e1e",
+  border: "1px solid #2D2D2D",
+  color: "#AFAFAF",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 13,
+  fontWeight: 700,
+  flexShrink: 0,
+};
+
+const scorePill: React.CSSProperties = {
+  display: "inline-block",
+  padding: "3px 10px",
+  borderRadius: 20,
+  fontSize: 13,
+  fontWeight: 700,
+};
+
+const centerStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  padding: "48px 24px",
+};
+
+const mutedText: React.CSSProperties = {
+  color: "#555",
+  fontSize: 14,
+};
+
+const spinnerStyle: React.CSSProperties = {
+  width: 20,
+  height: 20,
+  borderRadius: "50%",
+  border: "2px solid #1e1e1e",
+  borderTopColor: "#AFAFAF",
+  animation: "spin 0.8s linear infinite",
+};
+
+const answersPanelStyle: React.CSSProperties = {
+  background: "#0D0D0D",
+  borderTop: "1px solid #1e1e1e",
+  padding: "16px 20px",
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+};
+
+const questionBlockStyle: React.CSSProperties = {
+  paddingBottom: 12,
+  borderBottom: "1px solid #1a1a1a",
+};
+
+const questionNumStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: 18,
+  height: 18,
+  borderRadius: 4,
+  background: "#222",
+  color: "#777",
+  fontSize: 10,
+  fontWeight: 700,
+  flexShrink: 0,
+};
+
+const optionRowStyle: React.CSSProperties = {
+  padding: "4px 8px",
+  borderRadius: 6,
+  fontSize: 11,
+  display: "flex",
+  alignItems: "center",
+};

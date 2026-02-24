@@ -9,7 +9,8 @@ import BasicEventData from "./BasicEventData";
 import AdminModules from "./AdminModules";
 import AdminActivities from "./AdminActivities";
 import AdminHosts from "./AdminHosts";
-
+import QuizList from "../../../components/QuizList";
+import QuizEditComponent from "../../../components/QuizEditComponent";
 interface Props {
   organizationId: string;
   eventId: string; // puede ser "new" o un id real
@@ -48,6 +49,7 @@ export default function AdminEventEdit({
           <Tabs.Tab value="modulos">Módulos</Tabs.Tab>
           <Tabs.Tab value="actividades">Actividades</Tabs.Tab>
           <Tabs.Tab value="hosts">Hosts</Tabs.Tab>
+          <Tabs.Tab value="Examen">Examen</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="basicos" pt="md">
@@ -59,6 +61,27 @@ export default function AdminEventEdit({
             isEditing={isEditing}
             onSaved={onFinish}
           />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="Examen" pt="md">
+          {isEditing ? (
+            <Tabs defaultValue="Resultados">
+              <Tabs.List>
+                <Tabs.Tab value="Resultados">Resultados</Tabs.Tab>
+                <Tabs.Tab value="Preguntas">Preguntas</Tabs.Tab>
+              </Tabs.List>
+              <Tabs.Panel value="Resultados" pt="md">
+                <QuizList eventId={eventId} />
+              </Tabs.Panel>
+              <Tabs.Panel value="Preguntas" pt="md">
+                <QuizEditComponent eventId={eventId} />
+              </Tabs.Panel>
+            </Tabs>
+          ) : (
+            <Text mb="md">
+              Guarda primero el evento para gestionar el examen.
+            </Text>
+          )}
         </Tabs.Panel>
 
         <Tabs.Panel value="modulos" pt="md">

@@ -14,6 +14,8 @@ import AdminOrganizationEvents from "../pages/admin/index";
 import PaymentStatus from "../pages/payment/PaymentStatus";
 import OrganizationLanding from "../pages/organizationLanding";
 import SuperAdmin from "../pages/superadmin";
+import QuizPage from "../pages/course/QuizPage";
+import QuizResultPage from "../pages/course/QuizResultPage";
 
 import { RequireAuth, RequireMembership } from "./guards";
 
@@ -45,6 +47,8 @@ export default function AppRoutes() {
         {/* Rutas que requieren membresía activa */}
         <Route element={<RequireMembership />}>
           <Route path="course/:eventId" element={<CourseDetail />} />
+          <Route path="course/:eventId/quiz/:quizId" element={<QuizPage />} />
+          <Route path="course/:eventId/quiz/:quizId/result" element={<QuizResultPage />} />
           <Route
             path="activitydetail/:activityId"
             element={<ActivityDetailContainer />}

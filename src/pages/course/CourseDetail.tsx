@@ -19,6 +19,7 @@ import {
   Image,
   Avatar,
   Stack,
+  Button,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -43,6 +44,7 @@ import {
   CourseAttendeePayload,
 } from "../../services/courseAttendeeService";
 import { fetchHostsByEventId } from "../../services/hostsService";
+import { getQuizByEventId, Quiz as QuizData } from "../../services/quizService";
 
 // Componente auxiliar para renderizar la tarjeta de actividad
 interface ActivityCardProps {
@@ -128,6 +130,7 @@ export default function CourseDetail() {
   const [modules, setModules] = useState<Module[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [hosts, setHosts] = useState<Host[]>([]);
+  const [quiz, setQuiz] = useState<QuizData | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
   // Actividad seleccionada
@@ -161,6 +164,9 @@ export default function CourseDetail() {
 
           const hostData = await fetchHostsByEventId(eventId);
           setHosts(hostData);
+
+          const quizData = await getQuizByEventId(eventId);
+          setQuiz(quizData);
 
           // Si viene una actividad en la URL (por compartir)
           const activityParam = searchParams.get("activity");
@@ -343,12 +349,46 @@ export default function CourseDetail() {
     if (!selectedActivity) {
       return (
         <Card shadow="sm" radius="md">
-          <Text size="md" fw={500}>
-            Bienvenido(a) al curso {event.name}.
-          </Text>
-          <Text size="sm" c="dimmed">
-            Selecciona una actividad para ver detalles
-          </Text>
+          <Group justify="space-between" align="flex-start" mb="sm">
+            <div>
+              <Text size="md" fw={500}>
+                Bienvenido(a) al curso {event.name}.
+              </Text>
+              <Text size="sm" c="dimmed">
+                Selecciona una actividad para ver detalles
+              </Text>
+            </div>
+
+            {/* Botón de quiz — esquina superior derecha */}
+            {quiz !== undefined && quiz !== null && (
+              quiz.listUserAttempts.some((a) => a.userId === userId) ? (
+                <Button
+                  variant="light"
+                  color="teal"
+                  onClick={() =>
+                    navigate(
+                      `/organization/${organizationId}/course/${eventId}/quiz/${quiz._id}/result`,
+                    )
+                  }
+                >
+                  Ver mis resultados
+                </Button>
+              ) : (
+                <Button
+                  variant="filled"
+                  color="blue"
+                  onClick={() =>
+                    navigate(
+                      `/organization/${organizationId}/course/${eventId}/quiz/${quiz._id}`,
+                    )
+                  }
+                >
+                  Realizar examen
+                </Button>
+              )
+            )}
+          </Group>
+
           <Text size="lg" fw={600}>
             Módulos y actividades
           </Text>
