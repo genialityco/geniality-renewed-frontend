@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   getQuizByEventId,
   getAttempt,
@@ -243,64 +243,199 @@ function renderSortingAnswer(q: Question, userOrder: string[]) {
 }
 
 function renderMatchingAnswer(q: Question, matchingAnswers: any[]) {
+  return <MatchingAnswerView q={q} matchingAnswers={matchingAnswers} />;
+}
+
+function MatchingAnswerView({ q, matchingAnswers }: { q: Question; matchingAnswers: any[] }) {
   const colA = (q.columns ?? []).find((c) => c.label === "A");
   const otherCols = (q.columns ?? []).filter((c) => c.label !== "A");
-  // Construir mapa: columnAId → { colLabel → selectedId }
-  const matchMap: Record<string, Record<string, string>> = {};
-  (matchingAnswers ?? []).forEach((ma: any) => {
-    matchMap[ma.columnAId] = ma.matches ?? {};
-  });
-  // Mapa de optionId → texto para todas las columnas
+
   const optTextMap: Record<string, string> = {};
   (q.columns ?? []).forEach((col) => {
     col.options.forEach((opt) => {
       optTextMap[opt.id] = blocksToText(opt.blocks) || "(sin texto)";
     });
   });
-  // Respuestas correctas: de q.matchingAnswers (estructura del quiz)
+
+  // matchMap: columnAId → { colLabel → selectedId }
+  const matchMap: Record<string, Record<string, string>> = {};
+  (matchingAnswers ?? []).forEach((ma: any) => {
+    matchMap[ma.columnAId] = ma.matches ?? {};
+  });
+
+  // correctMap: columnAId → { colLabel → correctId }
   const correctMap: Record<string, Record<string, string>> = {};
   (q.matchingAnswers ?? []).forEach((ma: any) => {
     correctMap[ma.columnAId] = ma.matches ?? {};
   });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      {(colA?.options ?? []).map((aOpt) => {
-        const aText = optTextMap[aOpt.id];
-        return (
-          <div key={aOpt.id} style={{ marginBottom: 2 }}>
-            <span style={{ fontSize: 11, color: "#AFAFAF", fontWeight: 600 }}>{aText}</span>
-            <div style={{ marginLeft: 12, marginTop: 3, display: "flex", flexDirection: "column", gap: 2 }}>
-              {otherCols.map((col) => {
-                const selectedId = matchMap[aOpt.id]?.[col.label];
-                const correctId = correctMap[aOpt.id]?.[col.label];
-                const isCorrect = selectedId === correctId;
-                return (
-                  <div
-                    key={col.label}
-                    style={{
-                      ...optionRowStyle,
-                      background: selectedId ? (isCorrect ? "#1C3A2A" : "#3D1515") : "transparent",
-                      border: selectedId
-                        ? isCorrect ? "1px solid #68D391" : "1px solid #FC8181"
-                        : "1px solid #2a2a2a",
-                      color: selectedId ? (isCorrect ? "#68D391" : "#FC8181") : "#666",
-                    }}
-                  >
-                    <span style={{ opacity: 0.5, marginRight: 6, fontSize: 10 }}>{col.label}:</span>
-                    {selectedId ? optTextMap[selectedId] ?? selectedId : "Sin respuesta"}
-                    {selectedId && !isCorrect && correctId && (
-                      <span style={{ marginLeft: 8, fontSize: 10, color: "#68D391", opacity: 0.8 }}>
-                        → {optTextMap[correctId] ?? correctId}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {otherCols.map((colB) => (
+        <MatchingColumnPair
+          key={colB.label}
+          colAOptions={colA?.options ?? []}
+          colBOptions={colB.options}
+          colBLabel={colB.label}
+          matchMap={matchMap}
+          correctMap={correctMap}
+          optTextMap={optTextMap}
+        />
+      ))}
+    </div>
+  );
+}
+
+function MatchingColumnPair({
+  colAOptions,
+  colBOptions,
+  colBLabel,
+  matchMap,
+  correctMap,
+  optTextMap,
+}: {
+  colAOptions: any[];
+  colBOptions: any[];
+  colBLabel: string;
+  matchMap: Record<string, Record<string, string>>;
+  correctMap: Record<string, Record<string, string>>;
+  optTextMap: Record<string, string>;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const aRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const bRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [, forceUpdate] = useState(0);
+
+  useLayoutEffect(() => {
+    forceUpdate((n) => n + 1);
+  }, [matchMap, colAOptions, colBOptions]);
+
+  useEffect(() => {
+    const obs = new ResizeObserver(() => forceUpdate((n) => n + 1));
+    if (containerRef.current) obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const getCenter = (el: HTMLDivElement | null, container: HTMLDivElement | null, side: "right" | "left") => {
+    if (!el || !container) return null;
+    const er = el.getBoundingClientRect();
+    const cr = container.getBoundingClientRect();
+    return {
+      x: side === "right" ? er.right - cr.left : er.left - cr.left,
+      y: er.top - cr.top + er.height / 2,
+    };
+  };
+
+  // Construye líneas a dibujar
+  type Line = { aId: string; bId: string; correct: boolean; x1: number; y1: number; x2: number; y2: number };
+  const lines: Line[] = [];
+
+  colAOptions.forEach((aOpt) => {
+    const selectedBId = matchMap[aOpt.id]?.[colBLabel];
+    if (!selectedBId) return;
+    const correctBId = correctMap[aOpt.id]?.[colBLabel];
+    const isCorrect = selectedBId === correctBId;
+    const a = getCenter(aRefs.current[aOpt.id], containerRef.current, "right");
+    const b = getCenter(bRefs.current[selectedBId], containerRef.current, "left");
+    if (a && b) lines.push({ aId: aOpt.id, bId: selectedBId, correct: isCorrect, x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+  });
+
+  // IDs involucrados en líneas
+  const connectedAIds = new Set(lines.map((l) => l.aId));
+  const connectedBIds = new Set(lines.map((l) => l.bId));
+
+  const itemStyle = (connected: boolean, correct: boolean | null): React.CSSProperties => ({
+    padding: "5px 10px",
+    borderRadius: 6,
+    fontSize: 11,
+    marginBottom: 6,
+    border: !connected
+      ? "1px solid #2a2a2a"
+      : correct
+      ? "1px solid #68D391"
+      : "1px solid #FC8181",
+    background: !connected
+      ? "transparent"
+      : correct
+      ? "#162C1D"
+      : "#3D1515",
+    color: !connected ? "#555" : correct ? "#68D391" : "#FC8181",
+    whiteSpace: "nowrap" as const,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  });
+
+  return (
+    <div>
+      {colBLabel !== "B" && (
+        <span style={{ fontSize: 10, color: "#555", marginBottom: 4, display: "block" }}>
+          Columna {colBLabel}
+        </span>
+      )}
+      <div ref={containerRef} style={{ position: "relative", display: "flex", gap: 0, alignItems: "flex-start" }}>
+        {/* SVG líneas */}
+        <svg
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+            overflow: "visible",
+            zIndex: 1,
+          }}
+        >
+          {lines.map((l) => (
+            <line
+              key={`${l.aId}-${l.bId}`}
+              x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+              stroke={l.correct ? "#68D391" : "#FC8181"}
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeDasharray={l.correct ? "none" : "4 3"}
+              opacity={0.7}
+            />
+          ))}
+        </svg>
+
+        {/* Columna A */}
+        <div style={{ flex: 1, zIndex: 2 }}>
+          {colAOptions.map((opt) => {
+            const line = lines.find((l) => l.aId === opt.id);
+            const connected = connectedAIds.has(opt.id);
+            return (
+              <div
+                key={opt.id}
+                ref={(el) => { aRefs.current[opt.id] = el; }}
+                style={itemStyle(connected, line?.correct ?? null)}
+              >
+                {optTextMap[opt.id]}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Espacio central */}
+        <div style={{ minWidth: 48, flexShrink: 0 }} />
+
+        {/* Columna B */}
+        <div style={{ flex: 1, zIndex: 2 }}>
+          {colBOptions.map((opt) => {
+            const line = lines.find((l) => l.bId === opt.id);
+            const connected = connectedBIds.has(opt.id);
+            return (
+              <div
+                key={opt.id}
+                ref={(el) => { bRefs.current[opt.id] = el; }}
+                style={itemStyle(connected, line?.correct ?? null)}
+              >
+                {optTextMap[opt.id]}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

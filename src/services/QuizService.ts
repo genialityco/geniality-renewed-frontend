@@ -38,7 +38,7 @@ export type QuestionType = "single" | "multiple" | "matching" | "sorting";
 export interface Question {
   id: string;
   type: QuestionType;
-  /** Statement blocks — rendered by NotionLikeEditor */
+  /** Statement blocks — rendered by TextEditorBlock */
   blocks: EditorBlock[];
 
   // single / multiple

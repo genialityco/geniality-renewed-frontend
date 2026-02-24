@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Container,
@@ -14,7 +14,6 @@ import {
   Radio,
   Badge,
   Divider,
-  Select,
   Alert,
   Progress,
 } from "@mantine/core";
@@ -24,6 +23,7 @@ import {
   submitAttempt,
   Quiz,
   Question,
+  QuestionOption,
   UserAnswer,
   EditorBlock,
 } from "../../services/quizService";
@@ -121,6 +121,225 @@ function MultipleQuestion({
   );
 }
 
+// ─────────────────────────────────────────────
+// MatchingPair: visual de líneas entre dos columnas
+// ─────────────────────────────────────────────
+
+function MatchingPair({
+  colAOptions,
+  colB,
+  colLabel,
+  matches,
+  onMatch,
+}: {
+  colAOptions: QuestionOption[];
+  colB: { label: string; options: QuestionOption[] };
+  colLabel: string;
+  /** { [aOptId]: bOptId } */
+  matches: Record<string, string>;
+  onMatch: (aId: string, bId: string | null) => void;
+}) {
+  const [selectedAId, setSelectedAId] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const aRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const bRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [, forceUpdate] = useState(0);
+
+  // Re-mide posiciones después de cada cambio de matches o tamaño
+  useLayoutEffect(() => {
+    forceUpdate((t) => t + 1);
+  }, [matches]);
+
+  useEffect(() => {
+    const observer = new ResizeObserver(() => forceUpdate((t: number) => t + 1));
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const getPoint = (
+    el: HTMLDivElement | null,
+    container: HTMLDivElement | null,
+    side: "right" | "left",
+  ) => {
+    if (!el || !container) return null;
+    const er = el.getBoundingClientRect();
+    const cr = container.getBoundingClientRect();
+    return {
+      x: side === "right" ? er.right - cr.left : er.left - cr.left,
+      y: er.top - cr.top + er.height / 2,
+    };
+  };
+
+  // Construye las líneas a dibujar
+  const lines: { aId: string; bId: string; x1: number; y1: number; x2: number; y2: number }[] = [];
+  Object.entries(matches).forEach(([aId, bId]) => {
+    if (!bId) return;
+    const a = getPoint(aRefs.current[aId], containerRef.current, "right");
+    const b = getPoint(bRefs.current[bId], containerRef.current, "left");
+    if (a && b) lines.push({ aId, bId, x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+  });
+
+  const handleAClick = (aId: string) => {
+    setSelectedAId((prev) => (prev === aId ? null : aId));
+  };
+
+  const handleBClick = (bId: string) => {
+    if (selectedAId) {
+      // Si se clica el mismo B que ya está conectado → desconectar
+      if (matches[selectedAId] === bId) {
+        onMatch(selectedAId, null);
+      } else {
+        onMatch(selectedAId, bId);
+      }
+      setSelectedAId(null);
+    } else {
+      // Si no hay A seleccionada, clic en B desconecta esa línea
+      const aMatched = Object.entries(matches).find(([, v]) => v === bId)?.[0];
+      if (aMatched) onMatch(aMatched, null);
+    }
+  };
+
+  const optText = (opt: QuestionOption) => renderBlocks(opt.blocks) || "(sin texto)";
+
+  const itemBase: React.CSSProperties = {
+    padding: "8px 12px",
+    borderRadius: 8,
+    fontSize: 13,
+    cursor: "pointer",
+    userSelect: "none",
+    transition: "border-color 0.15s, background 0.15s",
+    marginBottom: 8,
+    border: "1.5px solid #2a2a2a",
+    background: "#141414",
+    color: "#CDCDCD",
+  };
+
+  return (
+    <div>
+      {colLabel !== "B" && (
+        <Text size="xs" c="dimmed" mb="xs" fw={600}>
+          Columna {colLabel}
+        </Text>
+      )}
+      <div
+        ref={containerRef}
+        style={{ position: "relative", display: "flex", alignItems: "flex-start", gap: 0 }}
+      >
+        {/* SVG de líneas */}
+        <svg
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+            overflow: "visible",
+            zIndex: 1,
+          }}
+        >
+          <defs>
+            <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+              <circle cx="3" cy="3" r="2" fill="#4dabf7" />
+            </marker>
+          </defs>
+          {lines.map((l) => (
+            <line
+              key={`${l.aId}-${l.bId}`}
+              x1={l.x1}
+              y1={l.y1}
+              x2={l.x2}
+              y2={l.y2}
+              stroke="#4dabf7"
+              strokeWidth={2}
+              strokeLinecap="round"
+              markerEnd="url(#arrow)"
+              markerStart="url(#arrow)"
+            />
+          ))}
+          {/* Línea provisional del A seleccionado si ya tiene match */}
+        </svg>
+
+        {/* Columna A */}
+        <div style={{ flex: 1, zIndex: 2 }}>
+          {colAOptions.map((opt) => {
+            const isSelected = selectedAId === opt.id;
+            const isMatched = !!matches[opt.id];
+            return (
+              <div
+                key={opt.id}
+                ref={(el) => { aRefs.current[opt.id] = el; }}
+                onClick={() => handleAClick(opt.id)}
+                style={{
+                  ...itemBase,
+                  borderColor: isSelected
+                    ? "#4dabf7"
+                    : isMatched
+                    ? "#2c5f2e"
+                    : "#2a2a2a",
+                  background: isSelected
+                    ? "#1a2a3a"
+                    : isMatched
+                    ? "#162C1D"
+                    : "#141414",
+                  boxShadow: isSelected ? "0 0 0 3px #4dabf730" : "none",
+                }}
+              >
+                {optText(opt)}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Espacio central para las líneas */}
+        <div style={{ minWidth: 64, flexShrink: 0 }} />
+
+        {/* Columna B (u otra) */}
+        <div style={{ flex: 1, zIndex: 2 }}>
+          {colB.options.map((opt) => {
+            const isMatchedToSelected = selectedAId
+              ? matches[selectedAId] === opt.id
+              : false;
+            const isMatched = Object.values(matches).includes(opt.id);
+            return (
+              <div
+                key={opt.id}
+                ref={(el) => { bRefs.current[opt.id] = el; }}
+                onClick={() => handleBClick(opt.id)}
+                style={{
+                  ...itemBase,
+                  borderColor: isMatchedToSelected
+                    ? "#4dabf7"
+                    : isMatched
+                    ? "#2c5f2e"
+                    : selectedAId
+                    ? "#333"
+                    : "#2a2a2a",
+                  background: isMatchedToSelected
+                    ? "#1a2a3a"
+                    : isMatched
+                    ? "#162C1D"
+                    : "#141414",
+                  opacity: selectedAId && !isMatchedToSelected ? 0.85 : 1,
+                }}
+              >
+                {optText(opt)}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Instrucción */}
+      <Text size="xs" c="dimmed" mt={4}>
+        {selectedAId
+          ? "Ahora haz clic en un elemento de la derecha para conectarlo."
+          : "Haz clic en un elemento de la izquierda para comenzar a conectar."}
+      </Text>
+    </div>
+  );
+}
+
 function MatchingQuestion({
   question,
   matchingAnswers,
@@ -128,44 +347,30 @@ function MatchingQuestion({
 }: {
   question: Question;
   matchingAnswers: Record<string, Record<string, string>>;
-  onChange: (columnAId: string, columnLabel: string, selectedId: string) => void;
+  onChange: (columnAId: string, columnLabel: string, selectedId: string | null) => void;
 }) {
   const colA = question.columns?.find((c) => c.label === "A");
   const otherCols = question.columns?.filter((c) => c.label !== "A") ?? [];
 
   return (
-    <Stack gap="md" mt="sm">
-      {colA?.options.map((aOpt) => {
-        const aText = renderBlocks(aOpt.blocks) || "(sin texto)";
+    <Stack gap="xl" mt="sm">
+      {otherCols.map((col) => {
+        // matches para este par: { [aOptId]: bOptId }
+        const pairMatches: Record<string, string> = {};
+        (colA?.options ?? []).forEach((aOpt) => {
+          const matched = matchingAnswers[aOpt.id]?.[col.label];
+          if (matched) pairMatches[aOpt.id] = matched;
+        });
+
         return (
-          <Card key={aOpt.id} withBorder radius="md" p="sm">
-            <Text fw={600} size="sm" mb="xs">
-              {aText}
-            </Text>
-            <Stack gap="xs">
-              {otherCols.map((col) => {
-                const selectData = col.options.map((o) => ({
-                  value: o.id,
-                  label: renderBlocks(o.blocks) || "(sin texto)",
-                }));
-                return (
-                  <Group key={col.label} align="center" gap="sm">
-                    <Badge size="sm" variant="outline">
-                      {col.label}
-                    </Badge>
-                    <Select
-                      placeholder="Seleccionar…"
-                      data={selectData}
-                      value={matchingAnswers[aOpt.id]?.[col.label] ?? null}
-                      onChange={(val) => val && onChange(aOpt.id, col.label, val)}
-                      style={{ flex: 1 }}
-                      size="xs"
-                    />
-                  </Group>
-                );
-              })}
-            </Stack>
-          </Card>
+          <MatchingPair
+            key={col.label}
+            colAOptions={colA?.options ?? []}
+            colB={col}
+            colLabel={col.label}
+            matches={pairMatches}
+            onMatch={(aId, bId) => onChange(aId, col.label, bId)}
+          />
         );
       })}
     </Stack>
@@ -181,56 +386,133 @@ function SortingQuestion({
   order: string[];
   onChange: (newOrder: string[]) => void;
 }) {
-  // Si no hay orden definido aún, usamos el orden original de las opciones
   const currentOrder =
-    order.length > 0
-      ? order
-      : (question.options?.map((o) => o.id) ?? []);
+    order.length > 0 ? order : (question.options?.map((o) => o.id) ?? []);
 
   const optMap = Object.fromEntries(
-    (question.options ?? []).map((o) => [o.id, renderBlocks(o.blocks) || "(sin texto)"])
+    (question.options ?? []).map((o) => [
+      o.id,
+      renderBlocks(o.blocks) || "(sin texto)",
+    ]),
   );
 
-  const move = (index: number, dir: -1 | 1) => {
-    const newOrd = [...currentOrder];
-    const target = index + dir;
-    if (target < 0 || target >= newOrd.length) return;
-    [newOrd[index], newOrd[target]] = [newOrd[target], newOrd[index]];
-    onChange(newOrd);
+  const dragItem = useRef<number | null>(null);
+  const dragOver = useRef<number | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  const handleDragStart = (i: number) => {
+    dragItem.current = i;
+    setDraggingIndex(i);
+  };
+
+  const handleDragEnter = (i: number) => {
+    dragOver.current = i;
+    setOverIndex(i);
+  };
+
+  const handleDragEnd = () => {
+    if (dragItem.current !== null && dragOver.current !== null && dragItem.current !== dragOver.current) {
+      const newOrd = [...currentOrder];
+      const dragged = newOrd.splice(dragItem.current, 1)[0];
+      newOrd.splice(dragOver.current, 0, dragged);
+      onChange(newOrd);
+    }
+    dragItem.current = null;
+    dragOver.current = null;
+    setDraggingIndex(null);
+    setOverIndex(null);
   };
 
   return (
     <Stack gap="xs" mt="sm">
-      {currentOrder.map((id, i) => (
-        <Card key={id} withBorder radius="md" p="sm">
-          <Group justify="space-between">
-            <Group gap="xs">
-              <Badge size="sm" variant="filled" color="gray">
-                {i + 1}
-              </Badge>
-              <Text size="sm">{optMap[id]}</Text>
-            </Group>
-            <Group gap={4}>
-              <Button
-                size="xs"
-                variant="subtle"
-                disabled={i === 0}
-                onClick={() => move(i, -1)}
-              >
-                ↑
-              </Button>
-              <Button
-                size="xs"
-                variant="subtle"
-                disabled={i === currentOrder.length - 1}
-                onClick={() => move(i, 1)}
-              >
-                ↓
-              </Button>
-            </Group>
-          </Group>
-        </Card>
-      ))}
+      <Text size="xs" c="dimmed" mb={4}>
+        Arrastra los elementos para ordenarlos.
+      </Text>
+      {currentOrder.map((id, i) => {
+        const isDragging = draggingIndex === i;
+        const isOver = overIndex === i && draggingIndex !== i;
+        return (
+          <div
+            key={id}
+            draggable
+            onDragStart={() => handleDragStart(i)}
+            onDragEnter={() => handleDragEnter(i)}
+            onDragOver={(e) => e.preventDefault()}
+            onDragEnd={handleDragEnd}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "10px 14px",
+              borderRadius: 8,
+              border: isOver
+                ? "1.5px dashed #4dabf7"
+                : "1.5px solid #2a2a2a",
+              background: isDragging
+                ? "#0f1a25"
+                : isOver
+                ? "#1a2530"
+                : "#141414",
+              opacity: isDragging ? 0.45 : 1,
+              cursor: "grab",
+              transition: "border-color 0.15s, background 0.15s, opacity 0.15s",
+              userSelect: "none",
+            }}
+          >
+            {/* Handle visual */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 3,
+                flexShrink: 0,
+                opacity: 0.4,
+              }}
+            >
+              {[0, 1, 2].map((row) => (
+                <div key={row} style={{ display: "flex", gap: 3 }}>
+                  {[0, 1].map((dot) => (
+                    <div
+                      key={dot}
+                      style={{
+                        width: 3,
+                        height: 3,
+                        borderRadius: "50%",
+                        background: "#AFAFAF",
+                      }}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Número de posición */}
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: 22,
+                height: 22,
+                borderRadius: 6,
+                background: isOver ? "#1a3a5a" : "#1e1e1e",
+                color: isOver ? "#4dabf7" : "#777",
+                fontSize: 11,
+                fontWeight: 700,
+                flexShrink: 0,
+                transition: "background 0.15s, color 0.15s",
+              }}
+            >
+              {i + 1}
+            </span>
+
+            <Text size="sm" style={{ flex: 1, color: "#CDCDCD" }}>
+              {optMap[id]}
+            </Text>
+          </div>
+        );
+      })}
     </Stack>
   );
 }
@@ -490,16 +772,18 @@ export default function QuizPage() {
                 question={q}
                 matchingAnswers={matchingAnswers[q.id] ?? {}}
                 onChange={(colAId, colLabel, selectedId) =>
-                  setMatchingAnswers((prev) => ({
-                    ...prev,
-                    [q.id]: {
-                      ...(prev[q.id] ?? {}),
-                      [colAId]: {
-                        ...(prev[q.id]?.[colAId] ?? {}),
-                        [colLabel]: selectedId,
-                      },
-                    },
-                  }))
+                  setMatchingAnswers((prev) => {
+                    const qMap = { ...(prev[q.id] ?? {}) };
+                    if (selectedId === null) {
+                      // Eliminar match
+                      const aMap = { ...(qMap[colAId] ?? {}) };
+                      delete aMap[colLabel];
+                      qMap[colAId] = aMap;
+                    } else {
+                      qMap[colAId] = { ...(qMap[colAId] ?? {}), [colLabel]: selectedId };
+                    }
+                    return { ...prev, [q.id]: qMap };
+                  })
                 }
               />
             )}

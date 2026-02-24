@@ -182,7 +182,7 @@ function UploadingOverlay() {
 }
 
 // ─────────────────────────────────────────────
-// ImageBlock
+// ImageBlock — FIXED
 // ─────────────────────────────────────────────
 
 function ImageBlock({
@@ -198,6 +198,8 @@ function ImageBlock({
     const c = block.content ?? "";
     return isFirebaseUrl(c) ? "" : c;
   });
+
+  // ✅ FIX: ref para el input file oculto
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -208,7 +210,7 @@ function ImageBlock({
     try {
       const url = await uploadImageToFirebase(file, "quiz_images");
       updateBlockContent(block.id, url);
-      setUrlInput(""); // limpiar campo de URL al subir archivo
+      setUrlInput("");
       insertBlockAfter(block.id);
     } catch (err: any) {
       setError(
@@ -257,7 +259,20 @@ function ImageBlock({
       <div style={mediaInputRow}>
         {/* Archivo */}
         <div style={mediaColumn}>
-          <label style={mediaLabel}>Archivo</label>
+          <span style={mediaLabel}>Archivo</span>
+
+          {/* ✅ FIX: button + input hidden con ref en lugar de label+input superpuesto */}
+          <button
+            type="button"
+            style={{
+              ...mediaBtn,
+              opacity: uploading ? 0.5 : 1,
+              cursor: uploading ? "not-allowed" : "pointer",
+            }}
+            onClick={() => !uploading && fileInputRef.current?.click()}
+          >
+            {uploading ? "Subiendo…" : "📁 Seleccionar imagen"}
+          </button>
           <input
             ref={fileInputRef}
             type="file"
@@ -266,14 +281,7 @@ function ImageBlock({
             disabled={uploading}
             style={{ display: "none" }}
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            style={{ ...mediaBtn, opacity: uploading ? 0.5 : 1 }}
-          >
-            {uploading ? "Subiendo…" : "📁 Seleccionar imagen"}
-          </button>
-          {/* Nombre del archivo subido */}
+
           {isFirebase && !uploading && (
             <span style={uploadedBadge}>✓ Imagen subida</span>
           )}
@@ -300,10 +308,7 @@ function ImageBlock({
 
         {/* Limpiar */}
         {hasContent && !uploading && (
-          <button
-            onClick={handleClear}
-            style={clearBtn}
-          >
+          <button onClick={handleClear} style={clearBtn}>
             Limpiar
           </button>
         )}
@@ -326,7 +331,7 @@ function ImageBlock({
 }
 
 // ─────────────────────────────────────────────
-// VideoBlock  ← CORREGIDO
+// VideoBlock — FIXED
 // ─────────────────────────────────────────────
 
 function VideoBlock({
@@ -338,12 +343,12 @@ function VideoBlock({
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Estado local para el campo de URL (YouTube/Vimeo)
-  // No mezcla con las URLs de Firebase
   const [urlInput, setUrlInput] = useState<string>(() => {
     const c = block.content ?? "";
     return isFirebaseUrl(c) ? "" : c;
   });
+
+  // ✅ FIX: ref para el input file oculto
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -354,7 +359,7 @@ function VideoBlock({
     try {
       const url = await uploadImageToFirebase(file, "quiz_videos");
       updateBlockContent(block.id, url);
-      setUrlInput(""); // limpiar campo de URL al subir archivo
+      setUrlInput("");
       insertBlockAfter(block.id);
     } catch (err: any) {
       setError(
@@ -405,7 +410,20 @@ function VideoBlock({
       <div style={mediaInputRow}>
         {/* Archivo de video */}
         <div style={mediaColumn}>
-          <label style={mediaLabel}>Archivo de video</label>
+          <span style={mediaLabel}>Archivo de video</span>
+
+          {/* ✅ FIX: button + input hidden con ref en lugar de label+input superpuesto */}
+          <button
+            type="button"
+            style={{
+              ...mediaBtn,
+              opacity: uploading ? 0.5 : 1,
+              cursor: uploading ? "not-allowed" : "pointer",
+            }}
+            onClick={() => !uploading && fileInputRef.current?.click()}
+          >
+            {uploading ? "Subiendo…" : "📁 Seleccionar video"}
+          </button>
           <input
             ref={fileInputRef}
             type="file"
@@ -414,14 +432,7 @@ function VideoBlock({
             disabled={uploading}
             style={{ display: "none" }}
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            style={{ ...mediaBtn, opacity: uploading ? 0.5 : 1 }}
-          >
-            {uploading ? "Subiendo…" : "📁 Seleccionar video"}
-          </button>
-          {/* Nombre del archivo subido */}
+
           {isFirebase && !uploading && (
             <span style={uploadedBadge}>✓ Video subido</span>
           )}
@@ -494,7 +505,7 @@ function VideoBlock({
 }
 
 // ─────────────────────────────────────────────
-// Block dispatcher
+// Block dispatcher — FIXED (sin contentEditable wrapper)
 // ─────────────────────────────────────────────
 
 function Block({
@@ -561,27 +572,33 @@ function Block({
     );
   }
 
+  // contentEditable={false} evita que el navegador trate el contenido como texto editable
   if (block.type === "image") {
     return (
-      <ImageBlock
-        block={block}
-        refSetter={refSetter}
-        removeBlock={removeBlock}
-        updateBlockContent={updateBlockContent}
-        insertBlockAfter={insertBlockAfter}
-      />
+      <div contentEditable={false}>
+        <ImageBlock
+          block={block}
+          refSetter={refSetter}
+          removeBlock={removeBlock}
+          updateBlockContent={updateBlockContent}
+          insertBlockAfter={insertBlockAfter}
+        />
+      </div>
     );
   }
 
+  // contentEditable={false} evita que el navegador trate el contenido como texto editable
   if (block.type === "video") {
     return (
-      <VideoBlock
-        block={block}
-        refSetter={refSetter}
-        removeBlock={removeBlock}
-        updateBlockContent={updateBlockContent}
-        insertBlockAfter={insertBlockAfter}
-      />
+      <div contentEditable={false}>
+        <VideoBlock
+          block={block}
+          refSetter={refSetter}
+          removeBlock={removeBlock}
+          updateBlockContent={updateBlockContent}
+          insertBlockAfter={insertBlockAfter}
+        />
+      </div>
     );
   }
 
@@ -593,15 +610,15 @@ function Block({
 // Main editor
 // ─────────────────────────────────────────────
 
-interface NotionLikeEditorProps {
+interface TextEditorBlockProps {
   initialBlocks?: EditorBlock[];
   onChange?: (blocks: EditorBlock[]) => void;
 }
 
-export default function NotionLikeEditor({
+export default function TextEditorBlock({
   initialBlocks,
   onChange,
-}: NotionLikeEditorProps = {}) {
+}: TextEditorBlockProps = {}) {
   const [blocks, setBlocks] = useState<EditorBlock[]>(
     () =>
       initialBlocks ?? [
@@ -622,7 +639,6 @@ export default function NotionLikeEditor({
   const refs = useRef<Record<string, HTMLElement | null>>({});
   const onChangeRef = useRef(onChange);
 
-  // Actualizar la ref cuando onChange cambia
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
@@ -747,11 +763,14 @@ export default function NotionLikeEditor({
           }),
         );
 
-        requestAnimationFrame(() => {
-          const el = refs.current[blockId];
-          if (el) el.innerText = el.innerText.replace(/^\/\S*\s*/, "");
-          focusBlock(blockId);
-        });
+        // Para bloques de media no manipulamos el DOM ni enfocamos
+        if (type !== "image" && type !== "video") {
+          requestAnimationFrame(() => {
+            const el = refs.current[blockId];
+            if (el) el.innerText = el.innerText.replace(/^\/\S*\s*/, "");
+            focusBlock(blockId);
+          });
+        }
 
         return {
           open: false,
@@ -1004,7 +1023,6 @@ export default function NotionLikeEditor({
 // Styles
 // ─────────────────────────────────────────────
 
-// Fila contenedora de los inputs de media
 const mediaInputRow: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
@@ -1013,11 +1031,10 @@ const mediaInputRow: React.CSSProperties = {
   width: "100%",
 };
 
-// Columna individual dentro de la fila (archivo o URL)
 const mediaColumn: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  flex: "1 1 160px", // ← mínimo 160px, crece si hay espacio
+  flex: "1 1 160px",
   minWidth: 0,
 };
 
@@ -1030,7 +1047,6 @@ const mediaLabel: React.CSSProperties = {
   letterSpacing: "0.06em",
 };
 
-// Botón que activa el <input type="file"> oculto
 const mediaBtn: React.CSSProperties = {
   display: "block",
   width: "100%",
@@ -1039,13 +1055,11 @@ const mediaBtn: React.CSSProperties = {
   borderRadius: 8,
   background: "#1A1A1A",
   color: "#EDEDED",
-  cursor: "pointer",
   fontSize: 13,
   textAlign: "left",
   boxSizing: "border-box",
 };
 
-// Input de texto para URLs
 const mediaInput = (invalid = false): React.CSSProperties => ({
   display: "block",
   width: "100%",
@@ -1091,11 +1105,13 @@ const listBullet: React.CSSProperties = {
   fontSize: 16,
   paddingTop: 2,
 };
+
 const errorText: React.CSSProperties = {
   color: "#E53E3E",
   fontSize: 13,
   marginTop: 8,
 };
+
 const uploadOverlayStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -1106,6 +1122,7 @@ const uploadOverlayStyle: React.CSSProperties = {
   borderRadius: 8,
   border: "1px solid #2D2D2D",
 };
+
 const spinnerStyle: React.CSSProperties = {
   width: 16,
   height: 16,
