@@ -360,14 +360,17 @@ export default function CourseDetail() {
             </div>
 
             {/* Botón de quiz — esquina superior derecha */}
-            {quiz !== undefined && quiz !== null && (
-              quiz.listUserAttempts.some((a) => a.userId === userId) ? (
+{(() => {
+              const qid = quiz?._id || quiz?.id;
+              if (!quiz || !qid) return null;
+              const attempted = (quiz.listUserAttempts ?? []).some((a) => a.userId === userId);
+              return attempted ? (
                 <Button
                   variant="light"
                   color="teal"
                   onClick={() =>
                     navigate(
-                      `/organization/${organizationId}/course/${eventId}/quiz/${quiz._id}/result`,
+                      `/organization/${organizationId}/course/${eventId}/quiz/${qid}/result`,
                     )
                   }
                 >
@@ -379,14 +382,14 @@ export default function CourseDetail() {
                   color="blue"
                   onClick={() =>
                     navigate(
-                      `/organization/${organizationId}/course/${eventId}/quiz/${quiz._id}`,
+                      `/organization/${organizationId}/course/${eventId}/quiz/${qid}`,
                     )
                   }
                 >
                   Realizar examen
                 </Button>
-              )
-            )}
+              );
+            })()}
           </Group>
 
           <Text size="lg" fw={600}>

@@ -36,7 +36,7 @@ export default function QuizResultPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!quizId || !userId) return;
+    if (!quizId || quizId === "undefined" || !userId) return;
     (async () => {
       try {
         const data = await getScoreByUserId(quizId, userId);

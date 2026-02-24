@@ -90,10 +90,11 @@ export interface AttemptResult {
 }
 
 export interface Quiz {
-  _id: string;
+  _id?: string;
+  id?: string;
   eventId: string;
   questions: Question[];
-  listUserAttempts: UserAttempt[];
+  listUserAttempts?: UserAttempt[];
   createdAt: string;
   updatedAt: string;
 }

@@ -598,7 +598,7 @@ export default function QuizPage() {
   const [sortingOrders, setSortingOrders] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
-    if (!quizId) return;
+    if (!quizId || quizId === "undefined") return;
     (async () => {
       try {
         const data = await getQuizById(quizId);
