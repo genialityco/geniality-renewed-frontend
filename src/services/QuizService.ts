@@ -99,6 +99,7 @@ export interface Quiz {
 }
 
 export interface CreateQuizPayload {
+  id?: string;
   eventId: string;
   questions: Question[];
 }
@@ -135,7 +136,12 @@ export const getQuizById = async (quizId: string): Promise<Quiz> => {
  * Fails if the event already has a quiz — use updateQuiz instead.
  */
 export const createQuiz = async (payload: CreateQuizPayload): Promise<Quiz> => {
-  const response = await api.post<Quiz>("/quiz", payload);
+  // Generar un id único para evitar E11000 dup key { id: null } en MongoDB
+  const payloadWithId: CreateQuizPayload = {
+    id: crypto.randomUUID(),
+    ...payload,
+  };
+  const response = await api.post<Quiz>("/quiz", payloadWithId);
   return response.data;
 };
 

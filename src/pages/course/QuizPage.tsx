@@ -33,9 +33,62 @@ import { useUser } from "../../context/UserContext";
 // Helpers
 // ─────────────────────────────────────────────
 
-/** Renderiza el texto plano de una lista de bloques */
+/** Extrae texto plano de una lista de bloques (para labels de opciones) */
 function renderBlocks(blocks: EditorBlock[]): string {
-  return blocks.map((b) => b.content).join(" ").trim();
+  return blocks
+    .filter((b) => b.type !== "image" && b.type !== "video")
+    .map((b) => b.content)
+    .join(" ")
+    .trim();
+}
+
+/** Renderiza bloques con soporte de imagen y video */
+function BlocksDisplay({ blocks, fallback }: { blocks: EditorBlock[]; fallback?: string }) {
+  const hasContent = blocks?.length > 0;
+  if (!hasContent) return fallback ? <Text fw={600} size="md">{fallback}</Text> : null;
+
+  return (
+    <>
+      {blocks.map((block) => {
+        if (block.type === "image") {
+          return block.content ? (
+            <img
+              key={block.id}
+              src={block.content}
+              alt=""
+              style={{ maxWidth: "100%", borderRadius: 8, margin: "6px 0", display: "block" }}
+            />
+          ) : null;
+        }
+        if (block.type === "video") {
+          return block.content ? (
+            <video
+              key={block.id}
+              src={block.content}
+              controls
+              style={{ maxWidth: "100%", borderRadius: 8, margin: "6px 0", display: "block" }}
+            />
+          ) : null;
+        }
+        const text = block.content;
+        if (!text) return null;
+        if (block.type === "h1") {
+          return <Text key={block.id} fw={700} size="xl" mb={4}>{text}</Text>;
+        }
+        if (block.type === "h2") {
+          return <Text key={block.id} fw={700} size="lg" mb={4}>{text}</Text>;
+        }
+        if (block.type === "bullet-list") {
+          return <Text key={block.id} size="md">• {text}</Text>;
+        }
+        if (block.type === "numbered-list") {
+          return <Text key={block.id} size="md">{text}</Text>;
+        }
+        // paragraph
+        return <Text key={block.id} fw={600} size="md">{text}</Text>;
+      })}
+    </>
+  );
 }
 
 // ─────────────────────────────────────────────
@@ -741,9 +794,9 @@ export default function QuizPage() {
               </Badge>
             </Group>
 
-            <Text fw={600} size="md" mb="sm">
-              {renderBlocks(q.blocks) || `Pregunta ${i + 1}`}
-            </Text>
+            <div style={{ marginBottom: 8 }}>
+              <BlocksDisplay blocks={q.blocks} fallback={`Pregunta ${i + 1}`} />
+            </div>
 
             <Divider mb="sm" />
 
