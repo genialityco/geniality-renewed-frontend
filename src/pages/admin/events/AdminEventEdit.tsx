@@ -11,6 +11,7 @@ import AdminActivities from "./AdminActivities";
 import AdminHosts from "./AdminHosts";
 import QuizList from "../../../components/QuizList";
 import QuizEditComponent from "../../../components/QuizEditComponent";
+import QuizConfig from "../../../components/QuizConfig";
 interface Props {
   organizationId: string;
   eventId: string; // puede ser "new" o un id real
@@ -69,12 +70,16 @@ export default function AdminEventEdit({
               <Tabs.List>
                 <Tabs.Tab value="Resultados">Resultados</Tabs.Tab>
                 <Tabs.Tab value="Preguntas">Preguntas</Tabs.Tab>
+                <Tabs.Tab value="Configuracion">Configuración</Tabs.Tab>
               </Tabs.List>
               <Tabs.Panel value="Resultados" pt="md">
                 <QuizList eventId={eventId} />
               </Tabs.Panel>
               <Tabs.Panel value="Preguntas" pt="md">
                 <QuizEditComponent eventId={eventId} />
+              </Tabs.Panel>
+              <Tabs.Panel value="Configuracion" pt="md">
+                <QuizConfig eventId={eventId} />
               </Tabs.Panel>
             </Tabs>
           ) : (

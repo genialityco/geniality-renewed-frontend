@@ -2,12 +2,10 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   getQuizByEventId,
-  getAttempt,
   UserAttempt,
   Quiz,
   Question,
   UserAnswer,
-  AttemptResult,
   EditorBlock,
 } from "../services/quizService";
 import { fetchUserById } from "../services/userService";
@@ -19,8 +17,10 @@ import { fetchUserById } from "../services/userService";
 interface AttemptRow {
   userId: string;
   names: string;
-  score: number;
-  attemptedAt: string;
+  bestScore: number;
+  bestAttemptedAt: string;
+  totalAttempts: number;
+  bestUserAnswers: UserAnswer[];
 }
 
 interface QuizListProps {
@@ -63,59 +63,15 @@ function blocksToText(blocks: EditorBlock[]): string {
 // ─────────────────────────────────────────────
 
 function AttemptAnswersPanel({
-  quizId,
-  userId,
+  userAnswers,
   questions,
 }: {
-  quizId: string;
-  userId: string;
+  userAnswers: UserAnswer[];
   questions: Question[];
 }) {
-  const [attempt, setAttempt] = useState<AttemptResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await getAttempt(quizId, userId);
-        setAttempt(data);
-      } catch (e: any) {
-        setError(e?.response?.data?.message ?? "No se pudieron cargar las respuestas.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [quizId, userId]);
-
-  if (loading)
-    return (
-      <div style={answersPanelStyle}>
-        <style>{spinKeyframe}</style>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={spinnerStyle} />
-          <span style={{ ...mutedText, fontSize: 12 }}>Cargando respuestas…</span>
-        </div>
-      </div>
-    );
-
-  if (error)
-    return (
-      <div style={answersPanelStyle}>
-        <span style={{ color: "#FC8181", fontSize: 12 }}>{error}</span>
-      </div>
-    );
-
-  if (!attempt)
-    return (
-      <div style={answersPanelStyle}>
-        <span style={mutedText}>Sin datos de intento.</span>
-      </div>
-    );
-
   // Mapa de questionId → UserAnswer para acceso rápido
   const answerMap: Record<string, UserAnswer> = {};
-  (attempt.userAnswers ?? []).forEach((ua) => {
+  (userAnswers ?? []).forEach((ua) => {
     answerMap[ua.questionId] = ua;
   });
 
@@ -468,28 +424,46 @@ export default function QuizList({ eventId }: QuizListProps) {
 
         setQuiz(quizData);
 
+        // Agrupar todos los intentos por userId
+        const byUser: Record<string, UserAttempt[]> = {};
+        for (const attempt of quizData.listUserAttempts) {
+          if (!byUser[attempt.userId]) byUser[attempt.userId] = [];
+          byUser[attempt.userId].push(attempt);
+        }
+
+        // Por cada usuario único: mejor intento + total de intentos
+        const uniqueUsers = Object.entries(byUser).map(([userId, attempts]) => {
+          const best = attempts.reduce((b, a) => (a.score > b.score ? a : b));
+          return { userId, best, totalAttempts: attempts.length };
+        });
+
         const settled = await Promise.allSettled(
-          quizData.listUserAttempts.map((attempt: UserAttempt) =>
-            fetchUserById(attempt.userId).then((user) => ({
-              userId: attempt.userId,
+          uniqueUsers.map(({ userId, best, totalAttempts }) =>
+            fetchUserById(userId).then((user) => ({
+              userId,
               names: user.names ?? "Usuario desconocido",
-              score: attempt.score,
-              attemptedAt: attempt.attemptedAt,
+              bestScore: best.score,
+              bestAttemptedAt: best.attemptedAt,
+              totalAttempts,
+              bestUserAnswers: best.userAnswers ?? [],
             })),
           ),
         );
 
         const resolved: AttemptRow[] = settled.map((result, i) => {
           if (result.status === "fulfilled") return result.value;
+          const { userId, best, totalAttempts } = uniqueUsers[i];
           return {
-            userId: quizData.listUserAttempts[i].userId,
+            userId,
             names: "Usuario desconocido",
-            score: quizData.listUserAttempts[i].score,
-            attemptedAt: quizData.listUserAttempts[i].attemptedAt,
+            bestScore: best.score,
+            bestAttemptedAt: best.attemptedAt,
+            totalAttempts,
+            bestUserAnswers: best.userAnswers ?? [],
           };
         });
 
-        resolved.sort((a, b) => b.score - a.score);
+        resolved.sort((a, b) => b.bestScore - a.bestScore);
         setRows(resolved);
       } catch (e: any) {
         setError(e?.response?.data?.message ?? "Error al cargar los resultados.");
@@ -536,7 +510,7 @@ export default function QuizList({ eventId }: QuizListProps) {
     );
   }
 
-  const avg = Math.round(rows.reduce((s, r) => s + r.score, 0) / rows.length);
+  const avg = Math.round(rows.reduce((s, r) => s + r.bestScore, 0) / rows.length);
 
   return (
     <div style={wrapStyle}>
@@ -567,8 +541,9 @@ export default function QuizList({ eventId }: QuizListProps) {
             <tr>
               <th style={{ ...thStyle, width: 40 }}>#</th>
               <th style={thStyle}>Participante</th>
-              <th style={{ ...thStyle, textAlign: "center" }}>Puntaje</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>Fecha</th>
+              <th style={{ ...thStyle, textAlign: "center" }}>Mejor nota</th>
+              <th style={{ ...thStyle, textAlign: "center" }}>Intentos</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>Último intento</th>
               <th style={{ ...thStyle, width: 40 }} />
             </tr>
           </thead>
@@ -592,16 +567,28 @@ export default function QuizList({ eventId }: QuizListProps) {
                       <span
                         style={{
                           ...scorePill,
-                          color: scoreColor(row.score),
-                          background: scoreBg(row.score),
-                          border: `1px solid ${scoreColor(row.score)}33`,
+                          color: scoreColor(row.bestScore),
+                          background: scoreBg(row.bestScore),
+                          border: `1px solid ${scoreColor(row.bestScore)}33`,
                         }}
                       >
-                        {row.score}%
+                        {row.bestScore}%
+                      </span>
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <span style={{
+                        fontSize: 12,
+                        color: "#AFAFAF",
+                        background: "#1e1e1e",
+                        border: "1px solid #2a2a2a",
+                        borderRadius: 12,
+                        padding: "2px 10px",
+                      }}>
+                        {row.totalAttempts}
                       </span>
                     </td>
                     <td style={{ ...tdStyle, textAlign: "right", color: "#555", fontSize: 12 }}>
-                      {formatDate(row.attemptedAt)}
+                      {formatDate(row.bestAttemptedAt)}
                     </td>
                     <td style={{ ...tdStyle, textAlign: "center" }}>
                       <span style={{ fontSize: 10, color: "#555", userSelect: "none" }}>
@@ -613,10 +600,9 @@ export default function QuizList({ eventId }: QuizListProps) {
                   {/* Panel de respuestas expandible */}
                   {isExpanded && quiz && (
                     <tr>
-                      <td colSpan={5} style={{ padding: 0, borderBottom: "1px solid #161616" }}>
+                      <td colSpan={6} style={{ padding: 0, borderBottom: "1px solid #161616" }}>
                         <AttemptAnswersPanel
-                          quizId={quiz._id}
-                          userId={row.userId}
+                          userAnswers={row.bestUserAnswers}
                           questions={quiz.questions}
                         />
                       </td>

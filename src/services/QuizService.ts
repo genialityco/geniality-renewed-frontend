@@ -58,7 +58,35 @@ export interface UserAttempt {
   userId: string;
   attemptedAt: string;
   score: number;
+  userAnswers?: UserAnswer[];
 }
+
+/**
+ * Configuración del examen.
+ * Todos los campos admiten null = sin restricción.
+ */
+export interface QuizConfig {
+  /** Duración máxima en minutos. null = sin límite de tiempo. */
+  time: number | null;
+  /** Número máximo de intentos permitidos. null = intentos ilimitados. */
+  attempts: number | null;
+  /** Nota mínima en % para aprobar el examen. null = sin nota mínima. */
+  nota: number | null;
+  /**
+   * Modo de visualización de preguntas:
+   * - "all"        → todas las preguntas en la misma página (default).
+   * - "one-by-one" → una pregunta a la vez, sin posibilidad de retroceder.
+   */
+  questionDisplay: "all" | "one-by-one";
+}
+
+/** Valores que se envían al backend cuando el admin no configura el examen manualmente. */
+export const DEFAULT_QUIZ_CONFIG: QuizConfig = {
+  time: null,
+  attempts: null,
+  nota: null,
+  questionDisplay: "all",
+};
 
 // ─────────────────────────────────────────────
 // Attempt / submission types
@@ -97,17 +125,24 @@ export interface Quiz {
   listUserAttempts?: UserAttempt[];
   createdAt: string;
   updatedAt: string;
+  /** Configuración de reglas del examen. */
+  config?: QuizConfig;
 }
 
 export interface CreateQuizPayload {
   id?: string;
   eventId: string;
   questions: Question[];
+  // Nota: el backend ignora config en POST /quiz. Usar PATCH /quiz/:id/config.
 }
 
 export interface UpdateQuizPayload {
+  /** Solo questions — el backend ignora config en PUT /quiz/:id. */
   questions: Question[];
 }
+
+/** Payload para PATCH /quiz/:id/config (todos los campos opcionales). */
+export type UpdateQuizConfigPayload = Partial<QuizConfig>;
 
 // ─────────────────────────────────────────────
 // Service
@@ -137,7 +172,8 @@ export const getQuizById = async (quizId: string): Promise<Quiz> => {
  * Fails if the event already has a quiz — use updateQuiz instead.
  */
 export const createQuiz = async (payload: CreateQuizPayload): Promise<Quiz> => {
-  // Generar un id único para evitar E11000 dup key { id: null } en MongoDB
+  // Generar un id único para evitar E11000 dup key { id: null } en MongoDB.
+  // El backend ignora config en POST /quiz; se envía por separado con patchQuizConfig.
   const payloadWithId: CreateQuizPayload = {
     id: crypto.randomUUID(),
     ...payload,
@@ -153,7 +189,8 @@ export const updateQuiz = async (
   quizId: string,
   payload: UpdateQuizPayload,
 ): Promise<Quiz> => {
-  const response = await api.put<Quiz>(`/quiz/${quizId}`, payload);
+  // PUT solo acepta { questions } — config va por PATCH /:id/config
+  const response = await api.put<Quiz>(`/quiz/${quizId}`, { questions: payload.questions });
   return response.data;
 };
 
@@ -165,11 +202,31 @@ export const saveQuiz = async (
   eventId: string,
   questions: Question[],
   quizId?: string,
+  config?: QuizConfig,
 ): Promise<Quiz> => {
+  let quiz: Quiz;
   if (quizId) {
-    return updateQuiz(quizId, { questions });
+    quiz = await updateQuiz(quizId, { questions });
+  } else {
+    quiz = await createQuiz({ eventId, questions });
   }
-  return createQuiz({ eventId, questions });
+  // Siempre sincroniza la config por PATCH (defaults incluidos si no se pasa nada).
+  const resolvedId = quiz._id ?? quiz.id;
+  if (resolvedId) {
+    await patchQuizConfig(resolvedId, config ?? DEFAULT_QUIZ_CONFIG);
+  }
+  return quiz;
+};
+
+/**
+ * Guarda únicamente la configuración vía PATCH /quiz/:id/config.
+ * Reemplaza saveQuizConfig que antes usaba PUT (incorrecto).
+ */
+export const saveQuizConfig = async (
+  quizId: string,
+  config: QuizConfig,
+): Promise<Quiz> => {
+  return patchQuizConfig(quizId, config);
 };
 
 /**
@@ -180,13 +237,29 @@ export const deleteQuiz = async (quizId: string): Promise<void> => {
 };
 
 /**
+ * Actualiza (merge) la configuración del quiz.
+ * PATCH /quiz/:quizId/config — solo sobreescribe los campos enviados.
+ */
+export const patchQuizConfig = async (
+  quizId: string,
+  config: UpdateQuizConfigPayload,
+): Promise<Quiz> => {
+  const response = await api.patch<Quiz>(`/quiz/${quizId}/config`, config);
+  return response.data;
+};
+
+/**
  * Get the score of a specific user for a quiz.
+ */
+/**
+ * Devuelve la nota del usuario (0-100) o false si aún no ha intentado el examen.
+ * GET /quiz/:quizId/score/:userId
  */
 export const getScoreByUserId = async (
   quizId: string,
   userId: string,
-): Promise<number> => {
-  const response = await api.get<number>(`/quiz/${quizId}/score/${userId}`);
+): Promise<number | false> => {
+  const response = await api.get<number | false>(`/quiz/${quizId}/score/${userId}`);
   return response.data;
 };
 
@@ -226,6 +299,8 @@ export const quizService = {
   create: createQuiz,
   update: updateQuiz,
   save: saveQuiz,
+  saveConfig: saveQuizConfig,
+  patchConfig: patchQuizConfig,
   delete: deleteQuiz,
   getScoreByUserId,
   submitAttempt,

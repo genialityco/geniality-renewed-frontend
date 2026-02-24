@@ -17,7 +17,7 @@ import {
   Alert,
   Progress,
 } from "@mantine/core";
-import { FaArrowLeft, FaCircleCheck, FaTriangleExclamation } from "react-icons/fa6";
+import { FaArrowLeft, FaCircleCheck, FaClock, FaTriangleExclamation } from "react-icons/fa6";
 import {
   getQuizById,
   submitAttempt,
@@ -32,6 +32,20 @@ import { useUser } from "../../context/UserContext";
 // ─────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────
+
+/** Convierte una URL de YouTube (watch, youtu.be, embed) en URL de embed. Retorna null si no es YouTube. */
+function getYoutubeEmbedUrl(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?(?:.*&)?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return `https://www.youtube.com/embed/${match[1]}`;
+  }
+  return null;
+}
 
 /** Extrae texto plano de una lista de bloques (para labels de opciones) */
 function renderBlocks(blocks: EditorBlock[]): string {
@@ -61,14 +75,27 @@ function BlocksDisplay({ blocks, fallback }: { blocks: EditorBlock[]; fallback?:
           ) : null;
         }
         if (block.type === "video") {
-          return block.content ? (
+          if (!block.content) return null;
+          const youtubeEmbedUrl = getYoutubeEmbedUrl(block.content);
+          if (youtubeEmbedUrl) {
+            return (
+              <iframe
+                key={block.id}
+                src={youtubeEmbedUrl}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ width: "100%", aspectRatio: "16/9", border: "none", borderRadius: 8, margin: "6px 0", display: "block" }}
+              />
+            );
+          }
+          return (
             <video
               key={block.id}
               src={block.content}
               controls
               style={{ maxWidth: "100%", borderRadius: 8, margin: "6px 0", display: "block" }}
             />
-          ) : null;
+          );
         }
         const text = block.content;
         if (!text) return null;
@@ -571,6 +598,113 @@ function SortingQuestion({
 }
 
 // ─────────────────────────────────────────────
+// QuestionCard — tarjeta reutilizable por modo
+// ─────────────────────────────────────────────
+
+interface QuestionCardProps {
+  q: Question;
+  i: number;
+  singleAnswers: Record<string, string>;
+  setSingleAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  multipleAnswers: Record<string, string[]>;
+  setMultipleAnswers: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
+  matchingAnswers: Record<string, Record<string, Record<string, string>>>;
+  setMatchingAnswers: React.Dispatch<
+    React.SetStateAction<Record<string, Record<string, Record<string, string>>>>
+  >;
+  sortingOrders: Record<string, string[]>;
+  setSortingOrders: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
+}
+
+function QuestionCard({
+  q,
+  i,
+  singleAnswers,
+  setSingleAnswers,
+  multipleAnswers,
+  setMultipleAnswers,
+  matchingAnswers,
+  setMatchingAnswers,
+  sortingOrders,
+  setSortingOrders,
+}: QuestionCardProps) {
+  return (
+    <Card key={q.id} shadow="sm" radius="md" withBorder p="lg">
+      <Group gap="xs" mb="xs">
+        <Badge size="sm" variant="filled" color="gray">
+          {i + 1}
+        </Badge>
+        <Badge size="sm" variant="outline" color="blue">
+          {q.type === "single"
+            ? "Opción única"
+            : q.type === "multiple"
+            ? "Opción múltiple"
+            : q.type === "matching"
+            ? "Relacionamiento"
+            : "Ordenamiento"}
+        </Badge>
+      </Group>
+
+      <div style={{ marginBottom: 8 }}>
+        <BlocksDisplay blocks={q.blocks} fallback={`Pregunta ${i + 1}`} />
+      </div>
+
+      <Divider mb="sm" />
+
+      {q.type === "single" && (
+        <SingleQuestion
+          question={q}
+          answer={singleAnswers[q.id]}
+          onChange={(val) =>
+            setSingleAnswers((prev) => ({ ...prev, [q.id]: val }))
+          }
+        />
+      )}
+
+      {q.type === "multiple" && (
+        <MultipleQuestion
+          question={q}
+          answers={multipleAnswers[q.id] ?? []}
+          onChange={(vals) =>
+            setMultipleAnswers((prev) => ({ ...prev, [q.id]: vals }))
+          }
+        />
+      )}
+
+      {q.type === "matching" && (
+        <MatchingQuestion
+          question={q}
+          matchingAnswers={matchingAnswers[q.id] ?? {}}
+          onChange={(colAId, colLabel, selectedId) =>
+            setMatchingAnswers((prev) => {
+              const qMap = { ...(prev[q.id] ?? {}) };
+              if (selectedId === null) {
+                const aMap = { ...(qMap[colAId] ?? {}) };
+                delete aMap[colLabel];
+                qMap[colAId] = aMap;
+              } else {
+                qMap[colAId] = { ...(qMap[colAId] ?? {}), [colLabel]: selectedId };
+              }
+              return { ...prev, [q.id]: qMap };
+            })
+          }
+        />
+      )}
+
+      {q.type === "sorting" && (
+        <SortingQuestion
+          question={q}
+          order={sortingOrders[q.id] ?? []}
+          onChange={(newOrder) =>
+            setSortingOrders((prev) => ({ ...prev, [q.id]: newOrder }))
+          }
+        />
+      )}
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────
 // Página principal
 // ─────────────────────────────────────────────
 
@@ -588,6 +722,17 @@ export default function QuizPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /** Segundos restantes para completar el examen. null = sin límite. */
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  /** true cuando el usuario ya agotó sus intentos permitidos */
+  const [attemptsBlocked, setAttemptsBlocked] = useState(false);
+  const [attemptsUsed, setAttemptsUsed] = useState(0);
+  const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
+  const timerExpiredRef = useRef(false);
+
+  /** Índice de la pregunta activa en modo "one-by-one" */
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
   // Respuestas del usuario por questionId
   const [singleAnswers, setSingleAnswers] = useState<Record<string, string>>({});
   const [multipleAnswers, setMultipleAnswers] = useState<Record<string, string[]>>({});
@@ -603,13 +748,57 @@ export default function QuizPage() {
       try {
         const data = await getQuizById(quizId);
         setQuiz(data);
+
+        // ── Verificar intentos ──
+        // El backend almacena UN solo intento por usuario (el último, sobreescribe).
+        // used será 0 ó 1. Con attempts=1 el usuario queda bloqueado tras enviar.
+        // Con attempts>1 puede reenviar (sobreescribiendo el anterior).
+        const cfg = data.config;
+        if (cfg?.attempts != null) {
+          setMaxAttempts(cfg.attempts);
+          const used = (data.listUserAttempts ?? []).filter(
+            (a) => a.userId === userId,
+          ).length;
+          setAttemptsUsed(used);
+          if (used >= cfg.attempts) {
+            setAttemptsBlocked(true);
+          }
+        }
+
+        // ── Iniciar temporizador ──
+        if (cfg?.time != null && cfg.time > 0) {
+          setTimeLeft(cfg.time * 60);
+        }
       } catch (e: any) {
         setError(e?.response?.data?.message ?? "Error al cargar el examen.");
       } finally {
         setLoading(false);
       }
     })();
-  }, [quizId]);
+  }, [quizId, userId]);
+
+  // ── Countdown ──
+  useEffect(() => {
+    if (timeLeft === null || timeLeft <= 0) return;
+    const id = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(id);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [timeLeft === null ? null : "active"]);
+
+  // ── Auto-enviar cuando el tiempo se agota ──
+  useEffect(() => {
+    if (timeLeft === 0 && !timerExpiredRef.current) {
+      timerExpiredRef.current = true;
+      handleSubmit();
+    }
+  }, [timeLeft]);
 
   const handleBack = () =>
     navigate(`/organization/${organizationId}/course/${eventId}`);
@@ -741,8 +930,61 @@ export default function QuizPage() {
       </Container>
     );
 
+  // ── Intentos agotados ──
+  if (attemptsBlocked)
+    return (
+      <Container size="sm" mt="xl">
+        <Alert
+          icon={<FaTriangleExclamation size={16} />}
+          color="red"
+          title="Intentos agotados"
+          mb="md"
+        >
+          Has utilizado los {maxAttempts} intento{maxAttempts !== 1 ? "s" : ""} permitido
+          {maxAttempts !== 1 ? "s" : ""} para este examen. Ya no puedes volver a intentarlo.
+        </Alert>
+        <Button variant="subtle" leftSection={<FaArrowLeft size={14} />} onClick={handleBack}>
+          Volver al curso
+        </Button>
+      </Container>
+    );
+
   const total = quiz.questions.length;
   const answered = answeredCount();
+  const isOneByOne = (quiz.config?.questionDisplay ?? "all") === "one-by-one";
+
+  /** Devuelve true si la pregunta en el índice dado está respondida. */
+  const isQuestionAnswered = (idx: number): boolean => {
+    const q = quiz.questions[idx];
+    if (!q) return false;
+    if (q.type === "single") return !!singleAnswers[q.id];
+    if (q.type === "multiple") return (multipleAnswers[q.id]?.length ?? 0) > 0;
+    if (q.type === "sorting") return (sortingOrders[q.id]?.length ?? 0) > 0;
+    if (q.type === "matching") {
+      const colA = q.columns?.find((c) => c.label === "A");
+      const otherCols = q.columns?.filter((c) => c.label !== "A") ?? [];
+      return (
+        colA?.options.every((aOpt) =>
+          otherCols.every((col) => matchingAnswers[q.id]?.[aOpt.id]?.[col.label]),
+        ) ?? false
+      );
+    }
+    return false;
+  };
+
+  /** Formatea segundos como MM:SS */
+  const formatTime = (secs: number): string => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  const timerColor =
+    timeLeft !== null && timeLeft <= 60
+      ? "red"
+      : timeLeft !== null && timeLeft <= 300
+      ? "orange"
+      : "blue";
 
   return (
     <Container size="md" py="xl">
@@ -755,132 +997,170 @@ export default function QuizPage() {
         >
           Volver al curso
         </Button>
-        <Badge size="lg" variant="light" color={answered === total ? "teal" : "blue"}>
-          {answered}/{total} respondidas
-        </Badge>
+        <Group gap="xs">
+          {timeLeft !== null && (
+            <Badge
+              size="lg"
+              variant="filled"
+              color={timerColor}
+              leftSection={<FaClock size={12} />}
+            >
+              {formatTime(timeLeft)}
+            </Badge>
+          )}
+          {maxAttempts !== null && (
+            <Badge size="lg" variant="light" color="gray">
+              Intento {attemptsUsed + 1}/{maxAttempts}
+            </Badge>
+          )}
+          <Badge size="lg" variant="light" color={answered === total ? "teal" : "blue"}>
+            {answered}/{total} respondidas
+          </Badge>
+        </Group>
       </Group>
 
       <Title order={2} mb={4}>
         Examen del curso
       </Title>
       <Text c="dimmed" size="sm" mb="md">
-        Responde todas las preguntas y haz clic en "Enviar examen".
+        {isOneByOne
+          ? "Responde cada pregunta y avanza. No podrás regresar."
+          : 'Responde todas las preguntas y haz clic en "Enviar examen".'}
       </Text>
 
+      {timeLeft !== null && timeLeft <= 60 && (
+        <Alert
+          icon={<FaClock size={14} />}
+          color="red"
+          mb="md"
+        >
+          ¡Menos de 1 minuto! El examen se enviará automáticamente cuando el tiempo se agote.
+        </Alert>
+      )}
+
       <Progress
-        value={(answered / total) * 100}
+        value={isOneByOne ? ((currentQuestionIndex) / total) * 100 : (answered / total) * 100}
         size="sm"
-        color={answered === total ? "teal" : "blue"}
-        mb="xl"
+        color={isOneByOne ? "blue" : answered === total ? "teal" : "blue"}
+        mb={isOneByOne ? "xs" : "xl"}
         radius="xl"
       />
+      {isOneByOne && (
+        <Text size="xs" c="dimmed" ta="right" mb="xl">
+          Pregunta {currentQuestionIndex + 1} de {total}
+        </Text>
+      )}
 
-      {/* Preguntas */}
-      <Stack gap="xl">
-        {quiz.questions.map((q, i) => (
-          <Card key={q.id} shadow="sm" radius="md" withBorder p="lg">
-            <Group gap="xs" mb="xs">
-              <Badge size="sm" variant="filled" color="gray">
-                {i + 1}
-              </Badge>
-              <Badge size="sm" variant="outline" color="blue">
-                {q.type === "single"
-                  ? "Opción única"
-                  : q.type === "multiple"
-                  ? "Opción múltiple"
-                  : q.type === "matching"
-                  ? "Relacionamiento"
-                  : "Ordenamiento"}
-              </Badge>
-            </Group>
+      {/* ── Preguntas (modo "all") ── */}
+      {!isOneByOne && (
+        <Stack gap="xl">
+          {quiz.questions.map((q, i) => (
+            <QuestionCard
+              key={q.id}
+              q={q}
+              i={i}
+              singleAnswers={singleAnswers}
+              setSingleAnswers={setSingleAnswers}
+              multipleAnswers={multipleAnswers}
+              setMultipleAnswers={setMultipleAnswers}
+              matchingAnswers={matchingAnswers}
+              setMatchingAnswers={setMatchingAnswers}
+              sortingOrders={sortingOrders}
+              setSortingOrders={setSortingOrders}
+            />
+          ))}
+        </Stack>
+      )}
 
-            <div style={{ marginBottom: 8 }}>
-              <BlocksDisplay blocks={q.blocks} fallback={`Pregunta ${i + 1}`} />
-            </div>
+      {/* ── Pregunta actual (modo "one-by-one") ── */}
+      {isOneByOne && (
+        <QuestionCard
+          q={quiz.questions[currentQuestionIndex]}
+          i={currentQuestionIndex}
+          singleAnswers={singleAnswers}
+          setSingleAnswers={setSingleAnswers}
+          multipleAnswers={multipleAnswers}
+          setMultipleAnswers={setMultipleAnswers}
+          matchingAnswers={matchingAnswers}
+          setMatchingAnswers={setMatchingAnswers}
+          sortingOrders={sortingOrders}
+          setSortingOrders={setSortingOrders}
+        />
+      )}
 
-            <Divider mb="sm" />
-
-            {q.type === "single" && (
-              <SingleQuestion
-                question={q}
-                answer={singleAnswers[q.id]}
-                onChange={(val) =>
-                  setSingleAnswers((prev) => ({ ...prev, [q.id]: val }))
-                }
-              />
-            )}
-
-            {q.type === "multiple" && (
-              <MultipleQuestion
-                question={q}
-                answers={multipleAnswers[q.id] ?? []}
-                onChange={(vals) =>
-                  setMultipleAnswers((prev) => ({ ...prev, [q.id]: vals }))
-                }
-              />
-            )}
-
-            {q.type === "matching" && (
-              <MatchingQuestion
-                question={q}
-                matchingAnswers={matchingAnswers[q.id] ?? {}}
-                onChange={(colAId, colLabel, selectedId) =>
-                  setMatchingAnswers((prev) => {
-                    const qMap = { ...(prev[q.id] ?? {}) };
-                    if (selectedId === null) {
-                      // Eliminar match
-                      const aMap = { ...(qMap[colAId] ?? {}) };
-                      delete aMap[colLabel];
-                      qMap[colAId] = aMap;
-                    } else {
-                      qMap[colAId] = { ...(qMap[colAId] ?? {}), [colLabel]: selectedId };
-                    }
-                    return { ...prev, [q.id]: qMap };
-                  })
-                }
-              />
-            )}
-
-            {q.type === "sorting" && (
-              <SortingQuestion
-                question={q}
-                order={sortingOrders[q.id] ?? []}
-                onChange={(newOrder) =>
-                  setSortingOrders((prev) => ({ ...prev, [q.id]: newOrder }))
-                }
-              />
-            )}
-          </Card>
-        ))}
-      </Stack>
-
-      {/* Botón de envío */}
-      <Card mt="xl" shadow="sm" radius="md" withBorder p="lg">
-        {answered < total && (
-          <Alert
-            icon={<FaTriangleExclamation size={14} />}
-            color="yellow"
-            mb="md"
+      {/* ── Botón de envío (modo "all") ── */}
+      {!isOneByOne && (
+        <Card mt="xl" shadow="sm" radius="md" withBorder p="lg">
+          {answered < total && (
+            <Alert
+              icon={<FaTriangleExclamation size={14} />}
+              color="yellow"
+              mb="md"
+            >
+              Tienes {total - answered} pregunta{total - answered !== 1 ? "s" : ""} sin responder.
+              Puedes enviar de todas formas.
+            </Alert>
+          )}
+          {answered === total && (
+            <Alert icon={<FaCircleCheck size={14} />} color="teal" mb="md">
+              ¡Respondiste todas las preguntas!
+            </Alert>
+          )}
+          <Button
+            fullWidth
+            size="md"
+            color="blue"
+            loading={submitting}
+            onClick={handleSubmit}
           >
-            Tienes {total - answered} pregunta{total - answered !== 1 ? "s" : ""} sin responder.
-            Puedes enviar de todas formas.
-          </Alert>
-        )}
-        {answered === total && (
-          <Alert icon={<FaCircleCheck size={14} />} color="teal" mb="md">
-            ¡Respondiste todas las preguntas!
-          </Alert>
-        )}
-        <Button
-          fullWidth
-          size="md"
-          color="blue"
-          loading={submitting}
-          onClick={handleSubmit}
-        >
-          Enviar examen
-        </Button>
-      </Card>
+            Enviar examen
+          </Button>
+        </Card>
+      )}
+
+      {/* ── Navegación (modo "one-by-one") ── */}
+      {isOneByOne && (
+        <Card mt="xl" shadow="sm" radius="md" withBorder p="lg">
+          {!isQuestionAnswered(currentQuestionIndex) && (
+            <Alert
+              icon={<FaTriangleExclamation size={14} />}
+              color="yellow"
+              mb="md"
+            >
+              Responde esta pregunta para poder avanzar.
+            </Alert>
+          )}
+          {currentQuestionIndex < total - 1 ? (
+            <Button
+              fullWidth
+              size="md"
+              color="blue"
+              disabled={!isQuestionAnswered(currentQuestionIndex)}
+              onClick={() => setCurrentQuestionIndex((prev) => prev + 1)}
+            >
+              Siguiente pregunta →
+            </Button>
+          ) : (
+            <>
+              {isQuestionAnswered(currentQuestionIndex) && (
+                <Alert icon={<FaCircleCheck size={14} />} color="teal" mb="md">
+                  ¡Respondiste todas las preguntas!
+                </Alert>
+              )}
+              <Button
+                fullWidth
+                size="md"
+                color="teal"
+                loading={submitting}
+                disabled={!isQuestionAnswered(currentQuestionIndex)}
+                onClick={handleSubmit}
+              >
+                Enviar examen
+              </Button>
+            </>
+          )}
+        </Card>
+      )}
     </Container>
   );
 }
