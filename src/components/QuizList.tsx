@@ -7,7 +7,7 @@ import {
   Question,
   UserAnswer,
   EditorBlock,
-} from "../services/quizService";
+} from "../services/QuizService";
 import { fetchUserById } from "../services/userService";
 
 // ─────────────────────────────────────────────

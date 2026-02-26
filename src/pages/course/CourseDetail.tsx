@@ -44,7 +44,7 @@ import {
   CourseAttendeePayload,
 } from "../../services/courseAttendeeService";
 import { fetchHostsByEventId } from "../../services/hostsService";
-import { getQuizByEventId, Quiz as QuizData } from "../../services/quizService";
+import { getQuizByEventId, Quiz as QuizData } from "../../services/QuizService";
 
 // Componente auxiliar para renderizar la tarjeta de actividad
 interface ActivityCardProps {
@@ -68,7 +68,7 @@ function ActivityCard({ activity, hosts, onClick }: ActivityCardProps) {
 
   // Filtramos los hosts asignados a esta actividad
   const activityHosts = hosts.filter((host) =>
-    host.activities_ids?.includes(activity._id)
+    host.activities_ids?.includes(activity._id),
   );
 
   return (
@@ -135,7 +135,7 @@ export default function CourseDetail() {
 
   // Actividad seleccionada
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
-    null
+    null,
   );
 
   // Control de apertura/colapso navbar
@@ -172,7 +172,7 @@ export default function CourseDetail() {
           const activityParam = searchParams.get("activity");
           if (activityParam) {
             const foundActivity = activitiesData.find(
-              (act) => act._id === activityParam
+              (act) => act._id === activityParam,
             );
             if (foundActivity) {
               setSelectedActivity(foundActivity);
@@ -270,14 +270,14 @@ export default function CourseDetail() {
 
     // Ordenar por el campo "order" ascendente (de menor a mayor)
     const orderedModules = [...modules].sort(
-      (a, b) => (a.order ?? 0) - (b.order ?? 0)
+      (a, b) => (a.order ?? 0) - (b.order ?? 0),
     );
 
     return (
       <Accordion variant="separated" multiple>
         {orderedModules.map((module) => {
           const actividadesDelModulo = activities.filter(
-            (activity) => activity.module_id === module._id
+            (activity) => activity.module_id === module._id,
           );
 
           const totalActividades = actividadesDelModulo.length;
@@ -285,7 +285,7 @@ export default function CourseDetail() {
             totalActividades > 0
               ? actividadesDelModulo.reduce(
                   (acc, activity) => acc + (activity.video_progress || 0),
-                  0
+                  0,
                 ) / totalActividades
               : 0;
 
@@ -344,7 +344,7 @@ export default function CourseDetail() {
   const renderMainContent = () => {
     const sortedActivities = [...activities].sort(
       (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     );
     if (!selectedActivity) {
       return (
@@ -360,10 +360,12 @@ export default function CourseDetail() {
             </div>
 
             {/* Botón de quiz — esquina superior derecha */}
-{(() => {
+            {(() => {
               const qid = quiz?._id || quiz?.id;
               if (!quiz || !qid) return null;
-              const attempted = (quiz.listUserAttempts ?? []).some((a) => a.userId === userId);
+              const attempted = (quiz.listUserAttempts ?? []).some(
+                (a) => a.userId === userId,
+              );
               return attempted ? (
                 <Button
                   variant="light"
@@ -573,8 +575,6 @@ export default function CourseDetail() {
       >
         <Text>Sección de foro, Q&A o discusiones del curso...</Text>
       </Drawer>
-
-
     </AppShell>
   );
 }

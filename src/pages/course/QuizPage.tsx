@@ -26,7 +26,7 @@ import {
   QuestionOption,
   UserAnswer,
   EditorBlock,
-} from "../../services/quizService";
+} from "../../services/QuizService";
 import { useUser } from "../../context/UserContext";
 
 // ─────────────────────────────────────────────

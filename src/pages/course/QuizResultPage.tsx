@@ -25,7 +25,7 @@ import {
   UserAnswer,
   MatchingAnswer,
   EditorBlock,
-} from "../../services/quizService";
+} from "../../services/QuizService";
 import { useUser } from "../../context/UserContext";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────

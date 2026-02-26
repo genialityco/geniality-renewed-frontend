@@ -8,7 +8,7 @@ import {
   MatchingColumn,
   MatchingAnswer,
   QuestionType,
-} from "../services/quizService";
+} from "../services/QuizService";
 
 const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 

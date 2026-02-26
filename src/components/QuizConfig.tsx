@@ -18,7 +18,7 @@ import {
   saveQuizConfig,
   QuizConfig as QuizConfigType,
   DEFAULT_QUIZ_CONFIG,
-} from "../services/quizService";
+} from "../services/QuizService";
 
 interface QuizConfigProps {
   eventId: string;
