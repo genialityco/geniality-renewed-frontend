@@ -541,7 +541,7 @@ export default function CourseDetail() {
     if (!selectedActivity) {
       return (
         <Stack gap="md">
-          <Card shadow="sm" radius="md" p={isMobile ? "sm" : "md"} mt={0}>
+          <Card shadow="sm" radius="md" p={isMobile ? "sm" : "md"} mt={4}>
             <Text size={isMobile ? "sm" : "md"} fw={500}>
               Bienvenido(a) al curso {event.name}.
             </Text>
