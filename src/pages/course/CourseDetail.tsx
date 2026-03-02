@@ -812,8 +812,8 @@ export default function CourseDetail() {
       </AppShell.Navbar>
 
       {/* MAIN */}
-      <AppShell.Main pt={0}>
-        <Container fluid px={{ base: "xs", xs: "sm", sm: "md", md: "lg" }} py={0}>
+      <AppShell.Main pt={4}>
+        <Container fluid px={{ base: "xs", xs: "sm", sm: "md", md: "lg" }} py={4}>
           {renderMainContent()}
         </Container>
       </AppShell.Main>
