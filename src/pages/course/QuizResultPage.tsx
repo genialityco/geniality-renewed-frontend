@@ -107,6 +107,7 @@ function isAnswerCorrect(q: Question, ua?: UserAnswer): boolean {
   if (!ua) return false;
   switch (q.type) {
     case "single":
+    case "script-concordance":
       return ua.answer === q.correctAnswer;
     case "multiple": {
       const u = (ua.answer as string[]).slice().sort();
@@ -165,6 +166,7 @@ function QuestionReviewCard({ question, userAnswer, index }: {
       {!correct && (
         <Box pl={30}>
           {question.type === "single" && renderSingleReview(question, userAnswer?.answer as string | undefined)}
+          {question.type === "script-concordance" && renderSingleReview(question, userAnswer?.answer as string | undefined)}
           {question.type === "multiple" && renderMultipleReview(question, userAnswer?.answer as string[] | undefined)}
           {question.type === "sorting" && renderSortingReview(question, userAnswer?.answer as string[] | undefined)}
           {question.type === "matching" && renderMatchingReview(question, userAnswer?.answer as MatchingAnswer[] | undefined)}

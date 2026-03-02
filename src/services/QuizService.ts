@@ -33,7 +33,19 @@ export interface MatchingAnswer {
   matches: Record<string, string>;
 }
 
-export type QuestionType = "single" | "multiple" | "matching" | "sorting";
+export type QuestionType = "single" | "multiple" | "matching" | "sorting" | "script-concordance";
+
+/**
+ * Opciones fijas del tipo Script Concordance Test (SCT).
+ * Tienen IDs estables para que el backend las reconozca siempre igual.
+ */
+export const SCT_OPTIONS: QuestionOption[] = [
+  { id: "sct-m2", blocks: [{ id: "sct-m2-b", type: "paragraph", content: "-2 → La descarta fuertemente" }] },
+  { id: "sct-m1", blocks: [{ id: "sct-m1-b", type: "paragraph", content: "-1 → La hace menos probable" }] },
+  { id: "sct-0",  blocks: [{ id: "sct-0-b",  type: "paragraph", content: "0 → No cambia la probabilidad" }] },
+  { id: "sct-p1", blocks: [{ id: "sct-p1-b", type: "paragraph", content: "+1 → La hace más probable" }] },
+  { id: "sct-p2", blocks: [{ id: "sct-p2-b", type: "paragraph", content: "+2 → La confirma fuertemente" }] },
+];
 
 export interface Question {
   id: string;
@@ -156,15 +168,49 @@ export const getQuizByEventId = async (
   eventId: string,
 ): Promise<Quiz | null> => {
   const response = await api.get<Quiz | null>(`/quiz/event/${eventId}`);
-  return response.data;
+  return response.data ? restoreQuiz(response.data) : null;
 };
+
+/**
+ * Normaliza las preguntas para el backend:
+ * - "script-concordance" → "single" (el backend solo conoce los 4 tipos base).
+ * Las opciones y correctAnswer se conservan intactos.
+ */
+function normalizeQuestionsForBackend(questions: Question[]): Question[] {
+  return questions.map((q) =>
+    q.type === "script-concordance" ? { ...q, type: "single" as const } : q,
+  );
+}
+
+const SCT_OPTION_IDS = new Set(SCT_OPTIONS.map((o) => o.id));
+
+/**
+ * Restaura el tipo "script-concordance" en preguntas que vienen del backend como
+ * "single" pero cuyos IDs de opciones coinciden en su totalidad con los de SCT_OPTIONS.
+ */
+function restoreQuestionsFromBackend(questions: Question[]): Question[] {
+  return questions.map((q) => {
+    if (
+      q.type === "single" &&
+      (q.options ?? []).length === SCT_OPTIONS.length &&
+      (q.options ?? []).every((o) => SCT_OPTION_IDS.has(o.id))
+    ) {
+      return { ...q, type: "script-concordance" as const };
+    }
+    return q;
+  });
+}
+
+function restoreQuiz(quiz: Quiz): Quiz {
+  return { ...quiz, questions: restoreQuestionsFromBackend(quiz.questions) };
+}
 
 /**
  * Get a quiz by its own _id.
  */
 export const getQuizById = async (quizId: string): Promise<Quiz> => {
   const response = await api.get<Quiz>(`/quiz/${quizId}`);
-  return response.data;
+  return restoreQuiz(response.data);
 };
 
 /**
@@ -177,6 +223,7 @@ export const createQuiz = async (payload: CreateQuizPayload): Promise<Quiz> => {
   const payloadWithId: CreateQuizPayload = {
     id: crypto.randomUUID(),
     ...payload,
+    questions: normalizeQuestionsForBackend(payload.questions),
   };
   const response = await api.post<Quiz>("/quiz", payloadWithId);
   return response.data;
@@ -190,7 +237,9 @@ export const updateQuiz = async (
   payload: UpdateQuizPayload,
 ): Promise<Quiz> => {
   // PUT solo acepta { questions } — config va por PATCH /:id/config
-  const response = await api.put<Quiz>(`/quiz/${quizId}`, { questions: payload.questions });
+  const response = await api.put<Quiz>(`/quiz/${quizId}`, {
+    questions: normalizeQuestionsForBackend(payload.questions),
+  });
   return response.data;
 };
 

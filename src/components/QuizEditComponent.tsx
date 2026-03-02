@@ -8,6 +8,7 @@ import {
   MatchingColumn,
   MatchingAnswer,
   QuestionType,
+  SCT_OPTIONS,
 } from "../services/QuizService";
 
 const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -28,6 +29,13 @@ const emptyQuestion = (type: QuestionType = "single"): Question => {
     return {
       ...base,
       options: [emptyOption(), emptyOption()],
+      correctAnswer: null,
+    };
+  if (type === "script-concordance")
+    return {
+      ...base,
+      // Opciones fijas del SCT — no editables por el admin
+      options: SCT_OPTIONS.map((o) => ({ ...o })),
       correctAnswer: null,
     };
   if (type === "multiple")
@@ -60,6 +68,7 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   multiple: "Opción múltiple",
   matching: "Relacionamiento",
   sorting: "Ordenamiento",
+  "script-concordance": "Script Concordance",
 };
 
 // ─────────────────────────────────────────────
@@ -186,6 +195,54 @@ function SingleMultipleEditor({
       <button onClick={addOption} style={addOptionBtn}>
         + Agregar opción
       </button>
+    </div>
+  );
+}
+
+// ── Script Concordance editor ───────────────────
+
+/**
+ * Muestra las 5 opciones fijas del SCT en modo solo-lectura.
+ * El admin únicamente selecciona cuál es la respuesta correcta.
+ */
+function ScriptConcordanceEditor({
+  question,
+  onChange,
+}: {
+  question: Question;
+  onChange: (q: Question) => void;
+}) {
+  const toggleCorrect = (optId: string) =>
+    onChange({
+      ...question,
+      correctAnswer: question.correctAnswer === optId ? null : optId,
+    });
+
+  return (
+    <div>
+      <p style={sectionLabel}>Escala SCT — selecciona la respuesta correcta</p>
+      {(question.options ?? SCT_OPTIONS).map((opt) => {
+        const isCorrect = question.correctAnswer === opt.id;
+        const label =
+          opt.blocks?.[0]?.content ?? opt.id;
+        return (
+          <div key={opt.id} style={{ ...optionRow, cursor: "pointer" }} onClick={() => toggleCorrect(opt.id)}>
+            <button
+              title={isCorrect ? "Correcta" : "Marcar como correcta"}
+              onClick={(e) => { e.stopPropagation(); toggleCorrect(opt.id); }}
+              style={{
+                ...correctToggle,
+                background: isCorrect ? "#276749" : "#1A1A1A",
+                borderColor: isCorrect ? "#38A169" : "#2D2D2D",
+                color: isCorrect ? "#68D391" : "#555",
+              }}
+            >
+              ✓
+            </button>
+            <span style={{ color: "#CDCDCD", fontSize: 14, flex: 1 }}>{label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -661,6 +718,9 @@ function QuestionCard({
           <div style={{ marginTop: 20 }}>
             {(question.type === "single" || question.type === "multiple") && (
               <SingleMultipleEditor question={question} onChange={onChange} />
+            )}
+            {question.type === "script-concordance" && (
+              <ScriptConcordanceEditor question={question} onChange={onChange} />
             )}
             {question.type === "sorting" && (
               <SortingEditor question={question} onChange={onChange} />

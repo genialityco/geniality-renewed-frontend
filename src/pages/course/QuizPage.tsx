@@ -26,6 +26,7 @@ import {
   QuestionOption,
   UserAnswer,
   EditorBlock,
+  SCT_OPTIONS,
 } from "../../services/QuizService";
 import { useUser } from "../../context/UserContext";
 
@@ -45,15 +46,6 @@ function getYoutubeEmbedUrl(url: string): string | null {
     if (match) return `https://www.youtube.com/embed/${match[1]}`;
   }
   return null;
-}
-
-/** Extrae texto plano de una lista de bloques (para labels de opciones) */
-function renderBlocks(blocks: EditorBlock[]): string {
-  return blocks
-    .filter((b) => b.type !== "image" && b.type !== "video")
-    .map((b) => b.content)
-    .join(" ")
-    .trim();
 }
 
 /** Renderiza bloques con soporte de imagen y video */
@@ -147,7 +139,10 @@ function SingleQuestion({
             }}
             onClick={() => onChange(opt.id)}
           >
-            <Radio value={opt.id} label={renderBlocks(opt.blocks) || "(sin texto)"} />
+            <Radio
+              value={opt.id}
+              label={<BlocksDisplay blocks={opt.blocks} fallback="(sin texto)" />}
+            />
           </Card>
         ))}
       </Stack>
@@ -192,12 +187,52 @@ function MultipleQuestion({
             <Checkbox
               checked={checked}
               onChange={() => toggle(opt.id)}
-              label={renderBlocks(opt.blocks) || "(sin texto)"}
+              label={<BlocksDisplay blocks={opt.blocks} fallback="(sin texto)" />}
             />
           </Card>
         );
       })}
     </Stack>
+  );
+}
+
+// ── Script Concordance Question ─────────────
+
+/**
+ * Muestra la escala SCT fija (-2 a +2) como opciones de radio.
+ * Las opciones siempre se leen de SCT_OPTIONS para garantizar consistencia.
+ */
+function ScriptConcordanceQuestion({
+  answer,
+  onChange,
+}: {
+  answer: string | undefined;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Radio.Group value={answer ?? ""} onChange={onChange}>
+      <Stack gap="xs" mt="sm">
+        {SCT_OPTIONS.map((opt) => {
+          const label = opt.blocks?.[0]?.content ?? opt.id;
+          return (
+            <Card
+              key={opt.id}
+              withBorder
+              radius="md"
+              p="sm"
+              style={{
+                cursor: "pointer",
+                borderColor: answer === opt.id ? "#4dabf7" : undefined,
+                background: answer === opt.id ? "#1a2a3a" : undefined,
+              }}
+              onClick={() => onChange(opt.id)}
+            >
+              <Radio value={opt.id} label={label} />
+            </Card>
+          );
+        })}
+      </Stack>
+    </Radio.Group>
   );
 }
 
@@ -278,8 +313,6 @@ function MatchingPair({
       if (aMatched) onMatch(aMatched, null);
     }
   };
-
-  const optText = (opt: QuestionOption) => renderBlocks(opt.blocks) || "(sin texto)";
 
   const itemBase: React.CSSProperties = {
     padding: "8px 12px",
@@ -365,7 +398,7 @@ function MatchingPair({
                   boxShadow: isSelected ? "0 0 0 3px #4dabf730" : "none",
                 }}
               >
-                {optText(opt)}
+                <BlocksDisplay blocks={opt.blocks} fallback="(sin texto)" />
               </div>
             );
           })}
@@ -403,7 +436,7 @@ function MatchingPair({
                   opacity: selectedAId && !isMatchedToSelected ? 0.85 : 1,
                 }}
               >
-                {optText(opt)}
+                <BlocksDisplay blocks={opt.blocks} fallback="(sin texto)" />
               </div>
             );
           })}
@@ -469,11 +502,8 @@ function SortingQuestion({
   const currentOrder =
     order.length > 0 ? order : (question.options?.map((o) => o.id) ?? []);
 
-  const optMap = Object.fromEntries(
-    (question.options ?? []).map((o) => [
-      o.id,
-      renderBlocks(o.blocks) || "(sin texto)",
-    ]),
+  const optionsById = Object.fromEntries(
+    (question.options ?? []).map((o) => [o.id, o]),
   );
 
   const dragItem = useRef<number | null>(null);
@@ -587,9 +617,9 @@ function SortingQuestion({
               {i + 1}
             </span>
 
-            <Text size="sm" style={{ flex: 1, color: "#CDCDCD" }}>
-              {optMap[id]}
-            </Text>
+            <div style={{ flex: 1 }}>
+              <BlocksDisplay blocks={optionsById[id]?.blocks ?? []} fallback="(sin texto)" />
+            </div>
           </div>
         );
       })}
@@ -641,6 +671,8 @@ function QuestionCard({
             ? "Opción múltiple"
             : q.type === "matching"
             ? "Relacionamiento"
+            : q.type === "script-concordance"
+            ? "Script Concordance"
             : "Ordenamiento"}
         </Badge>
       </Group>
@@ -654,6 +686,15 @@ function QuestionCard({
       {q.type === "single" && (
         <SingleQuestion
           question={q}
+          answer={singleAnswers[q.id]}
+          onChange={(val) =>
+            setSingleAnswers((prev) => ({ ...prev, [q.id]: val }))
+          }
+        />
+      )}
+
+      {q.type === "script-concordance" && (
+        <ScriptConcordanceQuestion
           answer={singleAnswers[q.id]}
           onChange={(val) =>
             setSingleAnswers((prev) => ({ ...prev, [q.id]: val }))
@@ -807,6 +848,7 @@ export default function QuizPage() {
     if (!quiz) return 0;
     return quiz.questions.filter((q) => {
       if (q.type === "single") return !!singleAnswers[q.id];
+      if (q.type === "script-concordance") return !!singleAnswers[q.id];
       if (q.type === "multiple") return (multipleAnswers[q.id]?.length ?? 0) > 0;
       if (q.type === "matching") {
         const colA = q.columns?.find((c) => c.label === "A");
@@ -827,7 +869,7 @@ export default function QuizPage() {
 
     // Construye userAnswers en el formato esperado por el backend
     const userAnswers: UserAnswer[] = quiz.questions.map((q) => {
-      if (q.type === "single") {
+      if (q.type === "single" || q.type === "script-concordance") {
         return { questionId: q.id, answer: singleAnswers[q.id] ?? "" };
       }
       if (q.type === "multiple") {
@@ -853,7 +895,7 @@ export default function QuizPage() {
     // Calcula score localmente (porcentaje de preguntas correctas)
     let correct = 0;
     quiz.questions.forEach((q) => {
-      if (q.type === "single") {
+      if (q.type === "single" || q.type === "script-concordance") {
         if (singleAnswers[q.id] && singleAnswers[q.id] === q.correctAnswer)
           correct++;
       } else if (q.type === "multiple") {
@@ -958,6 +1000,7 @@ export default function QuizPage() {
     const q = quiz.questions[idx];
     if (!q) return false;
     if (q.type === "single") return !!singleAnswers[q.id];
+    if (q.type === "script-concordance") return !!singleAnswers[q.id];
     if (q.type === "multiple") return (multipleAnswers[q.id]?.length ?? 0) > 0;
     if (q.type === "sorting") return (sortingOrders[q.id]?.length ?? 0) > 0;
     if (q.type === "matching") {
