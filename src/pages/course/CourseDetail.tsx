@@ -19,6 +19,7 @@ import {
   Image,
   Avatar,
   Stack,
+  SimpleGrid,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -79,40 +80,38 @@ function ActivityCard({ activity, hosts, onClick }: ActivityCardProps) {
       style={{ cursor: "pointer" }}
       onClick={onClick}
     >
-      <Group align="center" p="md">
+      <Group align="center" p="md" gap="md" grow={false} wrap="wrap">
         {/* Mostrar avatar grande del primer host (si existe) */}
         {activityHosts.length > 0 ? (
           <Avatar
             src={activityHosts[0].image}
             alt={activityHosts[0].name}
-            size={100}
+            size={80}
             radius="md"
           />
         ) : (
           <Avatar size={60} radius="xl" />
         )}
-        <div style={{ flex: 1 }}>
-          <Group p={8}>
+        <Stack gap="xs" style={{ flex: 1, minWidth: 0 }}>
+          <Group p={0} gap="xs">
             <FaBookOpen size={18} />
-            <Text fw={600} size="md">
+            <Text fw={600} size="sm" style={{ wordBreak: "break-word" }}>
               {activity.name}
             </Text>
           </Group>
           {activityHosts.length > 0 ? (
-            <Text fw={500} size="sm" mt={4}>
+            <Text fw={500} size="xs" mt={4} c="dimmed">
               {activityHosts[0].name}
             </Text>
           ) : (
-            <Text fw={500} size="sm" mt={4}>
+            <Text fw={500} size="xs" mt={4} c="dimmed">
               Sin conferencista
             </Text>
           )}
-        </div>
-        <Group p="xs">
           <Text size="xs" c={statusColor}>
             {statusLabel} ({Math.round(progress)}%)
           </Text>
-        </Group>
+        </Stack>
       </Group>
       <Progress value={progress} size="sm" color={statusColor} mt="xs" />
     </Card>
@@ -351,52 +350,62 @@ export default function CourseDetail() {
     );
     if (!selectedActivity) {
       return (
-        <Card shadow="sm" radius="md">
-          <Text size="md" fw={500}>
-            Bienvenido(a) al curso {event.name}.
-          </Text>
-          <Text size="sm" c="dimmed">
-            Selecciona una actividad para ver detalles
-          </Text>
-          <Text size="lg" fw={600}>
-            Módulos y actividades
-          </Text>
-          {modules.length ? renderModules() : renderActivities()}
+        <Stack gap="md">
+          <Card shadow="sm" radius="md" p="md">
+            <Text size="md" fw={500}>
+              Bienvenido(a) al curso {event.name}.
+            </Text>
+            <Text size="sm" c="dimmed">
+              Selecciona una actividad para ver detalles
+            </Text>
+          </Card>
+
+          <Card shadow="sm" radius="md" p="md">
+            <Text size="md" fw={600} mb="md">
+              Módulos y actividades
+            </Text>
+            {modules.length ? renderModules() : renderActivities()}
+          </Card>
 
           {/* Mostrar conferencistas debajo de módulos/actividades */}
-          <Divider my="lg" />
-          <Text size="lg" fw={600} mb="sm">
-            Conferencistas
-          </Text>
-          {hosts.length === 0 ? (
-            <Text size="sm" c="dimmed">
-              No hay conferencistas asignados.
+          <Card shadow="sm" radius="md" p="md">
+            <Text size="md" fw={600} mb="md">
+              Conferencistas
             </Text>
-          ) : (
-            <Group p="sm" mt="md">
-              {hosts.map((host) => (
-                <Card
-                  key={host._id}
-                  shadow="lg"
-                  radius="lg"
-                  style={{ width: 150, cursor: "pointer" }}
-                >
-                  <Stack align="center">
-                    <Avatar
-                      src={host.image}
-                      alt={host.name}
-                      size={80}
-                      radius="md"
-                    />
-                    <Text size="sm" ta="center">
-                      {host.name}
-                    </Text>
-                  </Stack>
-                </Card>
-              ))}
-            </Group>
-          )}
-        </Card>
+            {hosts.length === 0 ? (
+              <Text size="sm" c="dimmed">
+                No hay conferencistas asignados.
+              </Text>
+            ) : (
+              <SimpleGrid
+                cols={{ base: 2, xs: 3, sm: 4, md: 5 }}
+                spacing="md"
+              >
+                {hosts.map((host) => (
+                  <Card
+                    key={host._id}
+                    shadow="lg"
+                    radius="lg"
+                    style={{ cursor: "pointer", height: "100%" }}
+                    p="sm"
+                  >
+                    <Stack align="center" gap="sm">
+                      <Avatar
+                        src={host.image}
+                        alt={host.name}
+                        size={60}
+                        radius="md"
+                      />
+                      <Text size="xs" ta="center" style={{ wordBreak: "break-word" }}>
+                        {host.name}
+                      </Text>
+                    </Stack>
+                  </Card>
+                ))}
+              </SimpleGrid>
+            )}
+          </Card>
+        </Stack>
       );
     }
 
@@ -437,84 +446,111 @@ export default function CourseDetail() {
   return (
     <AppShell
       navbar={{
-        width: 300,
+        width: { base: 280, sm: 300 },
         breakpoint: "sm",
         collapsed: { desktop: !opened, mobile: !opened },
+      }}
+      header={{
+        height: { base: 100, sm: 110 },
       }}
     >
       {/* HEADER */}
       <AppShell.Header>
-        <Flex
-          justify="center"
-          align="center"
-          style={{ height: "100%", paddingBlock: "8px" }}
-        >
-          <Burger
-            opened={opened}
-            onClick={toggle}
-            size="sm"
-            color="black"
-            onMouseEnter={() => (opened ? null : toggle())}
-          />
-          <Group style={{ height: "100%", width: "100%" }}>
-            <Group>
-              <img
-                height={40}
-                src={event.styles.event_image}
-                alt="Evento"
-                onClick={handleBackHome}
-              />
-            </Group>
-            <Group>
-              <FaArrowLeft
-                size={24}
-                style={{ cursor: "pointer" }}
-                onClick={handleBack}
-              />
-              <Title order={4}>{event.name}</Title>
-            </Group>
-          </Group>
-        </Flex>
+        <Stack gap={0} style={{ height: "100%", padding: "8px 12px" }} justify="flex-start">
+          {/* Primera fila: Burger + Imagen */}
+          <Flex align="center" gap="sm" style={{ height: "auto" }}>
+            <Burger
+              opened={opened}
+              onClick={toggle}
+              size="sm"
+              color="black"
+              onMouseEnter={() => (opened ? null : toggle())}
+            />
+            <img
+              height={45}
+              src={event.styles.event_image}
+              alt="Evento"
+              onClick={handleBackHome}
+              style={{ 
+                cursor: "pointer",
+                flex: 1,
+                objectFit: "contain",
+                maxWidth: "100%"
+              }}
+            />
+          </Flex>
+
+          {/* Segunda fila: Flecha + Título */}
+          <Flex align="center" gap="xs" style={{ flex: 1, minWidth: 0 }} wrap="wrap">
+            <FaArrowLeft
+              size={20}
+              style={{ cursor: "pointer", flexShrink: 0 }}
+              onClick={handleBack}
+            />
+            <Title 
+              order={4} 
+              style={{ 
+                fontSize: "clamp(14px, 4vw, 20px)",
+                wordBreak: "break-word",
+                flex: 1
+              }}
+            >
+              {event.name}
+            </Title>
+          </Flex>
+        </Stack>
       </AppShell.Header>
 
       {/* NAVBAR LATERAL */}
-      <AppShell.Navbar p="md" onMouseLeave={() => opened && close()}>
-        <ScrollArea style={{ height: "calc(100vh - 80px)" }} type="auto">
-          <Text size="xs" fw={700} mb="xs">
-            <FaBookOpen size={14} style={{ marginRight: 4 }} />
-            Módulos
-          </Text>
-          {renderModules()}
+      <AppShell.Navbar p="xs" onMouseLeave={() => opened && close()}>
+        <ScrollArea style={{ height: "calc(100vh - 120px)" }} type="auto">
+          <Stack gap="md" p="sm">
+            <div>
+              <Text size="xs" fw={700} mb="xs">
+                <FaBookOpen size={14} style={{ marginRight: 4 }} />
+                Módulos
+              </Text>
+              {renderModules()}
+            </div>
 
-          <Divider my="lg" />
+            <Divider />
 
-          <Text size="xs" fw={700} mb="xs">
-            <FaListUl size={14} style={{ marginRight: 4 }} />
-            Actividades
-          </Text>
-          {renderActivities()}
+            <div>
+              <Text size="xs" fw={700} mb="xs">
+                <FaListUl size={14} style={{ marginRight: 4 }} />
+                Actividades
+              </Text>
+              {renderActivities()}
+            </div>
 
-          <Divider my="lg" />
+            <Divider />
 
-          <UnstyledButton style={{ width: "100%" }}>
-            <Group p="xs">
-              <FaUsers size={18} />
-              <Text size="sm">Conferencistas</Text>
-            </Group>
-          </UnstyledButton>
+            <UnstyledButton style={{ width: "100%" }}>
+              <Group p="xs">
+                <FaUsers size={18} />
+                <Text size="sm">Conferencistas</Text>
+              </Group>
+            </UnstyledButton>
 
-          <UnstyledButton mt="xs" style={{ width: "100%" }}>
-            <Group p="xs">
-              <FaUserCheck size={18} />
-              <Text size="sm">Asistentes</Text>
-            </Group>
-          </UnstyledButton>
+            <UnstyledButton mt="xs" style={{ width: "100%" }}>
+              <Group p="xs">
+                <FaUserCheck size={18} />
+                <Text size="sm">Asistentes</Text>
+              </Group>
+            </UnstyledButton>
+          </Stack>
         </ScrollArea>
       </AppShell.Navbar>
 
       {/* MAIN */}
       <AppShell.Main>
-        <Container fluid>{renderMainContent()}</Container>
+        <Container 
+          fluid 
+          px={{ base: "sm", xs: "md", sm: "lg" }}
+          py={{ base: "sm", xs: "md", sm: "lg" }}
+        >
+          {renderMainContent()}
+        </Container>
       </AppShell.Main>
 
       {/* DRAWER - CHAT */}
@@ -523,7 +559,7 @@ export default function CourseDetail() {
         onClose={() => setDrawerChatOpen(false)}
         title="Chat del curso"
         padding="md"
-        size="lg"
+        size="md"
         position="right"
       >
         <Text>Componente o sección de chat en vivo...</Text>
@@ -535,7 +571,7 @@ export default function CourseDetail() {
         onClose={() => setDrawerForumOpen(false)}
         title="Foro de discusión"
         padding="md"
-        size="lg"
+        size="md"
         position="right"
       >
         <Text>Sección de foro, Q&A o discusiones del curso...</Text>
