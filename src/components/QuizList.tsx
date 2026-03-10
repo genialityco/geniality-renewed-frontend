@@ -2,13 +2,15 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   getQuizByEventId,
-  UserAttempt,
   Quiz,
   Question,
   UserAnswer,
   EditorBlock,
+  SCT_OPTIONS,
 } from "../services/QuizService";
+import { getAllBestScores, getUserAttempts, UserAnswerDto, gradeOpenQuestion } from "../services/userQuizAttemptService";
 import { fetchUserById } from "../services/userService";
+import { NumberInput, Alert, Badge, Button, Box, Group } from "@mantine/core";
 
 // ─────────────────────────────────────────────
 // Types
@@ -16,11 +18,14 @@ import { fetchUserById } from "../services/userService";
 
 interface AttemptRow {
   userId: string;
+  attemptId: string;
+  quizId: string;
   names: string;
   bestScore: number;
   bestAttemptedAt: string;
   totalAttempts: number;
-  bestUserAnswers: UserAnswer[];
+  bestUserAnswers: UserAnswerDto[];
+  status: string;
 }
 
 interface QuizListProps {
@@ -65,12 +70,22 @@ function blocksToText(blocks: EditorBlock[]): string {
 function AttemptAnswersPanel({
   userAnswers,
   questions,
+  userId,
+  quizId,
+  attemptId,
+  currentScore,
+  onScoreUpdated,
 }: {
-  userAnswers: UserAnswer[];
+  userAnswers: UserAnswerDto[];
   questions: Question[];
+  userId: string;
+  quizId: string;
+  attemptId: string;
+  currentScore: number;
+  onScoreUpdated: () => void;
 }) {
-  // Mapa de questionId → UserAnswer para acceso rápido
-  const answerMap: Record<string, UserAnswer> = {};
+  // Mapa de questionId → UserAnswerDto para acceso rápido
+  const answerMap: Record<string, UserAnswerDto> = {};
   (userAnswers ?? []).forEach((ua) => {
     answerMap[ua.questionId] = ua;
   });
@@ -104,6 +119,14 @@ function AttemptAnswersPanel({
             ) : q.type === "matching" ? (
               // matching → MatchingAnswer[]
               renderMatchingAnswer(q, userAnswer.answer as any[])
+            ) : q.type === "open" ? (
+              // open → string (respuesta de texto abierto) con interfaz de calificación
+              <OpenQuestionReviewComponent
+                questionId={q.id}
+                userText={userAnswer.answer as string}
+                attemptId={attemptId}
+                onScoreUpdated={onScoreUpdated}
+              />
             ) : null}
           </div>
         );
@@ -117,9 +140,16 @@ function AttemptAnswersPanel({
 // ─────────────────────────────────────────────
 
 function renderSingleAnswer(q: Question, selectedId: string) {
+  // Detectar si es una pregunta script-concordance por el ID seleccionado o por las opciones
+  const isSCTQuestion = ["sct-m2", "sct-m1", "sct-0", "sct-p1", "sct-p2"].includes(selectedId) ||
+    (q.options?.some(opt => ["sct-m2", "sct-m1", "sct-0", "sct-p1", "sct-p2"].includes(opt.id)));
+  
+  // Usar SCT_OPTIONS si es una pregunta script-concordance, sino usar las opciones de la pregunta
+  const optionsToUse = isSCTQuestion ? SCT_OPTIONS : (q.options ?? []);
+  
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      {(q.options ?? []).map((opt) => {
+      {optionsToUse.map((opt) => {
         const isSelected = opt.id === selectedId;
         const isCorrect = opt.id === q.correctAnswer;
         const text = blocksToText(opt.blocks) || "(sin texto)";
@@ -396,6 +426,150 @@ function MatchingColumnPair({
   );
 }
 
+/**
+ * Renderiza la respuesta a una pregunta abierta.
+ * Muestra el texto ingresado por el usuario con formato de párrafo.
+ */
+function renderOpenAnswer(userText: string) {
+  const displayText = userText?.trim() || "(sin respuesta)";
+  return (
+    <div
+      style={{
+        padding: "8px 10px",
+        borderRadius: 4,
+        background: "#1a1a1a",
+        border: "1px solid #2a2a2a",
+        fontSize: 11,
+        color: displayText === "(sin respuesta)" ? "#555" : "#CDCDCD",
+        fontStyle: displayText === "(sin respuesta)" ? "italic" : "normal",
+        wordBreak: "break-word",
+        maxHeight: 60,
+        overflow: "hidden",
+        lineHeight: 1.4,
+      }}
+    >
+      {displayText}
+    </div>
+  );
+}
+
+/**
+ * Componente para calificar una pregunta abierta (aparece en el panel expandible del admin)
+ */
+function OpenQuestionReviewComponent({
+  questionId,
+  userText,
+  attemptId,
+  onScoreUpdated,
+}: {
+  questionId: string;
+  userText: string;
+  attemptId: string;
+  onScoreUpdated: () => void;
+}) {
+  const [score, setScore] = useState<number | "">(6);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const convertedScore = score && score !== "" ? Number(score) / 10 : 0;
+  const displayedPoints = convertedScore.toFixed(2);
+
+  const handleGrade = async () => {
+    if (!score || score === "" || score < 1 || score > 10) {
+      alert("Por favor, ingresa una puntuación entre 1 y 10");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await gradeOpenQuestion(attemptId, {
+        questionId,
+        score: Number(score),
+      });
+      setSuccess(true);
+      setTimeout(() => {
+        setSuccess(false);
+        onScoreUpdated();
+      }, 1500);
+    } catch (error) {
+      alert("Error al calificar: " + (error as any).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const displayText = userText?.trim() || "(sin respuesta)";
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div
+        style={{
+          padding: "8px 10px",
+          borderRadius: 4,
+          background: "#1a1a1a",
+          border: "1px solid #2a2a2a",
+          fontSize: 11,
+          color: displayText === "(sin respuesta)" ? "#555" : "#CDCDCD",
+          fontStyle: displayText === "(sin respuesta)" ? "italic" : "normal",
+          wordBreak: "break-word",
+          maxHeight: 100,
+          overflow: "auto",
+          lineHeight: 1.4,
+        }}
+      >
+        {displayText}
+      </div>
+
+      {/* Interfaz de calificación */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <label style={{ fontSize: 11, color: "#999", fontWeight: 500 }}>
+          Calificar (1-10):
+        </label>
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+          <NumberInput
+            value={score}
+            onChange={setScore}
+            min={1}
+            max={10}
+            placeholder="Puntuación"
+            style={{ flex: 1 }}
+            styles={{
+              input: {
+                background: "#1a1a1a",
+                borderColor: "#2a2a2a",
+                color: "#CDCDCD",
+                fontSize: 12,
+                height: 28,
+              },
+            }}
+          />
+          <Button
+            onClick={handleGrade}
+            loading={loading}
+            disabled={!score || score === "" || success}
+            size="xs"
+            styles={{
+              root: {
+                background: success ? "#68D391" : "#3b82f6",
+                color: "white",
+                height: 28,
+              },
+            }}
+          >
+            {success ? "✓ Guardado" : "Guardar"}
+          </Button>
+        </div>
+
+        {score && score !== "" && (
+          <div style={{ fontSize: 10, color: "#999" }}>
+            Puntuación {score}: {displayedPoints} puntos
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────
 // Componente principal
 // ─────────────────────────────────────────────
@@ -417,49 +591,68 @@ export default function QuizList({ eventId }: QuizListProps) {
       try {
         const quizData = await getQuizByEventId(eventId);
 
-        if (!quizData || quizData.listUserAttempts.length === 0) {
+        if (!quizData) {
           setRows([]);
           return;
         }
 
         setQuiz(quizData);
 
-        // Agrupar todos los intentos por userId
-        const byUser: Record<string, UserAttempt[]> = {};
-        for (const attempt of quizData.listUserAttempts) {
-          if (!byUser[attempt.userId]) byUser[attempt.userId] = [];
-          byUser[attempt.userId].push(attempt);
+        const quizId = quizData._id || quizData.id;
+        if (!quizId) {
+          setRows([]);
+          return;
         }
 
-        // Por cada usuario único: mejor intento + total de intentos
-        const uniqueUsers = Object.entries(byUser).map(([userId, attempts]) => {
-          const best = attempts.reduce((b, a) => (a.score > b.score ? a : b));
-          return { userId, best, totalAttempts: attempts.length };
-        });
+        // Obtener los mejores scores de todos los usuarios para saber quiénes han intentado
+        const bestScoresData = await getAllBestScores(quizId);
 
+        if (!bestScoresData || bestScoresData.length === 0) {
+          setRows([]);
+          return;
+        }
+
+        // Para cada usuario, obtener sus intentos y extraer el mejor
         const settled = await Promise.allSettled(
-          uniqueUsers.map(({ userId, best, totalAttempts }) =>
-            fetchUserById(userId).then((user) => ({
-              userId,
+          bestScoresData.map(async (scoreData) => {
+            // Obtener nombre del usuario
+            const user = await fetchUserById(scoreData.userId);
+            
+            // Obtener todos los intentos del usuario para este quiz
+            const userAttempts = await getUserAttempts(quizId, scoreData.userId);
+            
+            // Extraer el mejor intento (por score más alto)
+            const bestAttempt = userAttempts.reduce((best, current) =>
+              current.score > best.score ? current : best,
+              userAttempts[0],
+            );
+            
+            return {
+              userId: scoreData.userId,
+              attemptId: bestAttempt._id || bestAttempt.id || "",
+              quizId: quizId,
               names: user.names ?? "Usuario desconocido",
-              bestScore: best.score,
-              bestAttemptedAt: best.attemptedAt,
-              totalAttempts,
-              bestUserAnswers: best.userAnswers ?? [],
-            })),
-          ),
+              bestScore: bestAttempt.score,
+              bestAttemptedAt: bestAttempt.attemptedAt,
+              totalAttempts: scoreData.attemptCount,
+              bestUserAnswers: bestAttempt.userAnswers ?? [],
+              status: bestAttempt.status || "graded",
+            };
+          }),
         );
 
-        const resolved: AttemptRow[] = settled.map((result, i) => {
+        const resolved: AttemptRow[] = settled.map((result) => {
           if (result.status === "fulfilled") return result.value;
-          const { userId, best, totalAttempts } = uniqueUsers[i];
           return {
-            userId,
+            userId: "",
+            attemptId: "",
+            quizId: "",
             names: "Usuario desconocido",
-            bestScore: best.score,
-            bestAttemptedAt: best.attemptedAt,
-            totalAttempts,
-            bestUserAnswers: best.userAnswers ?? [],
+            bestScore: 0,
+            bestAttemptedAt: new Date().toISOString(),
+            totalAttempts: 0,
+            bestUserAnswers: [],
+            status: "unknown",
           };
         });
 
@@ -604,6 +797,41 @@ export default function QuizList({ eventId }: QuizListProps) {
                         <AttemptAnswersPanel
                           userAnswers={row.bestUserAnswers}
                           questions={quiz.questions}
+                          userId={row.userId}
+                          quizId={row.quizId}
+                          attemptId={row.attemptId}
+                          currentScore={row.bestScore}
+                          onScoreUpdated={() => {
+                            // Recargar los datos de este quiz
+                            if (eventId) {
+                              (async () => {
+                                const quizData = await getQuizByEventId(eventId);
+                                if (quizData) {
+                                  const bestScoresData = await getAllBestScores(row.quizId);
+                                  if (bestScoresData && bestScoresData.length > 0) {
+                                    const userAttempts = await getUserAttempts(row.quizId, row.userId);
+                                    const bestAttempt = userAttempts.reduce((best, current) =>
+                                      current.score > best.score ? current : best,
+                                      userAttempts[0],
+                                    );
+                                    // Actualizar la fila
+                                    setRows((prevRows) =>
+                                      prevRows.map((r) =>
+                                        r.userId === row.userId
+                                          ? {
+                                              ...r,
+                                              bestScore: bestAttempt.score,
+                                              bestUserAnswers: bestAttempt.userAnswers ?? [],
+                                              status: bestAttempt.status || "graded",
+                                            }
+                                          : r,
+                                      ),
+                                    );
+                                  }
+                                }
+                              })();
+                            }
+                          }}
                         />
                       </td>
                     </tr>

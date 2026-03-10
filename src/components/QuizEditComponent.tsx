@@ -60,6 +60,12 @@ const emptyQuestion = (type: QuestionType = "single"): Question => {
       matchingAnswers: [],
     };
   }
+  if (type === "open") {
+    return {
+      ...base,
+      // Las preguntas abiertas no tienen opciones
+    };
+  }
   return base;
 };
 
@@ -69,6 +75,7 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   matching: "Relacionamiento",
   sorting: "Ordenamiento",
   "script-concordance": "Script Concordance",
+  open: "Pregunta abierta",
 };
 
 // ─────────────────────────────────────────────
@@ -622,6 +629,36 @@ function MatchingEditor({
   );
 }
 
+// ── Open question editor ────────────────────────
+
+/**
+ * Las preguntas abiertas no tienen opciones ni respuesta correcta.
+ * Solo muestran un mensaje indicando que se trata de una pregunta
+ * que el admin deberá calificar manualmente según la respuesta del usuario.
+ */
+function OpenQuestionEditor({
+  question,
+}: {
+  question: Question;
+}) {
+  return (
+    <div style={{
+      padding: "12px 16px",
+      borderRadius: 6,
+      background: "#2D3748",
+      border: "1px solid #4A5568",
+    }}>
+      <p style={{ marginBottom: 8, color: "#CDCDCD", fontSize: 14 }}>
+        <strong>Pregunta Abierta</strong>
+      </p>
+      <p style={{ fontSize: 13, color: "#A0AEC0", margin: 0 }}>
+        Los usuarios escribirán su respuesta en una caja de texto. 
+        El administrador deberá calificar esta respuesta manualmente con una puntuación de 1 a 10.
+      </p>
+    </div>
+  );
+}
+
 // ── Single question card ──────────────────────
 
 function QuestionCard({
@@ -727,6 +764,9 @@ function QuestionCard({
             )}
             {question.type === "matching" && (
               <MatchingEditor question={question} onChange={onChange} />
+            )}
+            {question.type === "open" && (
+              <OpenQuestionEditor question={question} />
             )}
           </div>
         </div>

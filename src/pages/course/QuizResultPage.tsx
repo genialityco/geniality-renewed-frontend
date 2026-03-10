@@ -15,17 +15,18 @@ import {
   Alert,
   Divider,
   Box,
+  NumberInput,
 } from "@mantine/core";
 import { FaArrowLeft, FaCircleCheck, FaTrophy, FaXmark, FaMedal, FaLock } from "react-icons/fa6";
 import {
   getQuizById,
-  getScoreByUserId,
   Quiz,
   Question,
   UserAnswer,
   MatchingAnswer,
   EditorBlock,
 } from "../../services/QuizService";
+import { getBestScore, getUserAttempts, UserAnswerDto, gradeOpenQuestion } from "../../services/userQuizAttemptService";
 import { useUser } from "../../context/UserContext";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -135,10 +136,12 @@ function isAnswerCorrect(q: Question, ua?: UserAnswer): boolean {
 }
 
 /** Tarjeta por pregunta: muestra respuesta del usuario y la correcta */
-function QuestionReviewCard({ question, userAnswer, index }: {
+function QuestionReviewCard({ question, userAnswer, index, attemptId, onScoreUpdated }: {
   question: Question;
   userAnswer?: UserAnswer;
   index: number;
+  attemptId?: string;
+  onScoreUpdated?: () => void;
 }) {
   const correct = isAnswerCorrect(question, userAnswer);
   const qText = blocksToText(question.blocks) || `Pregunta ${index + 1}`;
@@ -149,11 +152,11 @@ function QuestionReviewCard({ question, userAnswer, index }: {
         <Box
           style={{
             minWidth: 22, height: 22, borderRadius: 4,
-            background: correct ? "var(--mantine-color-teal-light)" : userAnswer ? "var(--mantine-color-red-light)" : "var(--mantine-color-gray-light)",
+            background: correct || question.type === "open" ? "var(--mantine-color-teal-light)" : userAnswer ? "var(--mantine-color-red-light)" : "var(--mantine-color-gray-light)",
             display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1,
           }}
         >
-          {correct
+          {correct || question.type === "open"
             ? <FaCircleCheck size={11} color="var(--mantine-color-teal-filled)" />
             : <FaXmark size={11} color={userAnswer ? "var(--mantine-color-red-filled)" : "var(--mantine-color-gray-filled)"} />}
         </Box>
@@ -163,13 +166,24 @@ function QuestionReviewCard({ question, userAnswer, index }: {
         </Box>
       </Group>
 
-      {!correct && (
+      {!correct && question.type !== "open" && (
         <Box pl={30}>
           {question.type === "single" && renderSingleReview(question, userAnswer?.answer as string | undefined)}
-          {question.type === "script-concordance" && renderSingleReview(question, userAnswer?.answer as string | undefined)}
+          {question.type === "script-concordance" && renderScriptConcordanceReview(question, userAnswer?.answer as string | undefined)}
           {question.type === "multiple" && renderMultipleReview(question, userAnswer?.answer as string[] | undefined)}
           {question.type === "sorting" && renderSortingReview(question, userAnswer?.answer as string[] | undefined)}
           {question.type === "matching" && renderMatchingReview(question, userAnswer?.answer as MatchingAnswer[] | undefined)}
+        </Box>
+      )}
+
+      {question.type === "open" && (
+        <Box pl={30}>
+          <OpenQuestionReviewComponent
+            question={question}
+            userAnswer={userAnswer?.answer as string | undefined}
+            attemptId={attemptId}
+            onScoreUpdated={onScoreUpdated}
+          />
         </Box>
       )}
     </Box>
@@ -196,6 +210,33 @@ function renderSingleReview(q: Question, selectedId?: string) {
             <Box pl={20}>
               <BlocksRenderer blocks={opt.blocks.filter((b) => ["image", "video"].includes(b.type))} />
             </Box>
+          </Box>
+        );
+      })}
+    </Stack>
+  );
+}
+
+function renderScriptConcordanceReview(q: Question, selectedId?: string) {
+  return (
+    <Stack gap={3}>
+      <Text size="xs" c="dimmed" mb={2}>Tu respuesta vs. correcta</Text>
+      {(q.options ?? []).map((opt) => {
+        const isSelected = opt.id === selectedId;
+        const isCorrect = opt.id === q.correctAnswer;
+        const label = opt.blocks?.[0]?.content ?? opt.id;
+        return (
+          <Box key={opt.id}>
+            <Group gap="xs">
+              <Text size="xs" c={isCorrect ? "teal" : "red"}>
+                {isCorrect ? "✓" : "✗"}
+              </Text>
+              <Text size="xs" c={isCorrect ? "teal" : "red"} style={{ flex: 1 }}>
+                {label}
+                {isCorrect ? " (correcta)" : ""}
+                {isSelected && !isCorrect ? " (tu respuesta)" : ""}
+              </Text>
+            </Group>
           </Box>
         );
       })}
@@ -299,6 +340,79 @@ function renderMatchingReview(q: Question, matchingAnswers?: MatchingAnswer[]) {
   );
 }
 
+function OpenQuestionReviewComponent({ question, userAnswer, attemptId, onScoreUpdated }: {
+  question: Question;
+  userAnswer?: string;
+  attemptId?: string;
+  onScoreUpdated?: () => void;
+}) {
+  const [score, setScore] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleGrade = async () => {
+    if (!attemptId || score === null || score < 1 || score > 10) return;
+
+    setLoading(true);
+    try {
+      await gradeOpenQuestion(attemptId, { questionId: question.id, score });
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+      if (onScoreUpdated) onScoreUpdated();
+    } catch (error) {
+      console.error("Error grading question:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Stack gap="sm">
+      <Box>
+        <Text size="sm" fw={500} mb="xs">Respuesta del usuario:</Text>
+        <Box
+          style={{
+            background: "#1A1A1A",
+            border: "1px solid #272727",
+            borderRadius: 8,
+            padding: 12,
+            minHeight: 80,
+          }}
+        >
+          <Text size="sm" c="#CDCDCD">{userAnswer || "(sin respuesta)"}</Text>
+        </Box>
+      </Box>
+
+      {attemptId && (
+        <Box>
+          <Text size="sm" fw={500} mb="xs">Calificación (1-10):</Text>
+          <Group gap="md">
+            <NumberInput
+              value={score ?? undefined}
+              onChange={(val) => setScore(typeof val === 'number' ? val : null)}
+              min={1}
+              max={10}
+              placeholder="Ingresa 1-10"
+              style={{ flex: 1 }}
+            />
+            <Button
+              onClick={handleGrade}
+              disabled={score === null || score < 1 || score > 10 || loading}
+              loading={loading}
+            >
+              Calificar
+            </Button>
+            {success && <Badge color="teal">✓ Guardado</Badge>}
+          </Group>
+          <Text size="xs" c="dimmed" mt="xs">
+            Puntuación {score}: {score ? (score / 10).toFixed(2) : "—"} puntos
+          </Text>
+        </Box>
+      )}
+    </Stack>
+  );
+}
+
 function scoreColor(score: number, minNota?: number | null): string {
   if (minNota != null) {
     return score >= minNota ? "teal" : "red";
@@ -321,18 +435,31 @@ export default function QuizResultPage() {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userAttemptsList, setUserAttemptsList] = useState<any[]>([]);
 
   useEffect(() => {
     if (!quizId || quizId === "undefined" || !userId) return;
     (async () => {
       try {
-        const [scoreData, quizData] = await Promise.all([
-          getScoreByUserId(quizId, userId),
-          getQuizById(quizId),
+        const [scoreResult, quizResult, attemptsResult] = await Promise.allSettled([
+          getBestScore(quizId!, userId!),
+          getQuizById(quizId!),
+          getUserAttempts(quizId!, userId!),
         ]);
+        
         // El backend devuelve false si el usuario aún no ha intentado el examen.
-        setScore(scoreData === false ? null : scoreData);
-        setQuiz(quizData);
+        if (scoreResult.status === "fulfilled") {
+          setScore(scoreResult.value === false ? null : scoreResult.value);
+        }
+        
+        if (quizResult.status === "fulfilled") {
+          setQuiz(quizResult.value);
+        }
+        
+        // Si el servicio de intentos no está disponible, simplemente no mostres la lista
+        if (attemptsResult.status === "fulfilled") {
+          setUserAttemptsList(attemptsResult.value);
+        }
       } catch (e: any) {
         setError(
           e?.response?.data?.message ?? "Error al cargar tu resultado.",
@@ -371,9 +498,17 @@ export default function QuizResultPage() {
   const color = scoreColor(numScore, minNota);
   const passed = minNota != null ? numScore >= minNota : null;
 
+  // ── Verificar si el examen está en revisión (tiene preguntas abiertas) ──
+  const lastAttempt = userAttemptsList.length > 0
+    ? userAttemptsList.reduce((latest, a) =>
+        new Date(a.attemptedAt) > new Date(latest.attemptedAt) ? a : latest
+      )
+    : null;
+  const isUnderReview = lastAttempt?.status === 'review';
+
   // ── Intentos restantes ──
   const maxAttempts = quiz?.config?.attempts ?? null; // null = ilimitado
-  const attemptsUsed = (quiz?.listUserAttempts ?? []).filter(
+  const attemptsUsed = userAttemptsList.filter(
     (a) => a.userId === userId,
   ).length;
   const attemptsLeft = maxAttempts != null ? maxAttempts - attemptsUsed : null;
@@ -382,12 +517,6 @@ export default function QuizResultPage() {
 
   // ── Último intento: se muestra el desglose cuando se agotan los intentos y no hay 100% ──
   const showReview = attemptsLeft !== null && attemptsLeft <= 0 && numScore < 100;
-  const userAttempts = (quiz?.listUserAttempts ?? []).filter((a) => a.userId === userId);
-  const lastAttempt = userAttempts.length > 0
-    ? userAttempts.reduce((latest, a) =>
-        new Date(a.attemptedAt) > new Date(latest.attemptedAt) ? a : latest
-      )
-    : null;
 
   const handleRetry = () => {
     navigate(`/organization/${organizationId}/course/${eventId}/quiz/${quizId}`);
@@ -406,8 +535,21 @@ export default function QuizResultPage() {
       </Group>
 
       <Title order={2} mb="xl" ta="center">
-        Resultado del examen
+        {isUnderReview ? "Resultado Parcial" : "Resultado del examen"}
       </Title>
+
+      {/* Mensaje de revisión pendiente */}
+      {isUnderReview && (
+        <Alert icon={<FaTrophy size={16} />} color="blue" mb="lg">
+          <Stack gap="xs">
+            <Text fw={600}>Tu examen está en proceso de revisión</Text>
+            <Text size="sm">
+              Este resultado es parcial y solo incluye las preguntas que se califican automáticamente. 
+              Una vez que un evaluador califi que las preguntas abiertas, tu nota se verá actualizada.
+            </Text>
+          </Stack>
+        </Alert>
+      )}
 
       <Card shadow="md" radius="lg" withBorder p="xl">
         <Stack align="center" gap="md">
@@ -427,6 +569,20 @@ export default function QuizResultPage() {
             <Badge size="xl" radius="sm" color={color} leftSection={<FaMedal size={14} />}>
               {numScore >= 80 ? "EXCELENTE" : numScore >= 50 ? "BUEN INTENTO" : "SIGUE PRACTICANDO"}
             </Badge>
+          )}
+
+          {/* ── Botón Generar Certificado (solo si aprobó y el intento está graded) ── */}
+          {passed === true && lastAttempt?.status === "graded" && (
+            <Button
+              color="yellow"
+              size="md"
+              onClick={() => {
+                // Placeholder para generar certificado
+                alert("Función de generar certificado en desarrollo");
+              }}
+            >
+              Generar Certificado
+            </Button>
           )}
 
           <RingProgress
@@ -508,14 +664,29 @@ export default function QuizResultPage() {
           <Stack gap="sm">
             {quiz.questions.map((question, idx) => {
               const userAnswer = lastAttempt.userAnswers?.find(
-                (a) => a.questionId === question.id,
+                (a: UserAnswerDto) => a.questionId === question.id,
               );
+              const handleScoreUpdated = async () => {
+                // Refrescar los datos del usuario
+                const [scoreResult, attemptsResult] = await Promise.allSettled([
+                  getBestScore(quizId!, userId!),
+                  getUserAttempts(quizId!, userId!),
+                ]);
+                if (scoreResult.status === "fulfilled") {
+                  setScore(scoreResult.value === false ? null : scoreResult.value);
+                }
+                if (attemptsResult.status === "fulfilled") {
+                  setUserAttemptsList(attemptsResult.value);
+                }
+              };
               return (
                 <Box key={question.id}>
                   <QuestionReviewCard
                     question={question}
                     userAnswer={userAnswer}
                     index={idx}
+                    attemptId={lastAttempt._id}
+                    onScoreUpdated={handleScoreUpdated}
                   />
                   {idx < quiz.questions.length - 1 && <Divider mt="sm" />}
                 </Box>

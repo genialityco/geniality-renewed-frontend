@@ -17,10 +17,14 @@ import {
   Alert,
   Progress,
 } from "@mantine/core";
-import { FaArrowLeft, FaCircleCheck, FaClock, FaTriangleExclamation } from "react-icons/fa6";
+import {
+  FaArrowLeft,
+  FaCircleCheck,
+  FaClock,
+  FaTriangleExclamation,
+} from "react-icons/fa6";
 import {
   getQuizById,
-  submitAttempt,
   Quiz,
   Question,
   QuestionOption,
@@ -28,6 +32,10 @@ import {
   EditorBlock,
   SCT_OPTIONS,
 } from "../../services/QuizService";
+import {
+  submitQuizAttempt,
+  getUserAttempts,
+} from "../../services/userQuizAttemptService";
 import { useUser } from "../../context/UserContext";
 
 // ─────────────────────────────────────────────
@@ -49,9 +57,20 @@ function getYoutubeEmbedUrl(url: string): string | null {
 }
 
 /** Renderiza bloques con soporte de imagen y video */
-function BlocksDisplay({ blocks, fallback }: { blocks: EditorBlock[]; fallback?: string }) {
+function BlocksDisplay({
+  blocks,
+  fallback,
+}: {
+  blocks: EditorBlock[];
+  fallback?: string;
+}) {
   const hasContent = blocks?.length > 0;
-  if (!hasContent) return fallback ? <Text fw={600} size="md">{fallback}</Text> : null;
+  if (!hasContent)
+    return fallback ? (
+      <Text fw={600} size="md">
+        {fallback}
+      </Text>
+    ) : null;
 
   return (
     <>
@@ -62,7 +81,12 @@ function BlocksDisplay({ blocks, fallback }: { blocks: EditorBlock[]; fallback?:
               key={block.id}
               src={block.content}
               alt=""
-              style={{ maxWidth: "100%", borderRadius: 8, margin: "6px 0", display: "block" }}
+              style={{
+                maxWidth: "100%",
+                borderRadius: 8,
+                margin: "6px 0",
+                display: "block",
+              }}
             />
           ) : null;
         }
@@ -76,7 +100,14 @@ function BlocksDisplay({ blocks, fallback }: { blocks: EditorBlock[]; fallback?:
                 src={youtubeEmbedUrl}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
-                style={{ width: "100%", aspectRatio: "16/9", border: "none", borderRadius: 8, margin: "6px 0", display: "block" }}
+                style={{
+                  width: "100%",
+                  aspectRatio: "16/9",
+                  border: "none",
+                  borderRadius: 8,
+                  margin: "6px 0",
+                  display: "block",
+                }}
               />
             );
           }
@@ -85,26 +116,51 @@ function BlocksDisplay({ blocks, fallback }: { blocks: EditorBlock[]; fallback?:
               key={block.id}
               src={block.content}
               controls
-              style={{ maxWidth: "100%", borderRadius: 8, margin: "6px 0", display: "block" }}
+              style={{
+                maxWidth: "100%",
+                borderRadius: 8,
+                margin: "6px 0",
+                display: "block",
+              }}
             />
           );
         }
         const text = block.content;
         if (!text) return null;
         if (block.type === "h1") {
-          return <Text key={block.id} fw={700} size="xl" mb={4}>{text}</Text>;
+          return (
+            <Text key={block.id} fw={700} size="xl" mb={4}>
+              {text}
+            </Text>
+          );
         }
         if (block.type === "h2") {
-          return <Text key={block.id} fw={700} size="lg" mb={4}>{text}</Text>;
+          return (
+            <Text key={block.id} fw={700} size="lg" mb={4}>
+              {text}
+            </Text>
+          );
         }
         if (block.type === "bullet-list") {
-          return <Text key={block.id} size="md">• {text}</Text>;
+          return (
+            <Text key={block.id} size="md">
+              • {text}
+            </Text>
+          );
         }
         if (block.type === "numbered-list") {
-          return <Text key={block.id} size="md">{text}</Text>;
+          return (
+            <Text key={block.id} size="md">
+              {text}
+            </Text>
+          );
         }
         // paragraph
-        return <Text key={block.id} fw={600} size="md">{text}</Text>;
+        return (
+          <Text key={block.id} fw={600} size="md">
+            {text}
+          </Text>
+        );
       })}
     </>
   );
@@ -141,7 +197,9 @@ function SingleQuestion({
           >
             <Radio
               value={opt.id}
-              label={<BlocksDisplay blocks={opt.blocks} fallback="(sin texto)" />}
+              label={
+                <BlocksDisplay blocks={opt.blocks} fallback="(sin texto)" />
+              }
             />
           </Card>
         ))}
@@ -187,7 +245,9 @@ function MultipleQuestion({
             <Checkbox
               checked={checked}
               onChange={() => toggle(opt.id)}
-              label={<BlocksDisplay blocks={opt.blocks} fallback="(sin texto)" />}
+              label={
+                <BlocksDisplay blocks={opt.blocks} fallback="(sin texto)" />
+              }
             />
           </Card>
         );
@@ -266,7 +326,9 @@ function MatchingPair({
   }, [matches]);
 
   useEffect(() => {
-    const observer = new ResizeObserver(() => forceUpdate((t: number) => t + 1));
+    const observer = new ResizeObserver(() =>
+      forceUpdate((t: number) => t + 1),
+    );
     if (containerRef.current) observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, []);
@@ -286,7 +348,14 @@ function MatchingPair({
   };
 
   // Construye las líneas a dibujar
-  const lines: { aId: string; bId: string; x1: number; y1: number; x2: number; y2: number }[] = [];
+  const lines: {
+    aId: string;
+    bId: string;
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+  }[] = [];
   Object.entries(matches).forEach(([aId, bId]) => {
     if (!bId) return;
     const a = getPoint(aRefs.current[aId], containerRef.current, "right");
@@ -336,7 +405,12 @@ function MatchingPair({
       )}
       <div
         ref={containerRef}
-        style={{ position: "relative", display: "flex", alignItems: "flex-start", gap: 0 }}
+        style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 0,
+        }}
       >
         {/* SVG de líneas */}
         <svg
@@ -352,7 +426,14 @@ function MatchingPair({
           }}
         >
           <defs>
-            <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+            <marker
+              id="arrow"
+              markerWidth="6"
+              markerHeight="6"
+              refX="3"
+              refY="3"
+              orient="auto"
+            >
               <circle cx="3" cy="3" r="2" fill="#4dabf7" />
             </marker>
           </defs>
@@ -381,20 +462,22 @@ function MatchingPair({
             return (
               <div
                 key={opt.id}
-                ref={(el) => { aRefs.current[opt.id] = el; }}
+                ref={(el) => {
+                  aRefs.current[opt.id] = el;
+                }}
                 onClick={() => handleAClick(opt.id)}
                 style={{
                   ...itemBase,
                   borderColor: isSelected
                     ? "#4dabf7"
                     : isMatched
-                    ? "#2c5f2e"
-                    : "#2a2a2a",
+                      ? "#2c5f2e"
+                      : "#2a2a2a",
                   background: isSelected
                     ? "#1a2a3a"
                     : isMatched
-                    ? "#162C1D"
-                    : "#141414",
+                      ? "#162C1D"
+                      : "#141414",
                   boxShadow: isSelected ? "0 0 0 3px #4dabf730" : "none",
                 }}
               >
@@ -417,22 +500,24 @@ function MatchingPair({
             return (
               <div
                 key={opt.id}
-                ref={(el) => { bRefs.current[opt.id] = el; }}
+                ref={(el) => {
+                  bRefs.current[opt.id] = el;
+                }}
                 onClick={() => handleBClick(opt.id)}
                 style={{
                   ...itemBase,
                   borderColor: isMatchedToSelected
                     ? "#4dabf7"
                     : isMatched
-                    ? "#2c5f2e"
-                    : selectedAId
-                    ? "#333"
-                    : "#2a2a2a",
+                      ? "#2c5f2e"
+                      : selectedAId
+                        ? "#333"
+                        : "#2a2a2a",
                   background: isMatchedToSelected
                     ? "#1a2a3a"
                     : isMatched
-                    ? "#162C1D"
-                    : "#141414",
+                      ? "#162C1D"
+                      : "#141414",
                   opacity: selectedAId && !isMatchedToSelected ? 0.85 : 1,
                 }}
               >
@@ -460,7 +545,11 @@ function MatchingQuestion({
 }: {
   question: Question;
   matchingAnswers: Record<string, Record<string, string>>;
-  onChange: (columnAId: string, columnLabel: string, selectedId: string | null) => void;
+  onChange: (
+    columnAId: string,
+    columnLabel: string,
+    selectedId: string | null,
+  ) => void;
 }) {
   const colA = question.columns?.find((c) => c.label === "A");
   const otherCols = question.columns?.filter((c) => c.label !== "A") ?? [];
@@ -522,7 +611,11 @@ function SortingQuestion({
   };
 
   const handleDragEnd = () => {
-    if (dragItem.current !== null && dragOver.current !== null && dragItem.current !== dragOver.current) {
+    if (
+      dragItem.current !== null &&
+      dragOver.current !== null &&
+      dragItem.current !== dragOver.current
+    ) {
       const newOrd = [...currentOrder];
       const dragged = newOrd.splice(dragItem.current, 1)[0];
       newOrd.splice(dragOver.current, 0, dragged);
@@ -556,14 +649,12 @@ function SortingQuestion({
               gap: 12,
               padding: "10px 14px",
               borderRadius: 8,
-              border: isOver
-                ? "1.5px dashed #4dabf7"
-                : "1.5px solid #2a2a2a",
+              border: isOver ? "1.5px dashed #4dabf7" : "1.5px solid #2a2a2a",
               background: isDragging
                 ? "#0f1a25"
                 : isOver
-                ? "#1a2530"
-                : "#141414",
+                  ? "#1a2530"
+                  : "#141414",
               opacity: isDragging ? 0.45 : 1,
               cursor: "grab",
               transition: "border-color 0.15s, background 0.15s, opacity 0.15s",
@@ -618,11 +709,49 @@ function SortingQuestion({
             </span>
 
             <div style={{ flex: 1 }}>
-              <BlocksDisplay blocks={optionsById[id]?.blocks ?? []} fallback="(sin texto)" />
+              <BlocksDisplay
+                blocks={optionsById[id]?.blocks ?? []}
+                fallback="(sin texto)"
+              />
             </div>
           </div>
         );
       })}
+    </Stack>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Open Question ────────────────────────────────
+// ─────────────────────────────────────────────
+
+function OpenQuestion({
+  answer,
+  onChange,
+}: {
+  answer: string;
+  onChange: (val: string) => void;
+}) {
+  return (
+    <Stack gap="md">
+      <textarea
+        placeholder="Escribe tu respuesta aquí..."
+        value={answer ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: "100%",
+          minHeight: 120,
+          padding: 12,
+          borderRadius: 8,
+          border: "1.5px solid #2a2a2a",
+          background: "#141414",
+          color: "#CDCDCD",
+          fontSize: 14,
+          lineHeight: 1.5,
+          fontFamily: "inherit",
+          resize: "vertical",
+        }}
+      />
     </Stack>
   );
 }
@@ -635,15 +764,25 @@ interface QuestionCardProps {
   q: Question;
   i: number;
   singleAnswers: Record<string, string>;
-  setSingleAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  setSingleAnswers: React.Dispatch<
+    React.SetStateAction<Record<string, string>>
+  >;
   multipleAnswers: Record<string, string[]>;
-  setMultipleAnswers: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
+  setMultipleAnswers: React.Dispatch<
+    React.SetStateAction<Record<string, string[]>>
+  >;
   matchingAnswers: Record<string, Record<string, Record<string, string>>>;
   setMatchingAnswers: React.Dispatch<
     React.SetStateAction<Record<string, Record<string, Record<string, string>>>>
   >;
   sortingOrders: Record<string, string[]>;
-  setSortingOrders: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
+  setSortingOrders: React.Dispatch<
+    React.SetStateAction<Record<string, string[]>>
+  >;
+  openAnswers: Record<string, string>;
+  setOpenAnswers: React.Dispatch<
+    React.SetStateAction<Record<string, string>>
+  >;
 }
 
 function QuestionCard({
@@ -657,6 +796,8 @@ function QuestionCard({
   setMatchingAnswers,
   sortingOrders,
   setSortingOrders,
+  openAnswers,
+  setOpenAnswers,
 }: QuestionCardProps) {
   return (
     <Card key={q.id} shadow="sm" radius="md" withBorder p="lg">
@@ -668,12 +809,12 @@ function QuestionCard({
           {q.type === "single"
             ? "Opción única"
             : q.type === "multiple"
-            ? "Opción múltiple"
-            : q.type === "matching"
-            ? "Relacionamiento"
-            : q.type === "script-concordance"
-            ? "Script Concordance"
-            : "Ordenamiento"}
+              ? "Opción múltiple"
+              : q.type === "matching"
+                ? "Relacionamiento"
+                : q.type === "script-concordance"
+                  ? "Script Concordance"
+                  : "Ordenamiento"}
         </Badge>
       </Group>
 
@@ -724,7 +865,10 @@ function QuestionCard({
                 delete aMap[colLabel];
                 qMap[colAId] = aMap;
               } else {
-                qMap[colAId] = { ...(qMap[colAId] ?? {}), [colLabel]: selectedId };
+                qMap[colAId] = {
+                  ...(qMap[colAId] ?? {}),
+                  [colLabel]: selectedId,
+                };
               }
               return { ...prev, [q.id]: qMap };
             })
@@ -738,6 +882,15 @@ function QuestionCard({
           order={sortingOrders[q.id] ?? []}
           onChange={(newOrder) =>
             setSortingOrders((prev) => ({ ...prev, [q.id]: newOrder }))
+          }
+        />
+      )}
+
+      {q.type === "open" && (
+        <OpenQuestion
+          answer={openAnswers[q.id] ?? ""}
+          onChange={(val) =>
+            setOpenAnswers((prev) => ({ ...prev, [q.id]: val }))
           }
         />
       )}
@@ -775,13 +928,21 @@ export default function QuizPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   // Respuestas del usuario por questionId
-  const [singleAnswers, setSingleAnswers] = useState<Record<string, string>>({});
-  const [multipleAnswers, setMultipleAnswers] = useState<Record<string, string[]>>({});
+  const [singleAnswers, setSingleAnswers] = useState<Record<string, string>>(
+    {},
+  );
+  const [multipleAnswers, setMultipleAnswers] = useState<
+    Record<string, string[]>
+  >({});
   // matchingAnswers: { [columnAOptionId]: { [colLabel]: selectedOptionId } }
   const [matchingAnswers, setMatchingAnswers] = useState<
     Record<string, Record<string, Record<string, string>>>
   >({});
-  const [sortingOrders, setSortingOrders] = useState<Record<string, string[]>>({});
+  const [sortingOrders, setSortingOrders] = useState<Record<string, string[]>>(
+    {},
+  );
+  // openAnswers: respuestas de texto para preguntas abiertas
+  const [openAnswers, setOpenAnswers] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!quizId || quizId === "undefined") return;
@@ -791,18 +952,19 @@ export default function QuizPage() {
         setQuiz(data);
 
         // ── Verificar intentos ──
-        // El backend almacena UN solo intento por usuario (el último, sobreescribe).
-        // used será 0 ó 1. Con attempts=1 el usuario queda bloqueado tras enviar.
-        // Con attempts>1 puede reenviar (sobreescribiendo el anterior).
         const cfg = data.config;
-        if (cfg?.attempts != null) {
+        if (cfg?.attempts != null && userId) {
           setMaxAttempts(cfg.attempts);
-          const used = (data.listUserAttempts ?? []).filter(
-            (a) => a.userId === userId,
-          ).length;
-          setAttemptsUsed(used);
-          if (used >= cfg.attempts) {
-            setAttemptsBlocked(true);
+          // Cargar intentos del usuario desde la nueva colección (tolerante a errores si el endpoint no existe aún)
+          try {
+            const userAttempts = await getUserAttempts(quizId, userId);
+            setAttemptsUsed(userAttempts.length);
+            if (userAttempts.length >= cfg.attempts) {
+              setAttemptsBlocked(true);
+            }
+          } catch {
+            // Si el servicio de intentos no está disponible, asumir 0 intentos
+            setAttemptsUsed(0);
           }
         }
 
@@ -849,17 +1011,19 @@ export default function QuizPage() {
     return quiz.questions.filter((q) => {
       if (q.type === "single") return !!singleAnswers[q.id];
       if (q.type === "script-concordance") return !!singleAnswers[q.id];
-      if (q.type === "multiple") return (multipleAnswers[q.id]?.length ?? 0) > 0;
+      if (q.type === "multiple")
+        return (multipleAnswers[q.id]?.length ?? 0) > 0;
       if (q.type === "matching") {
         const colA = q.columns?.find((c) => c.label === "A");
         const otherCols = q.columns?.filter((c) => c.label !== "A") ?? [];
         return colA?.options.every((aOpt) =>
           otherCols.every(
-            (col) => matchingAnswers[q.id]?.[aOpt.id]?.[col.label]
-          )
+            (col) => matchingAnswers[q.id]?.[aOpt.id]?.[col.label],
+          ),
         );
       }
       if (q.type === "sorting") return (sortingOrders[q.id]?.length ?? 0) > 0;
+      if (q.type === "open") return !!(openAnswers[q.id]?.trim());
       return false;
     }).length;
   };
@@ -885,16 +1049,30 @@ export default function QuizPage() {
       if (q.type === "matching") {
         // Convierte { [colAId]: { [colLabel]: optionId } } → MatchingAnswer[]
         const ma = Object.entries(matchingAnswers[q.id] ?? {}).map(
-          ([columnAId, matches]) => ({ columnAId, matches })
+          ([columnAId, matches]) => ({ columnAId, matches }),
         );
         return { questionId: q.id, answer: ma };
+      }
+      if (q.type === "open") {
+        return { questionId: q.id, answer: openAnswers[q.id] ?? "" };
       }
       return { questionId: q.id, answer: "" };
     });
 
+    // Detecta si hay preguntas abiertas
+    const hasOpenQuestions = quiz.questions.some((q) => q.type === "open");
+
     // Calcula score localmente (porcentaje de preguntas correctas)
+    // Solo cuenta preguntas que se pueden calificar automáticamente (no-abiertas)
     let correct = 0;
+    let autoGradable = 0; // Preguntas que se pueden calificar automáticamente
+    
     quiz.questions.forEach((q) => {
+      // Las preguntas abiertas no se cuentan en score automático
+      if (q.type === "open") return;
+      
+      autoGradable++;
+
       if (q.type === "single" || q.type === "script-concordance") {
         if (singleAnswers[q.id] && singleAnswers[q.id] === q.correctAnswer)
           correct++;
@@ -922,19 +1100,18 @@ export default function QuizPage() {
         const allMatch = expected.every((exp) => {
           const userMatches = matchingAnswers[q.id]?.[exp.columnAId] ?? {};
           return Object.entries(exp.matches).every(
-            ([col, id]) => userMatches[col] === id
+            ([col, id]) => userMatches[col] === id,
           );
         });
         if (allMatch && expected.length > 0) correct++;
       }
     });
-    const score = Math.round((correct / quiz.questions.length) * 100);
 
     try {
       setSubmitting(true);
-      await submitAttempt(quizId, { userId, score, userAnswers });
+      await submitQuizAttempt(quizId, { userId, userAnswers, hasOpenQuestions });
       navigate(
-        `/organization/${organizationId}/course/${eventId}/quiz/${quizId}/result`
+        `/organization/${organizationId}/course/${eventId}/quiz/${quizId}/result`,
       );
     } catch (e: any) {
       setError(e?.response?.data?.message ?? "Error al enviar el examen.");
@@ -982,10 +1159,16 @@ export default function QuizPage() {
           title="Intentos agotados"
           mb="md"
         >
-          Has utilizado los {maxAttempts} intento{maxAttempts !== 1 ? "s" : ""} permitido
-          {maxAttempts !== 1 ? "s" : ""} para este examen. Ya no puedes volver a intentarlo.
+          Has utilizado los {maxAttempts} intento{maxAttempts !== 1 ? "s" : ""}{" "}
+          permitido
+          {maxAttempts !== 1 ? "s" : ""} para este examen. Ya no puedes volver a
+          intentarlo.
         </Alert>
-        <Button variant="subtle" leftSection={<FaArrowLeft size={14} />} onClick={handleBack}>
+        <Button
+          variant="subtle"
+          leftSection={<FaArrowLeft size={14} />}
+          onClick={handleBack}
+        >
           Volver al curso
         </Button>
       </Container>
@@ -1003,12 +1186,15 @@ export default function QuizPage() {
     if (q.type === "script-concordance") return !!singleAnswers[q.id];
     if (q.type === "multiple") return (multipleAnswers[q.id]?.length ?? 0) > 0;
     if (q.type === "sorting") return (sortingOrders[q.id]?.length ?? 0) > 0;
+    if (q.type === "open") return !!(openAnswers[q.id]?.trim());
     if (q.type === "matching") {
       const colA = q.columns?.find((c) => c.label === "A");
       const otherCols = q.columns?.filter((c) => c.label !== "A") ?? [];
       return (
         colA?.options.every((aOpt) =>
-          otherCols.every((col) => matchingAnswers[q.id]?.[aOpt.id]?.[col.label]),
+          otherCols.every(
+            (col) => matchingAnswers[q.id]?.[aOpt.id]?.[col.label],
+          ),
         ) ?? false
       );
     }
@@ -1026,8 +1212,8 @@ export default function QuizPage() {
     timeLeft !== null && timeLeft <= 60
       ? "red"
       : timeLeft !== null && timeLeft <= 300
-      ? "orange"
-      : "blue";
+        ? "orange"
+        : "blue";
 
   return (
     <Container size="md" py="xl">
@@ -1056,7 +1242,11 @@ export default function QuizPage() {
               Intento {attemptsUsed + 1}/{maxAttempts}
             </Badge>
           )}
-          <Badge size="lg" variant="light" color={answered === total ? "teal" : "blue"}>
+          <Badge
+            size="lg"
+            variant="light"
+            color={answered === total ? "teal" : "blue"}
+          >
             {answered}/{total} respondidas
           </Badge>
         </Group>
@@ -1072,17 +1262,18 @@ export default function QuizPage() {
       </Text>
 
       {timeLeft !== null && timeLeft <= 60 && (
-        <Alert
-          icon={<FaClock size={14} />}
-          color="red"
-          mb="md"
-        >
-          ¡Menos de 1 minuto! El examen se enviará automáticamente cuando el tiempo se agote.
+        <Alert icon={<FaClock size={14} />} color="red" mb="md">
+          ¡Menos de 1 minuto! El examen se enviará automáticamente cuando el
+          tiempo se agote.
         </Alert>
       )}
 
       <Progress
-        value={isOneByOne ? ((currentQuestionIndex) / total) * 100 : (answered / total) * 100}
+        value={
+          isOneByOne
+            ? (currentQuestionIndex / total) * 100
+            : (answered / total) * 100
+        }
         size="sm"
         color={isOneByOne ? "blue" : answered === total ? "teal" : "blue"}
         mb={isOneByOne ? "xs" : "xl"}
@@ -1110,6 +1301,8 @@ export default function QuizPage() {
               setMatchingAnswers={setMatchingAnswers}
               sortingOrders={sortingOrders}
               setSortingOrders={setSortingOrders}
+              openAnswers={openAnswers}
+              setOpenAnswers={setOpenAnswers}
             />
           ))}
         </Stack>
@@ -1128,6 +1321,8 @@ export default function QuizPage() {
           setMatchingAnswers={setMatchingAnswers}
           sortingOrders={sortingOrders}
           setSortingOrders={setSortingOrders}
+          openAnswers={openAnswers}
+          setOpenAnswers={setOpenAnswers}
         />
       )}
 
@@ -1140,8 +1335,9 @@ export default function QuizPage() {
               color="yellow"
               mb="md"
             >
-              Tienes {total - answered} pregunta{total - answered !== 1 ? "s" : ""} sin responder.
-              Puedes enviar de todas formas.
+              Tienes {total - answered} pregunta
+              {total - answered !== 1 ? "s" : ""} sin responder. Puedes enviar
+              de todas formas.
             </Alert>
           )}
           {answered === total && (
@@ -1207,4 +1403,3 @@ export default function QuizPage() {
     </Container>
   );
 }
-

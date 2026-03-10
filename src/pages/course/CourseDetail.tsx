@@ -45,6 +45,7 @@ import {
 } from "../../services/courseAttendeeService";
 import { fetchHostsByEventId } from "../../services/hostsService";
 import { getQuizByEventId, Quiz as QuizData } from "../../services/QuizService";
+import { getUserAttempts } from "../../services/userQuizAttemptService";
 
 // Componente auxiliar para renderizar la tarjeta de actividad
 interface ActivityCardProps {
@@ -131,6 +132,7 @@ export default function CourseDetail() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [hosts, setHosts] = useState<Host[]>([]);
   const [quiz, setQuiz] = useState<QuizData | null | undefined>(undefined);
+  const [userAttemptsList, setUserAttemptsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Actividad seleccionada
@@ -168,6 +170,20 @@ export default function CourseDetail() {
           const quizData = await getQuizByEventId(eventId);
           setQuiz(quizData);
 
+          // Cargar intentos del usuario para el quiz (tolerante a errores si el endpoint no existe aún)
+          if (quizData && userId) {
+            const quizId = quizData._id || quizData.id;
+            if (quizId) {
+              try {
+                const attempts = await getUserAttempts(quizId, userId);
+                setUserAttemptsList(attempts);
+              } catch (error) {
+                // Si el servicio de intentos no está disponible, continuar sin ellos
+                setUserAttemptsList([]);
+              }
+            }
+          }
+
           // Si viene una actividad en la URL (por compartir)
           const activityParam = searchParams.get("activity");
           if (activityParam) {
@@ -187,7 +203,7 @@ export default function CourseDetail() {
     };
 
     fetchData();
-  }, [eventId, searchParams]);
+  }, [eventId, searchParams, userId]);
 
   // Efecto para registrar al usuario en el curso
   useEffect(() => {
@@ -363,7 +379,7 @@ export default function CourseDetail() {
             {(() => {
               const qid = quiz?._id || quiz?.id;
               if (!quiz || !qid) return null;
-              const attempted = (quiz.listUserAttempts ?? []).some(
+              const attempted = userAttemptsList.some(
                 (a) => a.userId === userId,
               );
               return attempted ? (

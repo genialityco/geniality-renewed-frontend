@@ -33,18 +33,69 @@ export interface MatchingAnswer {
   matches: Record<string, string>;
 }
 
-export type QuestionType = "single" | "multiple" | "matching" | "sorting" | "script-concordance";
+export type QuestionType =
+  | "single"
+  | "multiple"
+  | "matching"
+  | "sorting"
+  | "script-concordance"
+  | "open";
 
 /**
  * Opciones fijas del tipo Script Concordance Test (SCT).
  * Tienen IDs estables para que el backend las reconozca siempre igual.
  */
 export const SCT_OPTIONS: QuestionOption[] = [
-  { id: "sct-m2", blocks: [{ id: "sct-m2-b", type: "paragraph", content: "-2 → La descarta fuertemente" }] },
-  { id: "sct-m1", blocks: [{ id: "sct-m1-b", type: "paragraph", content: "-1 → La hace menos probable" }] },
-  { id: "sct-0",  blocks: [{ id: "sct-0-b",  type: "paragraph", content: "0 → No cambia la probabilidad" }] },
-  { id: "sct-p1", blocks: [{ id: "sct-p1-b", type: "paragraph", content: "+1 → La hace más probable" }] },
-  { id: "sct-p2", blocks: [{ id: "sct-p2-b", type: "paragraph", content: "+2 → La confirma fuertemente" }] },
+  {
+    id: "sct-m2",
+    blocks: [
+      {
+        id: "sct-m2-b",
+        type: "paragraph",
+        content: "-2 → La descarta fuertemente",
+      },
+    ],
+  },
+  {
+    id: "sct-m1",
+    blocks: [
+      {
+        id: "sct-m1-b",
+        type: "paragraph",
+        content: "-1 → La hace menos probable",
+      },
+    ],
+  },
+  {
+    id: "sct-0",
+    blocks: [
+      {
+        id: "sct-0-b",
+        type: "paragraph",
+        content: "0 → No cambia la probabilidad",
+      },
+    ],
+  },
+  {
+    id: "sct-p1",
+    blocks: [
+      {
+        id: "sct-p1-b",
+        type: "paragraph",
+        content: "+1 → La hace más probable",
+      },
+    ],
+  },
+  {
+    id: "sct-p2",
+    blocks: [
+      {
+        id: "sct-p2-b",
+        type: "paragraph",
+        content: "+2 → La confirma fuertemente",
+      },
+    ],
+  },
 ];
 
 export interface Question {
@@ -66,11 +117,20 @@ export interface Question {
   correctOrder?: string[];
 }
 
-export interface UserAttempt {
-  userId: string;
-  attemptedAt: string;
-  score: number;
-  userAnswers?: UserAnswer[];
+// ─────────────────────────────────────────────
+// Submission types
+// ─────────────────────────────────────────────
+
+/**
+ * answer puede ser:
+ *  - string            → single choice (option id)
+ *  - string[]          → multiple choice / sorting (array of option ids)
+ *  - MatchingAnswer    → una fila de matching ({ columnAId, matches })
+ *  - MatchingAnswer[]  → todas las filas de matching
+ */
+export interface UserAnswer {
+  questionId: string;
+  answer: string | string[] | MatchingAnswer | MatchingAnswer[];
 }
 
 /**
@@ -100,41 +160,11 @@ export const DEFAULT_QUIZ_CONFIG: QuizConfig = {
   questionDisplay: "all",
 };
 
-// ─────────────────────────────────────────────
-// Attempt / submission types
-// ─────────────────────────────────────────────
-
-/**
- * answer puede ser:
- *  - string            → single choice (option id)
- *  - string[]          → multiple choice / sorting (array of option ids)
- *  - MatchingAnswer    → una fila de matching ({ columnAId, matches })
- *  - MatchingAnswer[]  → todas las filas de matching
- */
-export interface UserAnswer {
-  questionId: string;
-  answer: string | string[] | MatchingAnswer | MatchingAnswer[];
-}
-
-export interface SubmitAttemptPayload {
-  userId: string;
-  score: number;
-  userAnswers: UserAnswer[];
-}
-
-export interface AttemptResult {
-  userId: string;
-  score: number;
-  attemptedAt: string;
-  userAnswers: UserAnswer[];
-}
-
 export interface Quiz {
   _id?: string;
   id?: string;
   eventId: string;
   questions: Question[];
-  listUserAttempts?: UserAttempt[];
   createdAt: string;
   updatedAt: string;
   /** Configuración de reglas del examen. */
@@ -187,6 +217,8 @@ const SCT_OPTION_IDS = new Set(SCT_OPTIONS.map((o) => o.id));
 /**
  * Restaura el tipo "script-concordance" en preguntas que vienen del backend como
  * "single" pero cuyos IDs de opciones coinciden en su totalidad con los de SCT_OPTIONS.
+ * Solo reemplaza las opciones si vienen vacías (sin bloques). Si el backend ya envió
+ * opciones con bloques de texto, las mantiene como están.
  */
 function restoreQuestionsFromBackend(questions: Question[]): Question[] {
   return questions.map((q) => {
@@ -195,7 +227,12 @@ function restoreQuestionsFromBackend(questions: Question[]): Question[] {
       (q.options ?? []).length === SCT_OPTIONS.length &&
       (q.options ?? []).every((o) => SCT_OPTION_IDS.has(o.id))
     ) {
-      return { ...q, type: "script-concordance" as const };
+      // Es una pregunta SCT: restaurar tipo
+      // Si las opciones vienen sin bloques, usar SCT_OPTIONS. Si ya tienen bloques, mantenerlas.
+      const optionsToUse = (q.options ?? []).every((o) => (o.blocks ?? []).length === 0)
+        ? SCT_OPTIONS
+        : q.options;
+      return { ...q, type: "script-concordance" as const, options: optionsToUse };
     }
     return q;
   });
@@ -297,50 +334,16 @@ export const patchQuizConfig = async (
   return response.data;
 };
 
-/**
- * Get the score of a specific user for a quiz.
- */
-/**
- * Devuelve la nota del usuario (0-100) o false si aún no ha intentado el examen.
- * GET /quiz/:quizId/score/:userId
- */
-export const getScoreByUserId = async (
-  quizId: string,
-  userId: string,
-): Promise<number | false> => {
-  const response = await api.get<number | false>(`/quiz/${quizId}/score/${userId}`);
-  return response.data;
-};
-
-/**
- * Submit a user's answers for a quiz.
- * POST /quiz/:quizId/submit
- */
-export const submitAttempt = async (
-  quizId: string,
-  payload: SubmitAttemptPayload,
-): Promise<Quiz> => {
-  const response = await api.post<Quiz>(`/quiz/${quizId}/submit`, payload);
-  return response.data;
-};
-
-/**
- * Get a user's full attempt (answers + score) for a quiz.
- * GET /quiz/:quizId/attempt/:userId
- */
-export const getAttempt = async (
-  quizId: string,
-  userId: string,
-): Promise<AttemptResult> => {
-  const response = await api.get<AttemptResult>(
-    `/quiz/${quizId}/attempt/${userId}`,
-  );
-  return response.data;
-};
-
 // ─────────────────────────────────────────────
 // Named export for convenience
 // ─────────────────────────────────────────────
+
+/**
+ * Expone la función de restauración para usar en otros servicios
+ */
+export const restoreQuizData = (quiz: Quiz): Quiz => {
+  return restoreQuiz(quiz);
+};
 
 export const quizService = {
   getByEventId: getQuizByEventId,
@@ -351,7 +354,4 @@ export const quizService = {
   saveConfig: saveQuizConfig,
   patchConfig: patchQuizConfig,
   delete: deleteQuiz,
-  getScoreByUserId,
-  submitAttempt,
-  getAttempt,
 };
