@@ -67,7 +67,7 @@ function BlocksDisplay({
   const hasContent = blocks?.length > 0;
   if (!hasContent)
     return fallback ? (
-      <Text fw={600} size="md">
+      <Text fw={600} size="md" c="#111">
         {fallback}
       </Text>
     ) : null;
@@ -129,35 +129,35 @@ function BlocksDisplay({
         if (!text) return null;
         if (block.type === "h1") {
           return (
-            <Text key={block.id} fw={700} size="xl" mb={4}>
+            <Text key={block.id} fw={700} size="xl" mb={4} c="#111">
               {text}
             </Text>
           );
         }
         if (block.type === "h2") {
           return (
-            <Text key={block.id} fw={700} size="lg" mb={4}>
+            <Text key={block.id} fw={700} size="lg" mb={4} c="#111">
               {text}
             </Text>
           );
         }
         if (block.type === "bullet-list") {
           return (
-            <Text key={block.id} size="md">
+            <Text key={block.id} size="md" c="#111">
               • {text}
             </Text>
           );
         }
         if (block.type === "numbered-list") {
           return (
-            <Text key={block.id} size="md">
+            <Text key={block.id} size="md" c="#111">
               {text}
             </Text>
           );
         }
         // paragraph
         return (
-          <Text key={block.id} fw={600} size="md">
+          <Text key={block.id} fw={600} size="md" c="#111">
             {text}
           </Text>
         );
@@ -190,8 +190,9 @@ function SingleQuestion({
             p="sm"
             style={{
               cursor: "pointer",
-              borderColor: answer === opt.id ? "#4dabf7" : undefined,
-              background: answer === opt.id ? "#1a2a3a" : undefined,
+              borderColor: answer === opt.id ? "#4dabf7" : "#d9d9d9",
+              background: answer === opt.id ? "#e7f5ff" : "#fff",
+              color: "#111",
             }}
             onClick={() => onChange(opt.id)}
           >
@@ -237,8 +238,9 @@ function MultipleQuestion({
             p="sm"
             style={{
               cursor: "pointer",
-              borderColor: checked ? "#4dabf7" : undefined,
-              background: checked ? "#1a2a3a" : undefined,
+              borderColor: checked ? "#4dabf7" : "#d9d9d9",
+              background: checked ? "#e7f5ff" : "#fff",
+              color: "#111",
             }}
             onClick={() => toggle(opt.id)}
           >
@@ -282,8 +284,9 @@ function ScriptConcordanceQuestion({
               p="sm"
               style={{
                 cursor: "pointer",
-                borderColor: answer === opt.id ? "#4dabf7" : undefined,
-                background: answer === opt.id ? "#1a2a3a" : undefined,
+                borderColor: answer === opt.id ? "#4dabf7" : "#d9d9d9",
+                background: answer === opt.id ? "#e7f5ff" : "#fff",
+                color: "#111",
               }}
               onClick={() => onChange(opt.id)}
             >
@@ -391,9 +394,9 @@ function MatchingPair({
     userSelect: "none",
     transition: "border-color 0.15s, background 0.15s",
     marginBottom: 8,
-    border: "1.5px solid #2a2a2a",
-    background: "#141414",
-    color: "#CDCDCD",
+    border: "1.5px solid #d9d9d9",
+    background: "#fff",
+    color: "#111",
   };
 
   return (
@@ -472,12 +475,12 @@ function MatchingPair({
                     ? "#4dabf7"
                     : isMatched
                       ? "#2c5f2e"
-                      : "#2a2a2a",
+                      : "#d9d9d9",
                   background: isSelected
-                    ? "#1a2a3a"
+                    ? "#e7f5ff"
                     : isMatched
-                      ? "#162C1D"
-                      : "#141414",
+                      ? "#ebfbee"
+                      : "#fff",
                   boxShadow: isSelected ? "0 0 0 3px #4dabf730" : "none",
                 }}
               >
@@ -511,13 +514,13 @@ function MatchingPair({
                     : isMatched
                       ? "#2c5f2e"
                       : selectedAId
-                        ? "#333"
-                        : "#2a2a2a",
+                        ? "#adb5bd"
+                        : "#d9d9d9",
                   background: isMatchedToSelected
-                    ? "#1a2a3a"
+                    ? "#e7f5ff"
                     : isMatched
-                      ? "#162C1D"
-                      : "#141414",
+                      ? "#ebfbee"
+                      : "#fff",
                   opacity: selectedAId && !isMatchedToSelected ? 0.85 : 1,
                 }}
               >
@@ -649,12 +652,9 @@ function SortingQuestion({
               gap: 12,
               padding: "10px 14px",
               borderRadius: 8,
-              border: isOver ? "1.5px dashed #4dabf7" : "1.5px solid #2a2a2a",
-              background: isDragging
-                ? "#0f1a25"
-                : isOver
-                  ? "#1a2530"
-                  : "#141414",
+              border: isOver ? "1.5px dashed #4dabf7" : "1.5px solid #d9d9d9",
+              background: isDragging ? "#f1f3f5" : isOver ? "#e7f5ff" : "#fff",
+              color: "#111",
               opacity: isDragging ? 0.45 : 1,
               cursor: "grab",
               transition: "border-color 0.15s, background 0.15s, opacity 0.15s",
@@ -697,8 +697,8 @@ function SortingQuestion({
                 minWidth: 22,
                 height: 22,
                 borderRadius: 6,
-                background: isOver ? "#1a3a5a" : "#1e1e1e",
-                color: isOver ? "#4dabf7" : "#777",
+                background: isOver ? "#d0ebff" : "#f1f3f5",
+                color: isOver ? "#1971c2" : "#495057",
                 fontSize: 11,
                 fontWeight: 700,
                 flexShrink: 0,
@@ -743,9 +743,9 @@ function OpenQuestion({
           minHeight: 120,
           padding: 12,
           borderRadius: 8,
-          border: "1.5px solid #2a2a2a",
-          background: "#141414",
-          color: "#CDCDCD",
+          border: "1.5px solid #d9d9d9",
+          background: "#fff",
+          color: "#111",
           fontSize: 14,
           lineHeight: 1.5,
           fontFamily: "inherit",
@@ -780,9 +780,7 @@ interface QuestionCardProps {
     React.SetStateAction<Record<string, string[]>>
   >;
   openAnswers: Record<string, string>;
-  setOpenAnswers: React.Dispatch<
-    React.SetStateAction<Record<string, string>>
-  >;
+  setOpenAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }
 
 function QuestionCard({
@@ -800,7 +798,14 @@ function QuestionCard({
   setOpenAnswers,
 }: QuestionCardProps) {
   return (
-    <Card key={q.id} shadow="sm" radius="md" withBorder p="lg">
+    <Card
+      key={q.id}
+      shadow="sm"
+      radius="md"
+      withBorder
+      p="lg"
+      style={{ background: "#fff", color: "#111" }}
+    >
       <Group gap="xs" mb="xs">
         <Badge size="sm" variant="filled" color="gray">
           {i + 1}
@@ -1023,7 +1028,7 @@ export default function QuizPage() {
         );
       }
       if (q.type === "sorting") return (sortingOrders[q.id]?.length ?? 0) > 0;
-      if (q.type === "open") return !!(openAnswers[q.id]?.trim());
+      if (q.type === "open") return !!openAnswers[q.id]?.trim();
       return false;
     }).length;
   };
@@ -1066,11 +1071,11 @@ export default function QuizPage() {
     // Solo cuenta preguntas que se pueden calificar automáticamente (no-abiertas)
     let correct = 0;
     let autoGradable = 0; // Preguntas que se pueden calificar automáticamente
-    
+
     quiz.questions.forEach((q) => {
       // Las preguntas abiertas no se cuentan en score automático
       if (q.type === "open") return;
-      
+
       autoGradable++;
 
       if (q.type === "single" || q.type === "script-concordance") {
@@ -1109,7 +1114,11 @@ export default function QuizPage() {
 
     try {
       setSubmitting(true);
-      await submitQuizAttempt(quizId, { userId, userAnswers, hasOpenQuestions });
+      await submitQuizAttempt(quizId, {
+        userId,
+        userAnswers,
+        hasOpenQuestions,
+      });
       navigate(
         `/organization/${organizationId}/course/${eventId}/quiz/${quizId}/result`,
       );
@@ -1186,7 +1195,7 @@ export default function QuizPage() {
     if (q.type === "script-concordance") return !!singleAnswers[q.id];
     if (q.type === "multiple") return (multipleAnswers[q.id]?.length ?? 0) > 0;
     if (q.type === "sorting") return (sortingOrders[q.id]?.length ?? 0) > 0;
-    if (q.type === "open") return !!(openAnswers[q.id]?.trim());
+    if (q.type === "open") return !!openAnswers[q.id]?.trim();
     if (q.type === "matching") {
       const colA = q.columns?.find((c) => c.label === "A");
       const otherCols = q.columns?.filter((c) => c.label !== "A") ?? [];
