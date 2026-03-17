@@ -39,8 +39,10 @@ export default function QuizConfig({ eventId }: QuizConfigProps) {
   const [hasAttempts, setHasAttempts] = useState(false);
   const [attempts, setAttempts] = useState<number | string>(1);
 
-  const [hasNota, setHasNota] = useState(false);
-  const [nota, setNota] = useState<number | string>(60);
+  const [hasNota, setHasNota] = useState(true);
+  const [nota, setNota] = useState<number | string>(
+    DEFAULT_QUIZ_CONFIG.nota ?? 70,
+  );
 
   const [questionDisplay, setQuestionDisplay] = useState<"all" | "one-by-one">(
     DEFAULT_QUIZ_CONFIG.questionDisplay,
@@ -220,7 +222,7 @@ export default function QuizConfig({ eventId }: QuizConfigProps) {
               max={100}
               value={nota}
               onChange={setNota}
-              placeholder="ej. 60"
+              placeholder="ej. 70"
               suffix="%"
               w={200}
             />

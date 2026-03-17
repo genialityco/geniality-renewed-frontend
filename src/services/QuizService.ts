@@ -156,7 +156,7 @@ export interface QuizConfig {
 export const DEFAULT_QUIZ_CONFIG: QuizConfig = {
   time: null,
   attempts: null,
-  nota: null,
+  nota: 70,
   questionDisplay: "all",
 };
 

@@ -28,6 +28,21 @@ import {
 } from "../../services/QuizService";
 import { getBestScore, getUserAttempts, UserAnswerDto, gradeOpenQuestion } from "../../services/userQuizAttemptService";
 import { useUser } from "../../context/UserContext";
+import { fetchEventById } from "../../services/eventService";
+import {
+  CertificateFormat,
+  generateCertificate,
+  getCertificateDeliveryUrl,
+  getTemplateFieldsByTemplate,
+} from "../../services/certificateService";
+
+type MappingSource = "userName" | "eventName" | "approvalPercentage";
+
+interface CertificateConfig {
+  templateId: string;
+  format: CertificateFormat;
+  fieldMappings: Record<string, MappingSource>;
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -429,22 +444,26 @@ export default function QuizResultPage() {
     quizId: string;
   }>();
   const navigate = useNavigate();
-  const { userId } = useUser();
+  const { userId, name } = useUser();
 
   const [score, setScore] = useState<number | null>(null);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userAttemptsList, setUserAttemptsList] = useState<any[]>([]);
+  const [certificateConfig, setCertificateConfig] = useState<CertificateConfig | null>(null);
+  const [eventName, setEventName] = useState("");
+  const [generatingCertificate, setGeneratingCertificate] = useState(false);
 
   useEffect(() => {
     if (!quizId || quizId === "undefined" || !userId) return;
     (async () => {
       try {
-        const [scoreResult, quizResult, attemptsResult] = await Promise.allSettled([
+        const [scoreResult, quizResult, attemptsResult, eventResult] = await Promise.allSettled([
           getBestScore(quizId!, userId!),
           getQuizById(quizId!),
           getUserAttempts(quizId!, userId!),
+          eventId ? fetchEventById(eventId) : Promise.resolve(null),
         ]);
         
         // El backend devuelve false si el usuario aún no ha intentado el examen.
@@ -459,6 +478,18 @@ export default function QuizResultPage() {
         // Si el servicio de intentos no está disponible, simplemente no mostres la lista
         if (attemptsResult.status === "fulfilled") {
           setUserAttemptsList(attemptsResult.value);
+        }
+
+        if (eventResult.status === "fulfilled" && eventResult.value) {
+          setEventName(eventResult.value.name || "");
+          const config = eventResult.value.styles?.certificateConfig as
+            | CertificateConfig
+            | undefined;
+          if (config?.templateId && config?.fieldMappings) {
+            setCertificateConfig(config);
+          } else {
+            setCertificateConfig(null);
+          }
         }
       } catch (e: any) {
         setError(
@@ -518,6 +549,62 @@ export default function QuizResultPage() {
   // ── Último intento: se muestra el desglose cuando se agotan los intentos y no hay 100% ──
   const showReview = attemptsLeft !== null && attemptsLeft <= 0 && numScore < 100;
 
+  const resolveMappingValue = (source: MappingSource): string | number => {
+    if (source === "userName") return name || "Participante";
+    if (source === "eventName") return eventName || "Evento";
+    return `${numScore}%`;
+  };
+
+  const handleGenerateCertificate = async () => {
+    if (!certificateConfig?.templateId) {
+      setError("Este evento no tiene configuración de certificado.");
+      return;
+    }
+
+    try {
+      setGeneratingCertificate(true);
+      setError(null);
+
+      const fields = await getTemplateFieldsByTemplate(certificateConfig.templateId);
+      if (!fields.length) {
+        setError("El template configurado no tiene template-fields.");
+        return;
+      }
+
+      const missing = fields.filter(
+        (field) => !certificateConfig.fieldMappings?.[field.name],
+      );
+      if (missing.length > 0) {
+        setError(
+          "Faltan relaciones de template-fields en la configuración del certificado.",
+        );
+        return;
+      }
+
+      const data: Record<string, string | number> = {};
+      fields.forEach((field) => {
+        const source = certificateConfig.fieldMappings[field.name];
+        data[field.name] = resolveMappingValue(source);
+      });
+
+      const generated = await generateCertificate({
+        templateId: certificateConfig.templateId,
+        format: certificateConfig.format || "PDF",
+        data,
+      });
+
+      const deliveryUrl = getCertificateDeliveryUrl(generated);
+      window.open(deliveryUrl, "_blank", "noopener,noreferrer");
+    } catch (e: any) {
+      setError(
+        e?.response?.data?.message ||
+          "No se pudo generar el certificado con la información actual.",
+      );
+    } finally {
+      setGeneratingCertificate(false);
+    }
+  };
+
   const handleRetry = () => {
     navigate(`/organization/${organizationId}/course/${eventId}/quiz/${quizId}`);
   };
@@ -576,13 +663,18 @@ export default function QuizResultPage() {
             <Button
               color="yellow"
               size="md"
-              onClick={() => {
-                // Placeholder para generar certificado
-                alert("Función de generar certificado en desarrollo");
-              }}
+              loading={generatingCertificate}
+              disabled={!certificateConfig?.templateId}
+              onClick={handleGenerateCertificate}
             >
               Generar Certificado
             </Button>
+          )}
+
+          {passed === true && lastAttempt?.status === "graded" && !certificateConfig?.templateId && (
+            <Alert color="yellow" variant="light" style={{ width: "100%" }}>
+              El certificado aún no está configurado por el administrador del curso.
+            </Alert>
           )}
 
           <RingProgress
