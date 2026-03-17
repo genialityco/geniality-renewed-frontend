@@ -80,3 +80,23 @@ export const getCertificateDeliveryUrl = (
   }
   return `${base}/api/v1/certificates/${certificate._id}/view`;
 };
+
+export const getCertificateDeliveryUrls = (
+  certificate: Pick<GeneratedCertificate, "_id" | "viewUrl" | "downloadUrl">,
+): { viewUrl: string; downloadUrl: string } => {
+  const base = CERTIFICATE_API_URL.replace(/\/$/, "");
+
+  const viewUrl = certificate.viewUrl
+    ? certificate.viewUrl.startsWith("http")
+      ? certificate.viewUrl
+      : `${base}${certificate.viewUrl}`
+    : `${base}/api/v1/certificates/${certificate._id}/view`;
+
+  const downloadUrl = certificate.downloadUrl
+    ? certificate.downloadUrl.startsWith("http")
+      ? certificate.downloadUrl
+      : `${base}${certificate.downloadUrl}`
+    : `${base}/api/v1/certificates/${certificate._id}/download`;
+
+  return { viewUrl, downloadUrl };
+};

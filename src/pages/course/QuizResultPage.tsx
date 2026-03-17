@@ -32,7 +32,8 @@ import { fetchEventById } from "../../services/eventService";
 import {
   CertificateFormat,
   generateCertificate,
-  getCertificateDeliveryUrl,
+  getCertificateDeliveryUrls,
+  GeneratedCertificate,
   getTemplateFieldsByTemplate,
 } from "../../services/certificateService";
 
@@ -454,6 +455,7 @@ export default function QuizResultPage() {
   const [certificateConfig, setCertificateConfig] = useState<CertificateConfig | null>(null);
   const [eventName, setEventName] = useState("");
   const [generatingCertificate, setGeneratingCertificate] = useState(false);
+  const [generatedCertificate, setGeneratedCertificate] = useState<GeneratedCertificate | null>(null);
 
   useEffect(() => {
     if (!quizId || quizId === "undefined" || !userId) return;
@@ -555,10 +557,12 @@ export default function QuizResultPage() {
     return `${numScore}%`;
   };
 
-  const handleGenerateCertificate = async () => {
+  const ensureCertificate = async (): Promise<GeneratedCertificate | null> => {
+    if (generatedCertificate) return generatedCertificate;
+
     if (!certificateConfig?.templateId) {
       setError("Este evento no tiene configuración de certificado.");
-      return;
+      return null;
     }
 
     try {
@@ -568,7 +572,7 @@ export default function QuizResultPage() {
       const fields = await getTemplateFieldsByTemplate(certificateConfig.templateId);
       if (!fields.length) {
         setError("El template configurado no tiene template-fields.");
-        return;
+        return null;
       }
 
       const missing = fields.filter(
@@ -578,7 +582,7 @@ export default function QuizResultPage() {
         setError(
           "Faltan relaciones de template-fields en la configuración del certificado.",
         );
-        return;
+        return null;
       }
 
       const data: Record<string, string | number> = {};
@@ -592,17 +596,29 @@ export default function QuizResultPage() {
         format: certificateConfig.format || "PDF",
         data,
       });
-
-      const deliveryUrl = getCertificateDeliveryUrl(generated);
-      window.open(deliveryUrl, "_blank", "noopener,noreferrer");
+      setGeneratedCertificate(generated);
+      return generated;
     } catch (e: any) {
       setError(
         e?.response?.data?.message ||
           "No se pudo generar el certificado con la información actual.",
       );
+      return null;
     } finally {
       setGeneratingCertificate(false);
     }
+  };
+
+  const handleOpenCertificate = async (mode: "view" | "download") => {
+    const certificate = await ensureCertificate();
+    if (!certificate) return;
+
+    const { viewUrl, downloadUrl } = getCertificateDeliveryUrls(certificate);
+    window.open(
+      mode === "view" ? viewUrl : downloadUrl,
+      "_blank",
+      "noopener,noreferrer",
+    );
   };
 
   const handleRetry = () => {
@@ -660,15 +676,28 @@ export default function QuizResultPage() {
 
           {/* ── Botón Generar Certificado (solo si aprobó y el intento está graded) ── */}
           {passed === true && lastAttempt?.status === "graded" && (
-            <Button
-              color="yellow"
-              size="md"
-              loading={generatingCertificate}
-              disabled={!certificateConfig?.templateId}
-              onClick={handleGenerateCertificate}
-            >
-              Generar Certificado
-            </Button>
+            <Stack w="100%" align="center" gap="xs">
+              <Group>
+                <Button
+                  variant="light"
+                  color="blue"
+                  loading={generatingCertificate}
+                  disabled={!certificateConfig?.templateId}
+                  onClick={() => handleOpenCertificate("view")}
+                >
+                  Ver certificado
+                </Button>
+                <Button
+                  variant="light"
+                  color="grape"
+                  loading={generatingCertificate}
+                  disabled={!certificateConfig?.templateId}
+                  onClick={() => handleOpenCertificate("download")}
+                >
+                  Descargar certificado
+                </Button>
+              </Group>
+            </Stack>
           )}
 
           {passed === true && lastAttempt?.status === "graded" && !certificateConfig?.templateId && (
