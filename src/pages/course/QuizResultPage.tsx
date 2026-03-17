@@ -648,7 +648,7 @@ export default function QuizResultPage() {
             <Text fw={600}>Tu examen está en proceso de revisión</Text>
             <Text size="sm">
               Este resultado es parcial y solo incluye las preguntas que se califican automáticamente. 
-              Una vez que un evaluador califi que las preguntas abiertas, tu nota se verá actualizada.
+              Una vez que un evaluador califique las preguntas abiertas, tu nota se verá actualizada.
             </Text>
           </Stack>
         </Alert>
