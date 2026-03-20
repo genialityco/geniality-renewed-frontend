@@ -81,6 +81,17 @@ export default function BulkUploadSection({
           [nombres, apellidos].filter(Boolean).join(" ").trim();
         const password = norm(row, ["password", "Password"]) || "123456";
 
+        // Leer "Miembro exclusivo" columna
+        const miembroExclusivo = norm(row, [
+          "Miembro exclusivo",
+          "miembro exclusivo",
+          "memberShipStatus",
+        ]);
+        const isMembershipActive =
+          miembroExclusivo.toUpperCase() === "TRUE" ||
+          miembroExclusivo === "1" ||
+          miembroExclusivo.toUpperCase() === "SI";
+
         if (!email) {
           errors.push({ row: idx + 2, error: "Falta email", data: row });
           continue;
@@ -101,9 +112,10 @@ export default function BulkUploadSection({
             positionId: "",
             rolId: "",
             properties,
+            memberShipStatus: isMembershipActive,
           });
 
-        if (createWithPlan && organizationUser?._id) {
+        if ((createWithPlan || isMembershipActive) && organizationUser?._id) {
           if (!organizationUser?.payment_plan_id) {
             // Crear un nuevo payment plan si no existe
             const plan = await createPaymentPlan({
@@ -118,6 +130,7 @@ export default function BulkUploadSection({
             await createOrUpdateOrganizationUser({
               ...organizationUser,
               payment_plan_id: plan._id,
+              memberShipStatus: isMembershipActive,
             });
           } else {
             const nameUser = organizationUser.properties.nombres
@@ -129,6 +142,13 @@ export default function BulkUploadSection({
               new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
               nameUser
             );
+            // Actualizar memberShipStatus si es membership activo
+            if (isMembershipActive) {
+              await createOrUpdateOrganizationUser({
+                ...organizationUser,
+                memberShipStatus: true,
+              });
+            }
           }
         }
 
@@ -163,6 +183,10 @@ export default function BulkUploadSection({
       {
         name: "password",
         label: "Contraseña (opcional, si no se envía se autogenera)",
+      },
+      {
+        name: "Miembro exclusivo",
+        label: "Miembro exclusivo [TRUE/1/SI para activar, FALSE/0/NO para desactivar]",
       },
     ];
 
@@ -212,6 +236,9 @@ export default function BulkUploadSection({
           break;
         case "password":
           example[f.name] = "123456";
+          break;
+        case "Miembro exclusivo":
+          example[f.name] = "FALSE";
           break;
         default: {
           const type = (f.type || "").toLowerCase();

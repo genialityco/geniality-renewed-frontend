@@ -51,6 +51,7 @@ interface AdminCreateUserData {
   positionId: string;
   rolId: string;
   password: string;
+  memberShipStatus?: boolean;
 }
 
 interface UserContextValue {
@@ -109,6 +110,7 @@ export async function adminCreateMember(data: AdminCreateUserData) {
       position_id: data.positionId,
       rol_id: data.rolId,
       properties: data.properties,
+      memberShipStatus: data.memberShipStatus,
     });
 
     return { user: userRecord, organizationUser: organizationUserRecord };
@@ -147,6 +149,7 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
       position_id: data.positionId,
       rol_id: data.rolId,
       properties: data.properties,
+      memberShipStatus: data.memberShipStatus,
     });
 
     return { user: userRecord, organizationUser: organizationUserRecord };
@@ -174,6 +177,7 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
         rol_id: data.rolId || organizationUser.rol_id,
         properties: mergedProperties,
         payment_plan_id: organizationUser.payment_plan_id,
+        memberShipStatus: data.memberShipStatus !== undefined ? data.memberShipStatus : organizationUser.memberShipStatus,
       });
 
       // Si tiene payment_plan_id, actualiza date_until

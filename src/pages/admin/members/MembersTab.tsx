@@ -219,7 +219,7 @@ export default function MembersTab() {
     setEditModalOpen(true);
   };
 
-  const handleUserEditSave = async (updatedProperties: any) => {
+  const handleUserEditSave = async (updatedProperties: any, memberShipStatus?: boolean) => {
     if (!userToEdit) return;
 
     const updatedUserPayload = {
@@ -229,6 +229,7 @@ export default function MembersTab() {
       rol_id: userToEdit.rol_id,
       organization_id: userToEdit.organization_id,
       position_id: userToEdit.position_id,
+      memberShipStatus: memberShipStatus !== undefined ? memberShipStatus : userToEdit.memberShipStatus,
     };
 
     try {
@@ -242,7 +243,7 @@ export default function MembersTab() {
     setUserToEdit(null);
   };
 
-  const handleCreateUserSave = async (newUserData: any) => {
+  const handleCreateUserSave = async (newUserData: any, memberShipStatus?: boolean) => {
     if (!organization || !adminCreateMember) return;
 
     // Detectar campos de email e ID (igual que AuthForm)
@@ -289,6 +290,7 @@ export default function MembersTab() {
         organizationId: organization._id,
         positionId: organization.default_position_id || "",
         rolId: "5c1a59b2f33bd40bb67f2322",
+        memberShipStatus: memberShipStatus,
       });
 
       setCreateModalOpen(false);
@@ -445,6 +447,8 @@ export default function MembersTab() {
 
         rowData["source"] = planInfo ? mapSource((planInfo as any).source) : "";
 
+        rowData["Miembro exclusivo"] = user.memberShipStatus ? "TRUE" : "FALSE";
+
         return rowData;
       });
 
@@ -454,6 +458,7 @@ export default function MembersTab() {
         ),
         "Fecha de registro",
         "Plan (Vencimiento)",
+        "Miembro exclusivo",
       ];
 
       const worksheet = XLSX.utils.json_to_sheet(dataToExport, {

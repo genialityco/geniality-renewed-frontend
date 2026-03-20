@@ -1,4 +1,5 @@
-import { Grid, Paper, Image, Title, Text } from "@mantine/core";
+import { Grid, Paper, Image, Title, Text, Group } from "@mantine/core";
+import { FaStar } from "react-icons/fa";
 import { Event } from "../../../services/types";
 
 export default function EventsGrid({
@@ -38,7 +39,10 @@ export default function EventsGrid({
           <Paper
             p="xs"
             onClick={() => onClick(event._id)}
-            style={{ cursor: "pointer" }}
+            style={{ 
+              cursor: "pointer",
+              border: event.visibility === "EXCLUSIVE_FOR_MEMBERS" ? "2px solid #ff8c00" : undefined,
+            }}
           >
             {(event.picture || event.styles?.event_image) && (
               <Image
@@ -55,6 +59,14 @@ export default function EventsGrid({
                 ? new Date(event.datetime_from).toLocaleDateString("es-ES")
                 : "Fecha no disponible"}
             </Text>
+            {event.visibility === "EXCLUSIVE_FOR_MEMBERS" && (
+              <Group gap={4} mt="xs">
+                <FaStar size={14} color="#ff8c00" />
+                <Text size="xs" c="orange" fw={500}>
+                  Evento exclusivo
+                </Text>
+              </Group>
+            )}
           </Paper>
         </Grid.Col>
       ))}

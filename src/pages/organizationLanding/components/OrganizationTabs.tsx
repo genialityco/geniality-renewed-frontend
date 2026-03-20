@@ -39,6 +39,10 @@ export default function OrganizationTabs({
   memberShipStatus?: boolean;
   activityTabProps: ActivityTabProps;
 }) {
+  const exclusiveEvents = events.filter(
+    (event) => event.visibility === "EXCLUSIVE_FOR_MEMBERS"
+  );
+
   return (
     <Tabs
       value={activeTab}
@@ -49,6 +53,11 @@ export default function OrganizationTabs({
         <Tabs.Tab value="courses">
           Eventos ({eventSearchMode ? eventSearchResults.length : events.length})
         </Tabs.Tab>
+        {memberShipStatus && (
+          <Tabs.Tab value="exclusive">
+            Contenido exclusivo ({exclusiveEvents.length})
+          </Tabs.Tab>
+        )}
         <Tabs.Tab value="activities">
           Actividades ({activityTabProps.activityTotal})
         </Tabs.Tab>
@@ -61,6 +70,16 @@ export default function OrganizationTabs({
           memberShipStatus={memberShipStatus}
         />
       </Tabs.Panel>
+
+      {memberShipStatus && (
+        <Tabs.Panel value="exclusive" pt="md">
+          <EventsGrid
+            events={exclusiveEvents}
+            onClick={handleCourseClick}
+            memberShipStatus={memberShipStatus}
+          />
+        </Tabs.Panel>
+      )}
 
       <Tabs.Panel value="activities" pt="md">
         <ActivitiesGrid
