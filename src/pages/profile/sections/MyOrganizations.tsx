@@ -15,6 +15,10 @@ import { useUser } from "../../../context/UserContext"; // ajusta ruta
 import { fetchOrganizationsByUser } from "../../../services/organizationUserService"; // ajusta ruta
 import { UserOrganizationCard, Organization } from "../../../services/types"; // ajusta ruta
 import { useNavigate } from "react-router-dom";
+import {
+  trackVisitOrganization,
+  trackAdminOrganizationClick,
+} from "../../../utils/analytics";
 
 const pickOrgImage = (org?: Organization) =>
   org?.styles?.event_image ||
@@ -58,10 +62,12 @@ export default function MyOrganizations() {
   }, [userId]);
 
   const handleVisit = (org: Organization) => {
+    trackVisitOrganization(org._id, org.name);
     navigate(`/organization/${org._id}`);
   };
 
   const handleAdmin = (org: Organization) => {
+    trackAdminOrganizationClick(org._id);
     navigate(`/organization/${org._id}/admin`);
   };
 
