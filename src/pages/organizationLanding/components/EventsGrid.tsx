@@ -4,14 +4,23 @@ import { Event } from "../../../services/types";
 export default function EventsGrid({
   events,
   onClick,
+  memberShipStatus = false,
 }: {
   events: Event[];
   onClick: (eventId: string) => void;
+  memberShipStatus?: boolean;
 }) {
   if (!events.length) return <Text>No hay eventos disponibles.</Text>;
 
   const sortedEvents = [...events]
-    .filter((event) => event.visibility === "PUBLIC")
+    .filter((event) => {
+      // Si el evento es público, siempre se muestra
+      if (event.visibility === "PUBLIC") return true;
+      // Si el evento es exclusivo para miembros y el usuario tiene membresía activa
+      if (event.visibility === "EXCLUSIVE_FOR_MEMBERS" && memberShipStatus) return true;
+      // Los eventos privados nunca se muestran en esta vista
+      return false;
+    })
     .sort((a, b) => {
       const aTime = a.datetime_from
         ? new Date(a.datetime_from).getTime()

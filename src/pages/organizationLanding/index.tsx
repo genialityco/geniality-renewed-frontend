@@ -16,6 +16,7 @@ import {
   TranscriptSearchResult,
 } from "../../services/transcriptSegmentsService";
 import { fetchPaymentPlanByUserId } from "../../services/paymentPlansService";
+import { fetchOrganizationUserByUserId } from "../../services/organizationUserService";
 import { useUser } from "../../context/UserContext";
 import { Organization, Event, Activity } from "../../services/types";
 
@@ -53,6 +54,8 @@ export default function OrganizationLanding() {
   const [paymentPlan, setPaymentPlan] = useState<any>(null);
   const [planLoading, setPlanLoading] = useState(true);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+
+  const [memberShipStatus, setMemberShipStatus] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<TranscriptSearchResult[]>(
@@ -127,6 +130,22 @@ export default function OrganizationLanding() {
       }
     };
     fetchPlan();
+  }, [userId]);
+
+  // Fetch memberShipStatus del usuario
+  useEffect(() => {
+    const fetchMemberShipStatus = async () => {
+      try {
+        if (userId) {
+          const orgUser = await fetchOrganizationUserByUserId(userId);
+          setMemberShipStatus(orgUser?.memberShipStatus ?? false);
+        }
+      } catch (error) {
+        console.error("Error fetching organization user:", error);
+        setMemberShipStatus(false);
+      }
+    };
+    fetchMemberShipStatus();
   }, [userId]);
 
   // ----------- SEARCH LOGIC ------------
@@ -407,6 +426,7 @@ export default function OrganizationLanding() {
         eventSearchResults={eventSearchResults}
         events={events}
         handleCourseClick={handleCourseClick}
+        memberShipStatus={memberShipStatus}
         activityTabProps={{
           activities: filteredActivities,
           searchResults,

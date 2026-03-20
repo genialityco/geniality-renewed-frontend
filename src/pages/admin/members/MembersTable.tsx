@@ -22,6 +22,8 @@ interface Props {
   onEditUser: (user: OrganizationUser) => void;
   onDeleteUser: (user: OrganizationUser) => void;
   onViewUser: (user: OrganizationUser) => void;
+  onToggleMemberStatus?: (user: OrganizationUser) => Promise<void>;
+  togglingUserId?: string | null;
 }
 
 const HEADER_TRUNCATE_LENGTH = 15;
@@ -85,6 +87,8 @@ export default function MembersTable({
   onEditUser,
   onDeleteUser,
   onViewUser,
+  onToggleMemberStatus,
+  togglingUserId,
 }: Props) {
   const { organization } = useOrganization();
 
@@ -152,6 +156,17 @@ export default function MembersTable({
               }}
             >
               Plan
+            </Table.Th>
+            <Table.Th
+              style={{
+                fontWeight: 600,
+                color: "var(--mantine-color-gray-8)",
+                padding: "16px 12px",
+                borderBottom: "2px solid var(--mantine-color-blue-5)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Estado de Miembro
             </Table.Th>
             <Table.Th
               style={{
@@ -302,6 +317,25 @@ export default function MembersTable({
                   )}
                 </Table.Td>
 
+                {/* Columna Estado de Miembro */}
+                <Table.Td
+                  style={{
+                    padding: "14px 12px",
+                    verticalAlign: "middle",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: user.memberShipStatus
+                        ? "var(--mantine-color-green-7)"
+                        : "var(--mantine-color-red-7)",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {user.memberShipStatus ? "Activo" : "Inactivo"}
+                  </Text>
+                </Table.Td>
+
                 {/* Acciones */}
                 <Table.Td
                   style={{
@@ -338,6 +372,23 @@ export default function MembersTable({
                       }}
                     >
                       Actualizar plan
+                    </Button>
+
+                    <Button
+                      size="xs"
+                      variant="light"
+                      color={user.memberShipStatus ? "orange" : "teal"}
+                      onClick={() => onToggleMemberStatus?.(user)}
+                      aria-label="Cambiar estado de miembro"
+                      loading={togglingUserId === String(user._id)}
+                      disabled={togglingUserId !== null && togglingUserId !== String(user._id)}
+                      style={{
+                        borderRadius: "6px",
+                        fontSize: "11px",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {user.memberShipStatus ? "Desactivar" : "Activar"} Miembro
                     </Button>
 
                     <Button

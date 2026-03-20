@@ -27,6 +27,7 @@ export default function OrganizationTabs({
   eventSearchResults,
   events,
   handleCourseClick,
+  memberShipStatus,
   activityTabProps,
 }: {
   activeTab: string;
@@ -35,6 +36,7 @@ export default function OrganizationTabs({
   eventSearchResults: Event[];
   events: Event[];
   handleCourseClick: (id: string) => void;
+  memberShipStatus?: boolean;
   activityTabProps: ActivityTabProps;
 }) {
   return (
@@ -56,6 +58,7 @@ export default function OrganizationTabs({
         <EventsGrid
           events={eventSearchMode ? eventSearchResults : events}
           onClick={handleCourseClick}
+          memberShipStatus={memberShipStatus}
         />
       </Tabs.Panel>
 

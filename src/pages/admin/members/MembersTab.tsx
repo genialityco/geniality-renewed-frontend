@@ -91,6 +91,10 @@ export default function MembersTab() {
   const [selectedUserInfo, setSelectedUserInfo] =
     useState<OrganizationUser | null>(null);
 
+  const [togglingMemberStatusId, setTogglingMemberStatusId] = useState<
+    string | null
+  >(null);
+
   const dtfCO = new Intl.DateTimeFormat("es-CO", {
     year: "numeric",
     month: "2-digit",
@@ -349,6 +353,30 @@ export default function MembersTab() {
   const handleViewUserInfo = (user: OrganizationUser) => {
     setSelectedUserInfo(user);
     setUserInfoModalOpen(true);
+  };
+
+  const handleToggleMemberStatus = async (user: OrganizationUser) => {
+    try {
+      setTogglingMemberStatusId(String(user._id));
+
+      const newStatus = !user.memberShipStatus;
+      const updatedUser = {
+        ...user,
+        properties: user.properties,
+        user_id: user.user_id as string,
+        rol_id: user.rol_id,
+        organization_id: user.organization_id,
+        position_id: user.position_id,
+        memberShipStatus: newStatus,
+      };
+
+      await createOrUpdateOrganizationUser(updatedUser);
+      fetchUsers();
+    } catch (error) {
+      console.error("Error al cambiar estado de miembro:", error);
+    } finally {
+      setTogglingMemberStatusId(null);
+    }
   };
 
   const handleExportToExcel = async () => {
@@ -620,6 +648,8 @@ export default function MembersTab() {
               onEditUser={handleEditUser}
               onDeleteUser={handleDeleteUser}
               onViewUser={handleViewUserInfo}
+              onToggleMemberStatus={handleToggleMemberStatus}
+              togglingUserId={togglingMemberStatusId}
             />
           </ScrollArea>
 

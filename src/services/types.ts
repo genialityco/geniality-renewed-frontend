@@ -27,7 +27,7 @@ export interface Event {
   picture?: string;
   venue?: string;
   location?: string;
-  visibility: "PUBLIC" | "PRIVATE";
+  visibility: "PUBLIC" | "PRIVATE" | "EXCLUSIVE_FOR_MEMBERS";
   description?: string;
   allow_register: boolean;
   organizer_id: string;
@@ -139,6 +139,7 @@ export interface OrganizationUser {
   user_id: string | User;
   position_id: string;
   payment_plan_id?: string;
+  memberShipStatus?: boolean;
   created_at: string;
   updated_at: string;
 }
