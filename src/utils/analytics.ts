@@ -14,7 +14,7 @@ type EventParams = Record<string, string | number | boolean | undefined>;
 function track(eventName: string, params?: EventParams) {
   if (typeof window !== "undefined" && typeof window.gtag === "function") {
     window.gtag("event", eventName, params);
-  } else if (import.meta.env.DEV) {
+  } else if (process.env.NODE_ENV === "development") {
     console.log(`[Analytics] ${eventName}`, params);
   }
 }
@@ -86,4 +86,76 @@ export function trackOpenPaywall(organizationId?: string) {
 /** Click en iniciar sesión desde el modal de suscripción */
 export function trackSubscriptionStart(organizationId?: string) {
   track("subscription_start_click", { organization_id: organizationId });
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+/** Intento de login */
+export function trackLoginAttempt(organizationId?: string) {
+  track("login_attempt", { organization_id: organizationId });
+}
+
+/** Login exitoso */
+export function trackLoginSuccess(organizationId?: string) {
+  track("login_success", { organization_id: organizationId });
+}
+
+/** Login fallido */
+export function trackLoginError(errorCode: string, organizationId?: string) {
+  track("login_error", { error_code: errorCode, organization_id: organizationId });
+}
+
+/** Intento de registro */
+export function trackRegisterAttempt(organizationId?: string) {
+  track("register_attempt", { organization_id: organizationId });
+}
+
+/** Registro exitoso */
+export function trackRegisterSuccess(organizationId?: string) {
+  track("register_success", { organization_id: organizationId });
+}
+
+/** Registro fallido */
+export function trackRegisterError(errorCode: string, organizationId?: string) {
+  track("register_error", { error_code: errorCode, organization_id: organizationId });
+}
+
+/** Click en "¿Olvidaste tus datos?" */
+export function trackForgotPassword(organizationId?: string) {
+  track("forgot_password_click", { organization_id: organizationId });
+}
+
+/** Click en "Crear cuenta" para cambiar al formulario de registro */
+export function trackSwitchToRegister(organizationId?: string) {
+  track("switch_to_register", { organization_id: organizationId });
+}
+
+// ─── Payment ─────────────────────────────────────────────────────────────────
+
+/** Click en "Pagar Ahora" */
+export function trackPaymentAttempt(organizationId?: string, userId?: string) {
+  track("payment_attempt", { organization_id: organizationId, user_id: userId });
+}
+
+/** Redirigido al checkout de Wompi */
+export function trackPaymentRedirect(organizationId?: string, reference?: string) {
+  track("payment_redirect", { organization_id: organizationId, reference });
+}
+
+/** Pago aprobado (PaymentStatus) */
+export function trackPaymentSuccess(organizationId?: string, amount?: number, transactionId?: string) {
+  track("payment_success", {
+    organization_id: organizationId,
+    value: amount,
+    transaction_id: transactionId,
+  });
+}
+
+/** Pago rechazado/fallido (PaymentStatus) */
+export function trackPaymentFailed(organizationId?: string, paymentStatus?: string, transactionId?: string) {
+  track("payment_failed", {
+    organization_id: organizationId,
+    payment_status: paymentStatus,
+    transaction_id: transactionId,
+  });
 }
