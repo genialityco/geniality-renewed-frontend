@@ -8,6 +8,7 @@ import {
 } from "../services/wompiService";
 import { v4 as uuidv4 } from "uuid";
 import { useState } from "react";
+import { trackPaymentAttempt, trackPaymentRedirect } from "../utils/analytics";
 
 const MembershipPayment = () => {
   const today = new Date();
@@ -40,6 +41,7 @@ const MembershipPayment = () => {
     }
 
     setLoading(true);
+    trackPaymentAttempt(organizationId, userId as string);
 
     const amountInCents = plan.price * 100;
     const reference = `membresia-${organizationId}-${userId}-${uuidv4()}`;
@@ -73,6 +75,7 @@ const MembershipPayment = () => {
         redirectUrl,
       });
 
+      trackPaymentRedirect(organizationId, reference);
       window.location.href = wompiUrl;
     } catch (e) {
       console.error("Error al iniciar el pago:", e);

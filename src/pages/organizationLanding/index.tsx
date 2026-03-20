@@ -24,6 +24,13 @@ import MembershipStatus from "./components/MembershipStatus";
 import SearchBar from "./components/SearchBar";
 import OrganizationTabs from "./components/OrganizationTabs";
 import SubscriptionModal from "./components/SubscriptionModal";
+import {
+  trackSearch,
+  trackCourseClick,
+  trackActivityClick,
+  trackOpenPaywall,
+  trackSubscriptionStart,
+} from "../../utils/analytics";
 
 function isMembershipExpired(paymentPlan: {
   date_until: string | number | Date;
@@ -74,7 +81,10 @@ export default function OrganizationLanding() {
     TranscriptSearchResult[]
   >([]);
 
-  const openPaywall = () => setShowSubscriptionModal(true);
+  const openPaywall = () => {
+    trackOpenPaywall(organizationId);
+    setShowSubscriptionModal(true);
+  };
 
   // -------- DATA FETCHING -----------
   useEffect(() => {
@@ -131,6 +141,7 @@ export default function OrganizationLanding() {
 
   // ----------- SEARCH LOGIC ------------
   const handleSearch = async () => {
+    trackSearch(searchQuery.trim(), organizationId);
     setActiveTab("activities");
     setActivityPage(1);
     setSearching(true);
@@ -332,6 +343,7 @@ export default function OrganizationLanding() {
 
   // ----------- EVENTS/ACTIVITIES TABS CALLBACKS --------------
   const handleCourseClick = async (eventId: string) => {
+    trackCourseClick(eventId);
     if (!userId) {
       setShowSubscriptionModal(true);
     } else if (!paymentPlan || isMembershipExpired(paymentPlan)) {
@@ -343,6 +355,7 @@ export default function OrganizationLanding() {
   };
 
   const handleActivityClick = (activityId: string, t?: number) => {
+    trackActivityClick(activityId);
     if (!userId) {
       openPaywall(); // <- NO navegar, solo mostrar modal
       return;
@@ -353,6 +366,7 @@ export default function OrganizationLanding() {
   };
 
   const handleNameEventClick = (eventId: string) => {
+    trackCourseClick(eventId);
     if (!userId) {
       openPaywall(); 
       return;
@@ -442,9 +456,10 @@ export default function OrganizationLanding() {
       <SubscriptionModal
         opened={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
-        onStart={() =>
-          navigate(`/organization/${organizationId}/iniciar-sesion?payment=1`)
-        }
+        onStart={() => {
+          trackSubscriptionStart(organizationId);
+          navigate(`/organization/${organizationId}/iniciar-sesion?payment=1`);
+        }}
         organizationId={organizationId}
       />
     </div>

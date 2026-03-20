@@ -34,6 +34,16 @@ import DynamicField from "./DynamicField";
 import EmailRecoverBlock from "./EmailRecoverBlock";
 // import SmsRecoverBlock from "./SmsRecoverBlock";
 import { validateRegistrationAll } from "../components/Validators";
+import {
+  trackLoginAttempt,
+  trackLoginSuccess,
+  trackLoginError,
+  trackRegisterAttempt,
+  trackRegisterSuccess,
+  trackRegisterError,
+  trackForgotPassword,
+  trackSwitchToRegister,
+} from "../../../utils/analytics";
 
 declare global {
   interface Window {
@@ -212,9 +222,10 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     if (!organization) return;
     setSubmitting(true);
     setFormError(null);
+    trackLoginAttempt(organizationId);
     try {
       await signIn(email.trim(), String(password).trim());
-      // ⬇️ mínimo cambio: respeta next si viene; si no, cae al default
+      trackLoginSuccess(organizationId);
       navigate(nextPath, { replace: true });
     } catch (err: any) {
       let msg = "Error al iniciar sesión. Intenta de nuevo.";
@@ -224,18 +235,20 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
         msg = "Email o cédula/ID incorrecto.";
       else if (err?.code === "auth/too-many-requests")
         msg = "Demasiados intentos fallidos. Intenta más tarde.";
+      trackLoginError(err?.code || "unknown", organizationId);
       setFormError(msg);
     } finally {
       setSubmitting(false);
     }
-  }, [organization, signIn, email, password, navigate, nextPath]);
+  }, [organization, signIn, email, password, navigate, nextPath, organizationId]);
 
   /** ------------ REGISTRO ------------- */
   const handleSignUp = useCallback(async () => {
     if (!organization) return;
     setSubmitting(true);
     setFormError(null);
-    setSubmittedOnce(true); // activa mensajes "obligatorio" en campos
+    setSubmittedOnce(true);
+    trackRegisterAttempt(organizationId);
 
     const emailField = getEmailFieldName();
     const idField = getIdFieldName();
@@ -334,7 +347,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
         await auth.currentUser?.getIdToken(true);
       } catch {}
 
-      // ⬇️ mínimo cambio: respeta next si viene; si no, cae al default
+      trackRegisterSuccess(organizationId);
       navigate(nextPath, { replace: true });
     } catch (err: any) {
       if (err?.code === "auth/email-already-in-use") {
@@ -349,6 +362,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
             : "Error al registrarse. Intenta de nuevo.";
         setFormError(msg);
       }
+      trackRegisterError(err?.code || "unknown", organizationId);
     } finally {
       setSubmitting(false);
     }
@@ -570,6 +584,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
                   setFieldErrors({});
                   setFormError(null);
                   if (goingToRegister) {
+                    trackSwitchToRegister(organizationId);
                     try {
                       await ensureCleanAuthSession();
                     } catch {}
@@ -582,6 +597,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
               <Button
                 variant="light"
                 onClick={() => {
+                  trackForgotPassword(organizationId);
                   setIsResetPassword(true);
                   cleanResetStates();
                 }}
