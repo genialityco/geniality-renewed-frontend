@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160">
+  <rect width="160" height="160" rx="8" fill="#e9ecef"/>
+  <rect x="20" y="20" width="120" height="120" rx="6" fill="#dee2e6"/>
+  <!-- Play button -->
+  <circle cx="80" cy="80" r="28" fill="#adb5bd"/>
+  <polygon points="72,68 72,92 98,80" fill="#f8f9fa"/>
+  <!-- Film strip lines -->
+  <rect x="20" y="20" width="12" height="120" rx="2" fill="#ced4da"/>
+  <rect x="128" y="20" width="12" height="120" rx="2" fill="#ced4da"/>
+  <rect x="24" y="28" width="4" height="10" rx="1" fill="#adb5bd"/>
+  <rect x="24" y="46" width="4" height="10" rx="1" fill="#adb5bd"/>
+  <rect x="24" y="64" width="4" height="10" rx="1" fill="#adb5bd"/>
+  <rect x="24" y="82" width="4" height="10" rx="1" fill="#adb5bd"/>
+  <rect x="24" y="100" width="4" height="10" rx="1" fill="#adb5bd"/>
+  <rect x="24" y="118" width="4" height="10" rx="1" fill="#adb5bd"/>
+  <rect x="132" y="28" width="4" height="10" rx="1" fill="#adb5bd"/>
+  <rect x="132" y="46" width="4" height="10" rx="1" fill="#adb5bd"/>
+  <rect x="132" y="64" width="4" height="10" rx="1" fill="#adb5bd"/>
+  <rect x="132" y="82" width="4" height="10" rx="1" fill="#adb5bd"/>
+  <rect x="132" y="100" width="4" height="10" rx="1" fill="#adb5bd"/>
+  <rect x="132" y="118" width="4" height="10" rx="1" fill="#adb5bd"/>
+</svg>

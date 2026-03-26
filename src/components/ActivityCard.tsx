@@ -43,7 +43,8 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Imagen
-  let eventImage: string = "https://via.placeholder.com/160x160?text=No+Video";
+  const ACTIVITY_FALLBACK = "/activity-placeholder.svg";
+  let eventImage: string = ACTIVITY_FALLBACK;
   if (typeof activity.event_id === "object" && activity.event_id !== null) {
     const eventObj = activity.event_id as any;
     eventImage =
@@ -85,9 +86,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
             width="100%"
             fit="contain"
             loading="lazy"
-            onError={() =>
-              setImgSrc("https://via.placeholder.com/160x160?text=No+Video")
-            }
+            onError={() => setImgSrc(ACTIVITY_FALLBACK)}
           />
         </Grid.Col>
 
