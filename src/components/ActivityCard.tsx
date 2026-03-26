@@ -82,8 +82,8 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
             src={_imgSrc}
             alt={activity.name}
             radius="xs"
-            height="auto"
-            width="100%"
+            h={80}
+            w={80}
             fit="contain"
             loading="lazy"
             onError={() => setImgSrc(ACTIVITY_FALLBACK)}
