@@ -11,7 +11,6 @@ import {
   ThemeIcon,
   SimpleGrid,
   Divider,
-  Badge,
 } from "@mantine/core";
 import {
   FaRotate,
@@ -19,7 +18,6 @@ import {
   FaArrowsRotate,
   FaCircleCheck,
   FaHourglassEnd,
-  FaUsers,
   FaGlobe,
   FaUserShield,
   FaWrench,

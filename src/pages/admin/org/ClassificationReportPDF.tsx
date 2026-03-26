@@ -4,11 +4,10 @@ import {
   Text,
   View,
   StyleSheet,
-  Font,
+
 } from "@react-pdf/renderer";
 import {
   FullClassificationSummary,
-  SubscriptionClassification,
 } from "../../../services/paymentPlansService";
 
 // ── Estilos ───────────────────────────────────────────────────────────────
@@ -104,25 +103,25 @@ function pct(part: number, total: number) {
   return `${Math.round((part / total) * 100)}%`;
 }
 
-const CLASS_LABEL: Record<SubscriptionClassification, string> = {
-  pagado_sin_renovar: "Pagó – sin renovar",
-  pagado_renovado_pagando: "Pagó + renovó pagando",
-  pagado_renovado_cortesia: "Pagó + renovó cortesía",
-  cortesia_sin_renovar: "Cortesía – sin renovar",
-  cortesia_renovada_pagando: "Cortesía + renovó pagando",
-  cortesia_renovada_cortesia: "Cortesía + renovó cortesía",
-  sin_plan: "Sin suscripción",
-};
+// const CLASS_LABEL: Record<SubscriptionClassification, string> = {
+//   pagado_sin_renovar: "Pagó – sin renovar",
+//   pagado_renovado_pagando: "Pagó + renovó pagando",
+//   pagado_renovado_cortesia: "Pagó + renovó cortesía",
+//   cortesia_sin_renovar: "Cortesía – sin renovar",
+//   cortesia_renovada_pagando: "Cortesía + renovó pagando",
+//   cortesia_renovada_cortesia: "Cortesía + renovó cortesía",
+//   sin_plan: "Sin suscripción",
+// };
 
-const CLASS_COLOR: Record<SubscriptionClassification, string> = {
-  pagado_sin_renovar: C.blue,
-  pagado_renovado_pagando: C.green,
-  pagado_renovado_cortesia: C.teal,
-  cortesia_sin_renovar: C.yellow,
-  cortesia_renovada_pagando: C.violet,
-  cortesia_renovada_cortesia: C.orange,
-  sin_plan: C.red,
-};
+// const CLASS_COLOR: Record<SubscriptionClassification, string> = {
+//   pagado_sin_renovar: C.blue,
+//   pagado_renovado_pagando: C.green,
+//   pagado_renovado_cortesia: C.teal,
+//   cortesia_sin_renovar: C.yellow,
+//   cortesia_renovada_pagando: C.violet,
+//   cortesia_renovada_cortesia: C.orange,
+//   sin_plan: C.red,
+// };
 
 // ── Sub-componentes ───────────────────────────────────────────────────────
 
