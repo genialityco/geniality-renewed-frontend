@@ -222,6 +222,7 @@ export default function BasicEventData({
             data={[
               { value: "PUBLIC", label: "Público" },
               { value: "PRIVATE", label: "Privado" },
+              { value: "EXCLUSIVE_FOR_MEMBERS", label: "Exclusivo para miembros" },
             ]}
             value={(formData.visibility as any) || "PUBLIC"}
             onChange={(v) => handleSelectChange("visibility", v)}

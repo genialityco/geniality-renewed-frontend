@@ -91,6 +91,10 @@ export default function MembersTab() {
   const [selectedUserInfo, setSelectedUserInfo] =
     useState<OrganizationUser | null>(null);
 
+  const [togglingMemberStatusId, setTogglingMemberStatusId] = useState<
+    string | null
+  >(null);
+
   const dtfCO = new Intl.DateTimeFormat("es-CO", {
     year: "numeric",
     month: "2-digit",
@@ -215,7 +219,7 @@ export default function MembersTab() {
     setEditModalOpen(true);
   };
 
-  const handleUserEditSave = async (updatedProperties: any) => {
+  const handleUserEditSave = async (updatedProperties: any, memberShipStatus?: boolean) => {
     if (!userToEdit) return;
 
     const updatedUserPayload = {
@@ -225,6 +229,7 @@ export default function MembersTab() {
       rol_id: userToEdit.rol_id,
       organization_id: userToEdit.organization_id,
       position_id: userToEdit.position_id,
+      memberShipStatus: memberShipStatus !== undefined ? memberShipStatus : userToEdit.memberShipStatus,
     };
 
     try {
@@ -238,7 +243,7 @@ export default function MembersTab() {
     setUserToEdit(null);
   };
 
-  const handleCreateUserSave = async (newUserData: any) => {
+  const handleCreateUserSave = async (newUserData: any, memberShipStatus?: boolean) => {
     if (!organization || !adminCreateMember) return;
 
     // Detectar campos de email e ID (igual que AuthForm)
@@ -285,6 +290,7 @@ export default function MembersTab() {
         organizationId: organization._id,
         positionId: organization.default_position_id || "",
         rolId: "5c1a59b2f33bd40bb67f2322",
+        memberShipStatus: memberShipStatus,
       });
 
       setCreateModalOpen(false);
@@ -349,6 +355,30 @@ export default function MembersTab() {
   const handleViewUserInfo = (user: OrganizationUser) => {
     setSelectedUserInfo(user);
     setUserInfoModalOpen(true);
+  };
+
+  const handleToggleMemberStatus = async (user: OrganizationUser) => {
+    try {
+      setTogglingMemberStatusId(String(user._id));
+
+      const newStatus = !user.memberShipStatus;
+      const updatedUser = {
+        ...user,
+        properties: user.properties,
+        user_id: user.user_id as string,
+        rol_id: user.rol_id,
+        organization_id: user.organization_id,
+        position_id: user.position_id,
+        memberShipStatus: newStatus,
+      };
+
+      await createOrUpdateOrganizationUser(updatedUser);
+      fetchUsers();
+    } catch (error) {
+      console.error("Error al cambiar estado de miembro:", error);
+    } finally {
+      setTogglingMemberStatusId(null);
+    }
   };
 
   const handleExportToExcel = async () => {
@@ -417,6 +447,8 @@ export default function MembersTab() {
 
         rowData["source"] = planInfo ? mapSource((planInfo as any).source) : "";
 
+        rowData["Miembro exclusivo"] = user.memberShipStatus ? "TRUE" : "FALSE";
+
         return rowData;
       });
 
@@ -426,6 +458,7 @@ export default function MembersTab() {
         ),
         "Fecha de registro",
         "Plan (Vencimiento)",
+        "Miembro exclusivo",
       ];
 
       const worksheet = XLSX.utils.json_to_sheet(dataToExport, {
@@ -620,6 +653,8 @@ export default function MembersTab() {
               onEditUser={handleEditUser}
               onDeleteUser={handleDeleteUser}
               onViewUser={handleViewUserInfo}
+              onToggleMemberStatus={handleToggleMemberStatus}
+              togglingUserId={togglingMemberStatusId}
             />
           </ScrollArea>
 
