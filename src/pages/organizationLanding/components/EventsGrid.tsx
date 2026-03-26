@@ -63,7 +63,7 @@ export default function EventsGrid({
               <Group gap={4} mt="xs">
                 <FaStar size={14} color="#ff8c00" />
                 <Text size="xs" c="orange" fw={500}>
-                  Evento exclusivo
+                  Exclusivo miembros ACE
                 </Text>
               </Group>
             )}

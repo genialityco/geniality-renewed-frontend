@@ -53,14 +53,14 @@ export default function OrganizationTabs({
         <Tabs.Tab value="courses">
           Eventos ({eventSearchMode ? eventSearchResults.length : events.length})
         </Tabs.Tab>
-        {memberShipStatus && (
-          <Tabs.Tab value="exclusive">
-            Contenido exclusivo ({exclusiveEvents.length})
-          </Tabs.Tab>
-        )}
         <Tabs.Tab value="activities">
           Actividades ({activityTabProps.activityTotal})
         </Tabs.Tab>
+        {memberShipStatus && (
+          <Tabs.Tab value="exclusive">
+            Exclusivo miembros ACE ({exclusiveEvents.length})
+          </Tabs.Tab>
+        )}
       </Tabs.List>
 
       <Tabs.Panel value="courses" pt="md">
