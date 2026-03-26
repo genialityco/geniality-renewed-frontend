@@ -1,17 +1,27 @@
-import { Grid, Paper, Image, Title, Text } from "@mantine/core";
+import { Grid, Paper, Image, Title, Text, Group } from "@mantine/core";
+import { FaStar } from "react-icons/fa";
 import { Event } from "../../../services/types";
 
 export default function EventsGrid({
   events,
   onClick,
+  memberShipStatus = false,
 }: {
   events: Event[];
   onClick: (eventId: string) => void;
+  memberShipStatus?: boolean;
 }) {
   if (!events.length) return <Text>No hay eventos disponibles.</Text>;
 
   const sortedEvents = [...events]
-    .filter((event) => event.visibility === "PUBLIC")
+    .filter((event) => {
+      // Si el evento es público, siempre se muestra
+      if (event.visibility === "PUBLIC") return true;
+      // Si el evento es exclusivo para miembros y el usuario tiene membresía activa
+      if (event.visibility === "EXCLUSIVE_FOR_MEMBERS" && memberShipStatus) return true;
+      // Los eventos privados nunca se muestran en esta vista
+      return false;
+    })
     .sort((a, b) => {
       const aTime = a.datetime_from
         ? new Date(a.datetime_from).getTime()
@@ -29,7 +39,10 @@ export default function EventsGrid({
           <Paper
             p="xs"
             onClick={() => onClick(event._id)}
-            style={{ cursor: "pointer" }}
+            style={{ 
+              cursor: "pointer",
+              border: event.visibility === "EXCLUSIVE_FOR_MEMBERS" ? "2px solid #ff8c00" : undefined,
+            }}
           >
             {(event.picture || event.styles?.event_image) && (
               <Image
@@ -46,6 +59,14 @@ export default function EventsGrid({
                 ? new Date(event.datetime_from).toLocaleDateString("es-ES")
                 : "Fecha no disponible"}
             </Text>
+            {event.visibility === "EXCLUSIVE_FOR_MEMBERS" && (
+              <Group gap={4} mt="xs">
+                <FaStar size={14} color="#ff8c00" />
+                <Text size="xs" c="orange" fw={500}>
+                  Exclusivo miembros ACE
+                </Text>
+              </Group>
+            )}
           </Paper>
         </Grid.Col>
       ))}

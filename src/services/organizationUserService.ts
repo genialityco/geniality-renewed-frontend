@@ -8,6 +8,7 @@ export interface OrganizationUserPayload {
   user_id: string | User;
   position_id: string;
   payment_plan_id?: string;
+  memberShipStatus?: boolean;
 }
 
 /**

@@ -20,6 +20,7 @@ import {
   Avatar,
   Stack,
   SimpleGrid,
+  Button,
 } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
@@ -35,7 +36,6 @@ import { getModulesByEventId } from "../../services/moduleService";
 import { getActivitiesByEvent } from "../../services/activityService";
 import { Event, Module, Activity, Host } from "../../services/types";
 
-import QuizDrawer from "../../components/QuizDrawer";
 import ActivityDetail from "../../components/ActivityDetail";
 
 // IMPORTACIONES PARA REGISTRO DE CURSO
@@ -45,6 +45,8 @@ import {
   CourseAttendeePayload,
 } from "../../services/courseAttendeeService";
 import { fetchHostsByEventId } from "../../services/hostsService";
+import { getQuizByEventId, Quiz as QuizData } from "../../services/QuizService";
+import { getUserAttempts } from "../../services/userQuizAttemptService";
 
 // Componente auxiliar para renderizar la tarjeta de actividad
 interface ActivityCardProps {
@@ -54,7 +56,12 @@ interface ActivityCardProps {
   compact?: boolean;
 }
 
-function ActivityCard({ activity, hosts, onClick, compact = false }: ActivityCardProps) {
+function ActivityCard({
+  activity,
+  hosts,
+  onClick,
+  compact = false,
+}: ActivityCardProps) {
   const isMobile = useMediaQuery("(max-width: 48em)");
   const progress = activity.video_progress || 0;
   let statusLabel = "Sin ver";
@@ -101,12 +108,17 @@ function ActivityCard({ activity, hosts, onClick, compact = false }: ActivityCar
           ) : (
             <Avatar size={avatarSize} radius="xl" />
           )}
-          
+
           {/* Título centrado */}
-          <Text fw={600} size="sm" ta="center" style={{ wordBreak: "break-word" }}>
+          <Text
+            fw={600}
+            size="sm"
+            ta="center"
+            style={{ wordBreak: "break-word" }}
+          >
             {activity.name}
           </Text>
-          
+
           {/* Host centrado */}
           {activityHosts.length > 0 ? (
             <Text fw={500} size="xs" ta="center" c="dimmed">
@@ -117,7 +129,7 @@ function ActivityCard({ activity, hosts, onClick, compact = false }: ActivityCar
               Sin conferencista
             </Text>
           )}
-          
+
           {/* Progreso */}
           <Text size="xs" c={statusColor} fw={500}>
             {statusLabel} ({Math.round(progress)}%)
@@ -154,12 +166,16 @@ function ActivityCard({ activity, hosts, onClick, compact = false }: ActivityCar
         ) : (
           <Avatar size={avatarSize} radius="xl" style={{ flexShrink: 0 }} />
         )}
-        
+
         {/* Información de la actividad */}
         <Stack gap={isMobile ? 4 : 8} style={{ flex: 1, minWidth: 0 }}>
           <Group gap="xs" p={0} wrap="wrap">
             <FaBookOpen size={isMobile ? 16 : 18} style={{ flexShrink: 0 }} />
-            <Text fw={600} size={isMobile ? "sm" : "md"} style={{ wordBreak: "break-word" }}>
+            <Text
+              fw={600}
+              size={isMobile ? "sm" : "md"}
+              style={{ wordBreak: "break-word" }}
+            >
               {activity.name}
             </Text>
           </Group>
@@ -192,6 +208,8 @@ export default function CourseDetail() {
   const [modules, setModules] = useState<Module[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [hosts, setHosts] = useState<Host[]>([]);
+  const [quiz, setQuiz] = useState<QuizData | null | undefined>(undefined);
+  const [userAttemptsList, setUserAttemptsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Actividad seleccionada
@@ -206,9 +224,6 @@ export default function CourseDetail() {
   // Drawers de Chat y Foro
   const [drawerChatOpen, setDrawerChatOpen] = useState(false);
   const [drawerForumOpen, setDrawerForumOpen] = useState(false);
-
-  // Drawer del Cuestionario
-  const [drawerQuestionnaireOpen, setDrawerQuestionnaireOpen] = useState(false);
 
   // Obtener el userId desde el contexto
   const { userId } = useUser();
@@ -230,6 +245,23 @@ export default function CourseDetail() {
           const hostData = await fetchHostsByEventId(eventId);
           setHosts(hostData);
 
+          const quizData = await getQuizByEventId(eventId);
+          setQuiz(quizData);
+
+          // Cargar intentos del usuario para el quiz (tolerante a errores si el endpoint no existe aún)
+          if (quizData && userId) {
+            const quizId = quizData._id || quizData.id;
+            if (quizId) {
+              try {
+                const attempts = await getUserAttempts(quizId, userId);
+                setUserAttemptsList(attempts);
+              } catch (error) {
+                // Si el servicio de intentos no está disponible, continuar sin ellos
+                setUserAttemptsList([]);
+              }
+            }
+          }
+
           // Si viene una actividad en la URL (por compartir)
           const activityParam = searchParams.get("activity");
           if (activityParam) {
@@ -249,7 +281,7 @@ export default function CourseDetail() {
     };
 
     fetchData();
-  }, [eventId, searchParams]);
+  }, [eventId, searchParams, userId]);
 
   // Efecto para registrar al usuario en el curso
   useEffect(() => {
@@ -272,11 +304,6 @@ export default function CourseDetail() {
 
   if (loading) return <Loader />;
   if (!event) return <Text>Curso no encontrado</Text>;
-
-  // Handler para iniciar el cuestionario (abrir el Drawer)
-  const handleStartQuestionnaire = () => {
-    setDrawerQuestionnaireOpen(true);
-  };
 
   function getShareUrl(activity: Activity) {
     return `${window.location.origin}/organization/${organizationId}/course/${eventId}?activity=${activity._id}`;
@@ -540,22 +567,56 @@ export default function CourseDetail() {
     );
     if (!selectedActivity) {
       return (
-        <Stack gap="md">
-          <Card shadow="sm" radius="md" p={isMobile ? "sm" : "md"} style={{ marginTop: "0rem" }}>
-            <Text size={isMobile ? "sm" : "md"} fw={500}>
-              Bienvenido(a) al curso {event.name}.
-            </Text>
-            <Text size="xs" c="dimmed">
-              Selecciona una actividad para ver detalles
-            </Text>
-          </Card>
+        <Card shadow="sm" radius="md">
+          <Group justify="space-between" align="flex-start" mb="sm">
+            <div>
+              <Text size="md" fw={500}>
+                Bienvenido(a) al curso {event.name}.
+              </Text>
+              <Text size="sm" c="dimmed">
+                Selecciona una actividad para ver detalles
+              </Text>
+            </div>
 
-          <Card shadow="sm" radius="md" p={isMobile ? "sm" : "md"}>
-            <Text size={isMobile ? "sm" : "md"} fw={600} mb="md">
-              Módulos y actividades
-            </Text>
-            {modules.length ? renderModules() : renderActivities()}
-          </Card>
+            {/* Botón de quiz — esquina superior derecha */}
+            {(() => {
+              const qid = quiz?._id || quiz?.id;
+              if (!quiz || !qid) return null;
+              const attempted = userAttemptsList.some(
+                (a) => a.userId === userId,
+              );
+              return attempted ? (
+                <Button
+                  variant="light"
+                  color="teal"
+                  onClick={() =>
+                    navigate(
+                      `/organization/${organizationId}/course/${eventId}/quiz/${qid}/result`,
+                    )
+                  }
+                >
+                  Ver mis resultados
+                </Button>
+              ) : (
+                <Button
+                  variant="filled"
+                  color="blue"
+                  onClick={() =>
+                    navigate(
+                      `/organization/${organizationId}/course/${eventId}/quiz/${qid}`,
+                    )
+                  }
+                >
+                  Realizar examen
+                </Button>
+              );
+            })()}
+          </Group>
+
+          <Text size="lg" fw={600}>
+            Módulos y actividades
+          </Text>
+          {modules.length ? renderModules() : renderActivities()}
 
           {/* Mostrar conferencistas debajo de módulos/actividades */}
           <Card shadow="sm" radius="md" p={isMobile ? "sm" : "md"}>
@@ -612,7 +673,7 @@ export default function CourseDetail() {
               </SimpleGrid>
             )}
           </Card>
-        </Stack>
+        </Card>
       );
     }
 
@@ -623,7 +684,6 @@ export default function CourseDetail() {
         <ActivityDetail
           activity={selectedActivity}
           eventId={event._id}
-          onStartQuestionnaire={handleStartQuestionnaire}
           shareUrl={selectedActivity ? getShareUrl(selectedActivity) : ""}
           activities={sortedActivities}
         />
@@ -694,7 +754,11 @@ export default function CourseDetail() {
               />
             </Flex>
             {/* Fila 2: Back y Título */}
-            <Flex align="center" gap="xs" style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
+            <Flex
+              align="center"
+              gap="xs"
+              style={{ flex: 1, minWidth: 0, paddingTop: 4 }}
+            >
               <FaArrowLeft
                 size={18}
                 style={{ cursor: "pointer", flexShrink: 0 }}
@@ -813,7 +877,11 @@ export default function CourseDetail() {
 
       {/* MAIN */}
       <AppShell.Main pt={4}>
-        <Container fluid px={{ base: "xs", xs: "sm", sm: "md", md: "lg" }} py={4}>
+        <Container
+          fluid
+          px={{ base: "xs", xs: "sm", sm: "md", md: "lg" }}
+          py={4}
+        >
           {renderMainContent()}
         </Container>
       </AppShell.Main>
@@ -841,14 +909,6 @@ export default function CourseDetail() {
       >
         <Text>Sección de foro, Q&A o discusiones del curso...</Text>
       </Drawer>
-
-      {/* DRAWER - CUESTIONARIO (Quiz) */}
-      <QuizDrawer
-        opened={drawerQuestionnaireOpen}
-        onClose={() => setDrawerQuestionnaireOpen(false)}
-        transcript={selectedActivity?.description || ""}
-        activityId={selectedActivity?._id || ""}
-      />
     </AppShell>
   );
 }

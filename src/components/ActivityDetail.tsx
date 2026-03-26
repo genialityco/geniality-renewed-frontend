@@ -22,11 +22,8 @@ import {
   createOrUpdateActivityAttendee,
   ActivityAttendeePayload,
 } from "../services/activityAttendeeService";
-import { fetchQuizByActivity } from "../services/quizService";
-import { fetchQuizAttemptsByUserAndQuiz } from "../services/quizAttemptService";
-
 import { useUser } from "../context/UserContext";
-import { Activity, Host, Quiz, QuizAttempt } from "../services/types";
+import { Activity, Host } from "../services/types";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 interface Fragment {
@@ -40,7 +37,6 @@ interface ActivityDetailProps {
   activity: Activity | null; // Actividad seleccionada
   eventId: string; // ID del evento (para enlaces, etc.)
   shareUrl: string; // URL para compartir
-  onStartQuestionnaire: () => void; // Callback para abrir el quiz (Drawer)
   activities: Activity[]; // Lista de actividades
 
   videoTime?: number | null;
@@ -118,8 +114,6 @@ export default function ActivityDetail({
     activity?.video_progress || 0
   );
   const [hosts, setHosts] = useState<Host[]>([]);
-  const [_quiz, setQuiz] = useState<Quiz | null>(null);
-  const [_quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
   const [shareNotification, setShareNotification] = useState(false);
 
   const [player, setPlayer] = useState<Player | null>(null);
@@ -127,9 +121,8 @@ export default function ActivityDetail({
   const reactPlayerRef = useRef<ReactPlayer | null>(null);
 
   // ==================================================
-  // 1. Efecto: Cargar hosts y quiz info
+  // 1. Efecto: Cargar hosts
   // ==================================================
-  // A) Cargar hosts
   const loadHosts = async () => {
     if (!activity) return;
 
@@ -145,35 +138,8 @@ export default function ActivityDetail({
     }
   };
 
-  // B) Cargar quiz
-  const loadQuizAndAttempts = async () => {
-    if (!activity) return;
-
-    if (!userId || !activity._id) return;
-    try {
-      const quizResult = await fetchQuizByActivity(activity._id);
-      if (quizResult) {
-        setQuiz(quizResult);
-        // Cargar intentos
-        const atts = await fetchQuizAttemptsByUserAndQuiz(
-          quizResult._id,
-          userId
-        );
-        setQuizAttempts(atts);
-      } else {
-        setQuiz(null);
-        setQuizAttempts([]);
-      }
-    } catch (error) {
-      console.error("No se pudo cargar el quiz o intentos:", error);
-      setQuiz(null);
-      setQuizAttempts([]);
-    }
-  };
-
   useEffect(() => {
     loadHosts();
-    loadQuizAndAttempts();
   }, [activity, userId]);
 
   // ==================================================
@@ -441,7 +407,6 @@ export default function ActivityDetail({
         </Button>
       </Group>
 
-      {/* Resto de tu componente igual (botones, quiz, conferencistas, fragmentos) */}
       <Divider my="sm" />
       <Group>
         {/* <Text ta="left" size="md">
