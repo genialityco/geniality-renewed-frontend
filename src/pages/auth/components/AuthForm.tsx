@@ -344,11 +344,12 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
       } else if (err?.code === "auth/weak-password") {
         setFormError("La contraseña es demasiado débil.");
       } else {
+        console.error("[handleSignUp] error:", err?.code, err?.message, err);
         const msg =
           typeof err?.message === "string" &&
           /dispositivo|sesion|sesión/i.test(err.message)
             ? err.message
-            : "Error al registrarse. Intenta de nuevo.";
+            : `Error al registrarse. Intenta de nuevo. (${err?.code ?? err?.message ?? "desconocido"})`;
         setFormError(msg);
       }
     } finally {

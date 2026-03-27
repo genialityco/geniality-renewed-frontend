@@ -377,9 +377,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
       throw new Error("Faltan datos requeridos: nombres y/o correo.");
     }
 
-    // 1) Firebase Auth
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    const uid = result.user.uid;
+    // 1) Firebase Auth — si el email ya existe, intentar login con las mismas credenciales
+    //    (el usuario puede estar registrado en otra organización)
+    let uid: string;
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      uid = result.user.uid;
+    } catch (err: any) {
+      if (err?.code === "auth/email-already-in-use") {
+        try {
+          const result = await signInWithEmailAndPassword(auth, email, password);
+          uid = result.user.uid;
+        } catch (signInErr: any) {
+          console.error("[signUp] signInWithEmailAndPassword falló:", signInErr);
+          throw signInErr;
+        }
+      } else {
+        console.error("[signUp] createUserWithEmailAndPassword falló:", err);
+        throw err;
+      }
+    }
 
     // 2) /users
     const userRecord = await createOrUpdateUser({
