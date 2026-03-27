@@ -329,6 +329,8 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
         rolId: "5c1a59b2f33bd40bb67f2322",
       });
 
+      
+
       // 🔄 Refresca token para que el backend cuente solo ESTA sesión
       try {
         await auth.currentUser?.getIdToken(true);
