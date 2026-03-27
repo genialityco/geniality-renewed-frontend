@@ -1,4 +1,4 @@
-import { Grid, Text, Card, Image, Badge, Group, Box, Overlay, AspectRatio } from "@mantine/core";
+import { Grid, Text, Card, Image, Badge, Group, Box, AspectRatio } from "@mantine/core";
 import { IconCalendar, IconStar } from "@tabler/icons-react";
 import { Event } from "../../../services/types";
 
