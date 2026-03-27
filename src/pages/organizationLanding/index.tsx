@@ -422,7 +422,7 @@ export default function OrganizationLanding() {
   if (!organization) return <Text>Organización no encontrada</Text>;
 
   return (
-    <div style={{ textAlign: "center" }}>
+    <div>
       <OrganizationBanner organization={organization} />
 
       <MembershipStatus
