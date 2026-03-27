@@ -26,6 +26,8 @@ import SearchBar from "./components/SearchBar";
 import OrganizationTabs from "./components/OrganizationTabs";
 import SubscriptionModal from "./components/SubscriptionModal";
 
+const PAYWALL_ORGANIZATION_ID = "63f552d916065937427b3b02";
+
 function isMembershipExpired(paymentPlan: {
   date_until: string | number | Date;
 }) {
@@ -44,6 +46,7 @@ export default function OrganizationLanding() {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
   const { userId } = useUser();
+  const shouldShowPaywallMessage = organizationId === PAYWALL_ORGANIZATION_ID;
 
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
@@ -77,7 +80,13 @@ export default function OrganizationLanding() {
     TranscriptSearchResult[]
   >([]);
 
-  const openPaywall = () => setShowSubscriptionModal(true);
+  const openPaywall = () => {
+    if (shouldShowPaywallMessage) {
+      setShowSubscriptionModal(true);
+      return;
+    }
+    navigate(`/organization/${organizationId}/iniciar-sesion`);
+  };
 
   // -------- DATA FETCHING -----------
   useEffect(() => {
@@ -159,8 +168,13 @@ export default function OrganizationLanding() {
       setEventSearchMode(true);
       try {
         const events = await fetchEventByName(query);
+        const eventList = Array.isArray(events) ? events : events ? [events] : [];
         setEventSearchResults(
-          Array.isArray(events) ? events : events ? [events] : []
+          organizationId
+            ? eventList.filter(
+                (event) => String(event.organizer_id) === String(organizationId)
+              )
+            : eventList
         );
       } catch {
         setEventSearchResults([]);
@@ -184,7 +198,12 @@ export default function OrganizationLanding() {
       return;
     }
     try {
-      const paged = await searchSegments(searchQuery, 1, activityLimit);
+      const paged = await searchSegments(
+        searchQuery,
+        1,
+        activityLimit,
+        organizationId
+      );
       setSearchResults(paged.data);
       setActivityTotal(paged.total);
       setSearchPagedResults(paged.data);
@@ -222,7 +241,8 @@ export default function OrganizationLanding() {
         const paged = await searchSegments(
           searchQuery,
           activityPage,
-          activityLimit
+          activityLimit,
+          organizationId
         );
         setSearchResults(paged.data);
         setActivityTotal(paged.total);
@@ -352,7 +372,7 @@ export default function OrganizationLanding() {
   // ----------- EVENTS/ACTIVITIES TABS CALLBACKS --------------
   const handleCourseClick = async (eventId: string) => {
     if (!userId) {
-      setShowSubscriptionModal(true);
+      openPaywall();
     } else if (!paymentPlan || isMembershipExpired(paymentPlan)) {
       // Navega a pagos o muestra modal según UX deseada
       // openPaymentModal();
@@ -463,7 +483,11 @@ export default function OrganizationLanding() {
         opened={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
         onStart={() =>
-          navigate(`/organization/${organizationId}/iniciar-sesion?payment=1`)
+          navigate(
+            shouldShowPaywallMessage
+              ? `/organization/${organizationId}/iniciar-sesion?payment=1`
+              : `/organization/${organizationId}/iniciar-sesion`
+          )
         }
         organizationId={organizationId}
       />

@@ -1,5 +1,6 @@
 import api from "./api";
 import { PaymentPlan } from "./types";
+import axios from "axios";
 
 export interface PaymentPlanPayload {
   days: number;
@@ -34,11 +35,18 @@ export const validatePaymentPlanAccess = async (
 
 export const fetchPaymentPlanByUserId = async (
   userId: string
-): Promise<PaymentPlan> => {
-  const response = await api.get<PaymentPlan>(
-    `/payment-plans/by-user/${userId}`
-  );
-  return response.data;
+): Promise<PaymentPlan | null> => {
+  try {
+    const response = await api.get<PaymentPlan>(
+      `/payment-plans/by-user/${userId}`
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 };
 
 export interface SubscriptionReport {

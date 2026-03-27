@@ -6,6 +6,8 @@ import { useUser } from "../context/UserContext";
 import { fetchPaymentPlanByUserId } from "../services/paymentPlansService";
 import { fetchOrganizationUserByUserId } from "../services/organizationUserService";
 
+const PAYWALL_ORGANIZATION_ID = "63f552d916065937427b3b02";
+
 function CenterLoader({ label = "Cargando..." }: { label?: string }) {
   return (
     <Flex
@@ -128,8 +130,11 @@ export function RequireMembership({
   if (loading || busy) return <CenterLoader label="Validando membresía..." />;
 
   if (!firebaseUser) {
+    const usePaymentMessage = organizationId === PAYWALL_ORGANIZATION_ID;
     const loginPath = organizationId
-      ? `/organization/${organizationId}/iniciar-sesion?payment=1`
+      ? usePaymentMessage
+        ? `/organization/${organizationId}/iniciar-sesion?payment=1`
+        : `/organization/${organizationId}/iniciar-sesion`
       : `/`;
     return <Navigate to={loginPath} replace state={{ from: location }} />;
   }
