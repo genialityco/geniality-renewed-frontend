@@ -60,6 +60,7 @@ export interface Activity {
   datetime_start?: string;
   datetime_end?: string;
   event_id: Event | string;
+  organization_id?: Organization ;
   date_start_zoom?: string;
   date_end_zoom?: string;
   description?: string;
