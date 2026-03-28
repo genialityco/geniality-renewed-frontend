@@ -19,6 +19,7 @@ export interface Organization {
   image: string;
   user_properties?: Record<string, any>;
   default_position_id?: string;
+  author: string
 }
 
 interface OrganizationContextType {
@@ -76,6 +77,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           name: org.name,
           image: org.styles?.event_image || org.styles?.banner_image || "",
           user_properties: org.user_properties || {},
+          author: org.author || "",
         };
 
         setOrganization(orgData);
