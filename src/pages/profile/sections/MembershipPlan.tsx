@@ -1,5 +1,6 @@
 import { Card, Stack, Text, Badge, Group } from "@mantine/core";
 import { useEffect, useState } from "react";
+import axios from "axios";
 import { fetchPaymentPlanByUserId } from "../../../services/paymentPlansService";
 import { useUser } from "../../../context/UserContext";
 import { PaymentPlan } from "../../../services/types";
@@ -17,6 +18,10 @@ const MembershipPlan = () => {
           setPlan(data);
         }
       } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          setPlan(null);
+          return;
+        }
         console.error("Error al obtener el plan:", error);
       } finally {
         setLoading(false);

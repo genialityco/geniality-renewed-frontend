@@ -25,6 +25,15 @@ interface Props {
 
 type AnyRecord = Record<string, any>;
 
+function isValidPropConfig(prop: UserProperty): boolean {
+  const hasValidName =
+    typeof prop?.name === "string" && prop.name.trim().length > 0;
+  const hasValidType =
+    typeof (prop as any)?.type === "string" &&
+    String((prop as any).type).trim().length > 0;
+  return hasValidName && hasValidType;
+}
+
 function normalizeName(
   name?: string
 ): "country" | "city" | "department" | "other" {
@@ -63,7 +72,10 @@ export default function EditUserModal({
 
   // Sólo props visibles
   const visibleProps = useMemo(
-    () => (userProps ?? []).filter((p) => (p as any).visible !== false),
+    () =>
+      (userProps ?? []).filter(
+        (p) => (p as any).visible !== false && isValidPropConfig(p)
+      ),
     [userProps]
   );
 

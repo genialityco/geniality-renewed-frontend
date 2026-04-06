@@ -329,6 +329,8 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
         rolId: "5c1a59b2f33bd40bb67f2322",
       });
 
+      
+
       // 🔄 Refresca token para que el backend cuente solo ESTA sesión
       try {
         await auth.currentUser?.getIdToken(true);
@@ -342,11 +344,12 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
       } else if (err?.code === "auth/weak-password") {
         setFormError("La contraseña es demasiado débil.");
       } else {
+        console.error("[handleSignUp] error:", err?.code, err?.message, err);
         const msg =
           typeof err?.message === "string" &&
           /dispositivo|sesion|sesión/i.test(err.message)
             ? err.message
-            : "Error al registrarse. Intenta de nuevo.";
+            : `Error al registrarse. Intenta de nuevo. (${err?.code ?? err?.message ?? "desconocido"})`;
         setFormError(msg);
       }
     } finally {

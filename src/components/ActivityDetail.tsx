@@ -25,6 +25,7 @@ import {
 import { useUser } from "../context/UserContext";
 import { Activity, Host } from "../services/types";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import ActivityTranscript from "./ActivityTranscript";
 
 interface Fragment {
   segmentId: number;
@@ -467,6 +468,12 @@ export default function ActivityDetail({
           ))}
         </Group>
       )}
+
+      <Divider my="sm" />
+      <ActivityTranscript
+        activityId={activity._id}
+        onSeek={handleFragmentClick}
+      />
 
       {fragments && fragments.length > 0 && (
         <>

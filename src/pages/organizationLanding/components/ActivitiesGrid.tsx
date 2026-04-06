@@ -55,7 +55,7 @@ export default function ActivitiesGrid({
         <Text size="sm" mb="sm">
           Resultados de búsqueda para "{searchQuery}":
         </Text>
-        <Grid mt="md" gutter="md">
+        <Grid mt="sm" gutter="xs">
           {searchPagedResults.map((result) => {
             const foundActivity = searchActivities.find(
               (act) => String(act._id) === String(result._id)
@@ -63,7 +63,7 @@ export default function ActivitiesGrid({
             if (!foundActivity) return null;
 
             return (
-              <Grid.Col key={foundActivity._id} span={12}>
+              <Grid.Col key={foundActivity._id} span={{ base: 12, sm: 6, md: 4, lg: 3 }}>
                 <ActivityCard
                   activity={foundActivity}
                   matchedSegments={result.matchedSegments}
@@ -98,14 +98,14 @@ export default function ActivitiesGrid({
   // Vista normal
   return (
     <>
-      <Grid mt="md" gutter="md">
+      <Grid mt="sm" gutter="xs">
         {activities.length === 0 ? (
           <Grid.Col span={12}>
-            <Text>No hay actividades disponibles.</Text>
+            <Text c="dimmed">No hay actividades disponibles.</Text>
           </Grid.Col>
         ) : (
           activities.map((activity) => (
-            <Grid.Col key={activity._id} span={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
+            <Grid.Col key={activity._id} span={{ base: 12, sm: 6, md: 4, lg: 3 }}>
               <ActivityCard
                 activity={activity}
                 organizationId={organizationId}
