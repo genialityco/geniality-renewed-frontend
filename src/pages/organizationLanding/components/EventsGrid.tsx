@@ -1,21 +1,22 @@
-import { Grid, Text, Card, Image, Badge, Group, Box, AspectRatio } from "@mantine/core";
+import {
+  Grid,
+  Text,
+  Card,
+  Image,
+  Badge,
+  Group,
+  Box,
+  AspectRatio,
+} from "@mantine/core";
 import { IconCalendar, IconStar } from "@tabler/icons-react";
 import { Event } from "../../../services/types";
 
-const EVENT_PLACEHOLDER = "https://placehold.co/640x360/e9ecef/adb5bd?text=Curso";
+const EVENT_PLACEHOLDER =
+  "https://placehold.co/640x360/e9ecef/adb5bd?text=Curso";
 
-function EventCard({
-  event,
-  onClick,
-}: {
-  event: Event;
-  onClick: () => void;
-}) {
+function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
   const imageSrc =
-    event.picture ||
-    event.styles?.event_image ||
-    event.styles?.banner_image ||
-    EVENT_PLACEHOLDER;
+    event.picture || event.styles?.banner_image || EVENT_PLACEHOLDER;
 
   const dateStr = event.datetime_from
     ? new Date(event.datetime_from).toLocaleDateString("es-ES", {
@@ -40,7 +41,8 @@ function EventCard({
       }}
       onClick={onClick}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLDivElement).style.transform = "translateY(-3px)";
+        (e.currentTarget as HTMLDivElement).style.transform =
+          "translateY(-3px)";
         (e.currentTarget as HTMLDivElement).style.boxShadow =
           "0 8px 24px rgba(0,0,0,0.13)";
       }}
@@ -121,7 +123,10 @@ export default function EventsGrid({
   return (
     <Grid gutter="md">
       {visibleEvents.map((event) => (
-        <Grid.Col key={event._id} span={{ base: 12, xs: 6, sm: 6, md: 4, lg: 3 }}>
+        <Grid.Col
+          key={event._id}
+          span={{ base: 12, xs: 6, sm: 6, md: 4, lg: 3 }}
+        >
           <EventCard event={event} onClick={() => onClick(event._id)} />
         </Grid.Col>
       ))}
