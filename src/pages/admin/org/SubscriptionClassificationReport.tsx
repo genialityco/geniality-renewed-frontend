@@ -20,6 +20,7 @@ import {
   RingProgress,
   Tabs,
 } from "@mantine/core";
+import * as XLSX from "xlsx";
 import {
   FaArrowsRotate,
   FaCircleCheck,
@@ -34,6 +35,7 @@ import {
   FaMoneyBillWave,
   FaArrowRight,
   FaFilePdf,
+  FaFileExcel,
 } from "react-icons/fa6";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import {
@@ -482,10 +484,87 @@ function UnmatchedTable({ rows }: { rows: UnmatchedWompiTransaction[] }) {
 
 // ── Componente principal ──────────────────────────────────────────────────
 
+const dtfCO = new Intl.DateTimeFormat("es-CO", {
+  timeZone: "America/Bogota",
+  dateStyle: "short",
+});
+
+const SOURCE_LABEL: Record<string, string> = {
+  gateway: "Pasarela de pago",
+  admin: "Creado por admin",
+  manual: "Creado manualmente",
+};
+
+function buildExcelRows(items: ClassificationItem[]) {
+  return items.map((r) => {
+    const lastPayment = r.wompiPayments
+      .filter((p) => p.paymentDate)
+      .sort(
+        (a, b) =>
+          new Date(b.paymentDate!).getTime() - new Date(a.paymentDate!).getTime()
+      )[0];
+
+    return {
+      Email: r.email ?? "",
+      Identificación: r.identification ?? "",
+      Nombre: r.names?.trim() || [r.firstName, r.lastName].filter(Boolean).join(" "),
+      País: r.pais ?? "",
+      "Indicativo país": r.indicativodepais ?? "",
+      Teléfono: r.phone ?? "",
+      "Perfil profesional": r.perfilProfesional ?? "",
+      Especialidad: r.especialidad ?? "",
+      "Especialidad subespecialidad": r.especialidadsubespecialidad ?? "",
+      Clasificación: CLASS_CONFIG[r.classification].label,
+      "Estado plan": r.paymentPlan
+        ? r.paymentPlan.status === "active"
+          ? "Activa"
+          : "Vencida"
+        : "Sin suscripción",
+      "Fecha vencimiento": r.paymentPlan
+        ? dtfCO.format(new Date(r.paymentPlan.date_until))
+        : "",
+      Renovado: r.paymentPlan ? (r.paymentPlan.isRenewed ? "Sí" : "No") : "",
+      Origen: r.paymentPlan ? (SOURCE_LABEL[r.paymentPlan.source] ?? r.paymentPlan.source) : "",
+      "Pagos Wompi": r.wompiPayments.length,
+      "Fecha último pago": lastPayment?.paymentDate
+        ? dtfCO.format(new Date(lastPayment.paymentDate))
+        : "",
+      "Monto último pago": lastPayment?.amount ?? "",
+    };
+  });
+}
+
 export default function SubscriptionClassificationReport({ organizationId }: Props) {
   const [data, setData] = useState<FullClassificationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportToExcel = () => {
+    if (!data) return;
+    setExporting(true);
+    try {
+      const activas = data.items.filter((r) => r.paymentPlan?.status === "active");
+      const vencidas = data.items.filter((r) => r.paymentPlan?.status === "expired");
+      const sinSuscripcion = data.items.filter((r) => r.paymentPlan === null);
+
+      const workbook = XLSX.utils.book_new();
+
+      const addSheet = (rows: ClassificationItem[], sheetName: string) => {
+        const worksheet = XLSX.utils.json_to_sheet(buildExcelRows(rows));
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+      };
+
+      addSheet(activas, "Activas");
+      addSheet(vencidas, "Vencidas");
+      addSheet(sinSuscripcion, "Sin suscripcion");
+
+      const date = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `suscripciones-${date}.xlsx`);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -520,6 +599,18 @@ export default function SubscriptionClassificationReport({ organizationId }: Pro
           )}
         </Stack>
         <Group gap="xs">
+          {data && (
+            <Button
+              variant="light"
+              color="green"
+              size="xs"
+              leftSection={<FaFileExcel size={12} />}
+              loading={exporting}
+              onClick={handleExportToExcel}
+            >
+              Exportar Excel
+            </Button>
+          )}
           {data && (
             <PDFDownloadLink
               document={

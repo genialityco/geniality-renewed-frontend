@@ -166,6 +166,13 @@ export interface ClassificationItem {
   organizationUserId: string;
   email: string | null;
   identification: string | null;
+  names: string | null;
+  phone: string | null;
+  indicativodepais: string | null;
+  pais: string | null;
+  perfilProfesional: string | null;
+  especialidad: string | null;
+  especialidadsubespecialidad: string | null;
   firstName: string | null;
   lastName: string | null;
   paymentPlan: {

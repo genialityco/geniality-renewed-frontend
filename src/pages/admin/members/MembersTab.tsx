@@ -408,7 +408,9 @@ export default function MembersTab() {
         const rawPlan = user.payment_plan_id;
         const planInfo = isPaymentPlan(rawPlan) ? rawPlan : undefined;
 
-        const rowData: Record<string, string | number> = {};
+        const rowData: Record<string, string | number> = {
+          "_id": String(user._id),
+        };
 
         propsToExport.forEach(
           (prop: { name: string; type: string; label: string }) => {
@@ -453,6 +455,7 @@ export default function MembersTab() {
       });
 
       const headers = [
+        "_id",
         ...propsToExport.map((prop: { label: string }) =>
           stripHtml(String(prop.label))
         ),
