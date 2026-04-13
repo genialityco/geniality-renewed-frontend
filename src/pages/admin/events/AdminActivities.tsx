@@ -100,7 +100,10 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
     Promise.all([
       getActivitiesByEvent(eventId),
       getModulesByEventId(eventId),
-      fetchHostsByEventId(eventId),
+      fetchHostsByEventId(eventId).catch((error) => {
+        console.warn("No se pudieron cargar los hosts:", error);
+        return []; // Retornar array vacío si falla
+      }),
     ])
       .then(([acts, mods, hs]) => {
         setActivities(acts);

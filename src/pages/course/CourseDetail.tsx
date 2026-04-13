@@ -222,8 +222,16 @@ export default function CourseDetail() {
           setModules(modulesData);
           const activitiesData = await getActivitiesByEvent(eventId);
           setActivities(activitiesData);
-          const hostData = await fetchHostsByEventId(eventId);
-          setHosts(hostData);
+          
+          // Cargar hosts con manejo de errores
+          try {
+            const hostData = await fetchHostsByEventId(eventId);
+            setHosts(hostData);
+          } catch (error) {
+            console.warn("No se pudieron cargar los hosts del evento:", error);
+            setHosts([]); // Continuar sin hosts si falla
+          }
+          
           const quizData = await getQuizByEventId(eventId);
           setQuiz(quizData);
           if (quizData && userId) {
