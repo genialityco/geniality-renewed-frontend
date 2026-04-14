@@ -1,5 +1,5 @@
 import { Tabs, Badge, Group, Text, Box } from "@mantine/core";
-import { IconBook, IconVideo, IconStar } from "@tabler/icons-react";
+import { IconBook, IconVideo, IconStar, IconMessage } from "@tabler/icons-react";
 import EventsGrid from "./EventsGrid";
 import ActivitiesGrid from "./ActivitiesGrid";
 import { Event } from "../../../services/types";
@@ -16,6 +16,8 @@ type ActivityTabProps = {
   onPageChange: (page: number) => void;
   searching: boolean;
   organizationId: string;
+  userId: string;
+  userName: string;
   onActivityClick: (activityId: string, t?: number) => void;
   onFragmentClick: (
     activityId: string,
@@ -97,6 +99,15 @@ export default function OrganizationTabs({
               </Group>
             </Tabs.Tab>
           )}
+
+          {memberShipStatus && (
+            <Tabs.Tab
+              value="chat"
+              leftSection={<IconMessage size={16} />}
+            >
+              <Text size="sm">Chat</Text>
+            </Tabs.Tab>
+          )}
         </Tabs.List>
 
         <Tabs.Panel value="courses">
@@ -114,6 +125,21 @@ export default function OrganizationTabs({
               onClick={handleCourseClick}
               memberShipStatus={memberShipStatus}
             />
+          </Tabs.Panel>
+        )}
+
+        {memberShipStatus && (
+          <Tabs.Panel value="chat">
+            <Box p="md">
+              <iframe
+                src={`${import.meta.env.VITE_WIDGET_BASE_URL}/widget/gencampus?api_key=${import.meta.env.VITE_WIDGET_API_KEY}&user_id=${activityTabProps.userId}&user_name=${encodeURIComponent(activityTabProps.userName)}&org_id=${activityTabProps.organizationId}`}
+                width="100%"
+                height="600"
+                frameBorder="0"
+                style={{ borderRadius: "12px", boxShadow: "0 4px 20px rgba(0,0,0,.15)" }}
+                title="Chat"
+              />
+            </Box>
           </Tabs.Panel>
         )}
 
