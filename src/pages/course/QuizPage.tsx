@@ -37,6 +37,10 @@ import {
   getUserAttempts,
 } from "../../services/userQuizAttemptService";
 import { useUser } from "../../context/UserContext";
+import {
+  trackQuizStart,
+  trackQuizSubmit,
+} from "../../utils/analytics";
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -928,6 +932,7 @@ export default function QuizPage() {
   const [attemptsUsed, setAttemptsUsed] = useState(0);
   const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
   const timerExpiredRef = useRef(false);
+  const hasTrackedStartRef = useRef(false);
 
   /** Índice de la pregunta activa en modo "one-by-one" */
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -1004,7 +1009,7 @@ export default function QuizPage() {
   useEffect(() => {
     if (timeLeft === 0 && !timerExpiredRef.current) {
       timerExpiredRef.current = true;
-      handleSubmit();
+      handleSubmit("timeout");
     }
   }, [timeLeft]);
 
@@ -1033,8 +1038,16 @@ export default function QuizPage() {
     }).length;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (submitSource: "manual" | "timeout" = "manual") => {
     if (!quiz || !userId || !quizId) return;
+    trackQuizSubmit(
+      organizationId,
+      eventId,
+      quizId,
+      answeredCount(),
+      quiz.questions.length,
+      submitSource,
+    );
 
     // Construye userAnswers en el formato esperado por el backend
     const userAnswers: UserAnswer[] = quiz.questions.map((q) => {
@@ -1127,6 +1140,17 @@ export default function QuizPage() {
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (!quiz || hasTrackedStartRef.current) return;
+    hasTrackedStartRef.current = true;
+    trackQuizStart(
+      organizationId,
+      eventId,
+      quizId,
+      quiz.config?.questionDisplay ?? "all",
+    );
+  }, [quiz, organizationId, eventId, quizId]);
 
   // ── Estados de carga / error ──
   if (loading)

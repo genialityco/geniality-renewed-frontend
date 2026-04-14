@@ -159,3 +159,84 @@ export function trackPaymentFailed(organizationId?: string, paymentStatus?: stri
     transaction_id: transactionId,
   });
 }
+
+// ─── Quiz ────────────────────────────────────────────────────────────────────
+
+/** Vista/inicio del quiz por parte del usuario */
+export function trackQuizStart(
+  organizationId?: string,
+  eventId?: string,
+  quizId?: string,
+  questionDisplay?: string,
+) {
+  track("quiz_start", {
+    organization_id: organizationId,
+    event_id: eventId,
+    quiz_id: quizId,
+    question_display: questionDisplay,
+  });
+}
+
+/** Envío del quiz (manual o automático por tiempo) */
+export function trackQuizSubmit(
+  organizationId?: string,
+  eventId?: string,
+  quizId?: string,
+  answered?: number,
+  total?: number,
+  submitSource?: string,
+) {
+  track("quiz_submit", {
+    organization_id: organizationId,
+    event_id: eventId,
+    quiz_id: quizId,
+    answered_questions: answered,
+    total_questions: total,
+    submit_source: submitSource,
+  });
+}
+
+/** Vista de resultados del quiz */
+export function trackQuizResultView(
+  organizationId?: string,
+  eventId?: string,
+  quizId?: string,
+  score?: number,
+  passed?: boolean,
+) {
+  track("quiz_result_view", {
+    organization_id: organizationId,
+    event_id: eventId,
+    quiz_id: quizId,
+    score,
+    passed,
+  });
+}
+
+/** Click en reintentar quiz */
+export function trackQuizRetry(
+  organizationId?: string,
+  eventId?: string,
+  quizId?: string,
+) {
+  track("quiz_retry_click", {
+    organization_id: organizationId,
+    event_id: eventId,
+    quiz_id: quizId,
+  });
+}
+
+/** Click para abrir/descargar certificado de quiz */
+export function trackQuizCertificateAction(
+  organizationId?: string,
+  eventId?: string,
+  quizId?: string,
+  mode?: string,
+) {
+  track("quiz_certificate_action", {
+    organization_id: organizationId,
+    event_id: eventId,
+    quiz_id: quizId,
+    mode,
+  });
+}

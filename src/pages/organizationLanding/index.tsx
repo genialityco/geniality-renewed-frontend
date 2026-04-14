@@ -25,6 +25,13 @@ import MembershipStatus from "./components/MembershipStatus";
 import SearchBar from "./components/SearchBar";
 import OrganizationTabs from "./components/OrganizationTabs";
 import SubscriptionModal from "./components/SubscriptionModal";
+import {
+  trackActivityClick,
+  trackCourseClick,
+  trackOpenPaywall,
+  trackSearch,
+  trackSubscriptionStart,
+} from "../../utils/analytics";
 
 const PAYWALL_ORGANIZATION_ID = "63f552d916065937427b3b02";
 
@@ -81,6 +88,7 @@ export default function OrganizationLanding() {
   >([]);
 
   const openPaywall = () => {
+    trackOpenPaywall(organizationId);
     if (shouldShowPaywallMessage) {
       setShowSubscriptionModal(true);
       return;
@@ -486,13 +494,14 @@ export default function OrganizationLanding() {
       <SubscriptionModal
         opened={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
-        onStart={() =>
+        onStart={() => {
+          trackSubscriptionStart(organizationId);
           navigate(
             shouldShowPaywallMessage
               ? `/organization/${organizationId}/iniciar-sesion?payment=1`
               : `/organization/${organizationId}/iniciar-sesion`
-          )
-        }
+          );
+        }}
         organizationId={organizationId}
       />
     </div>
