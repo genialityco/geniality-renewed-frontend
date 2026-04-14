@@ -75,16 +75,21 @@ export interface PagedTranscriptSearchResult {
 export const searchSegments = async (
   query: string,
   page: number = 1,
-  pageSize: number = 10
+  pageSize: number = 10,
+  organizationId?: string
 ): Promise<PagedTranscriptSearchResult> => {
   if (!query) {
     return { data: [], total: 0 };
   }
 
+  const orgParam = organizationId
+    ? `&organizationId=${encodeURIComponent(organizationId)}`
+    : "";
+
   const response = await api.get<PagedTranscriptSearchResult>(
     `/transcript-segments/search?q=${encodeURIComponent(
       query
-    )}&page=${page}&pageSize=${pageSize}`
+    )}&page=${page}&pageSize=${pageSize}${orgParam}`
   );
   return response.data;
 };

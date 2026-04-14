@@ -16,6 +16,7 @@ import {
   TranscriptSearchResult,
 } from "../../services/transcriptSegmentsService";
 import { fetchPaymentPlanByUserId } from "../../services/paymentPlansService";
+import { fetchOrganizationUserByUserId } from "../../services/organizationUserService";
 import { useUser } from "../../context/UserContext";
 import { Organization, Event, Activity } from "../../services/types";
 
@@ -24,13 +25,8 @@ import MembershipStatus from "./components/MembershipStatus";
 import SearchBar from "./components/SearchBar";
 import OrganizationTabs from "./components/OrganizationTabs";
 import SubscriptionModal from "./components/SubscriptionModal";
-import {
-  trackSearch,
-  trackCourseClick,
-  trackActivityClick,
-  trackOpenPaywall,
-  trackSubscriptionStart,
-} from "../../utils/analytics";
+
+const PAYWALL_ORGANIZATION_ID = "63f552d916065937427b3b02";
 
 function isMembershipExpired(paymentPlan: {
   date_until: string | number | Date;
@@ -50,6 +46,7 @@ export default function OrganizationLanding() {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
   const { userId } = useUser();
+  const shouldShowPaywallMessage = organizationId === PAYWALL_ORGANIZATION_ID;
 
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
@@ -60,6 +57,8 @@ export default function OrganizationLanding() {
   const [paymentPlan, setPaymentPlan] = useState<any>(null);
   const [planLoading, setPlanLoading] = useState(true);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+
+  const [memberShipStatus, setMemberShipStatus] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<TranscriptSearchResult[]>(
@@ -82,8 +81,11 @@ export default function OrganizationLanding() {
   >([]);
 
   const openPaywall = () => {
-    trackOpenPaywall(organizationId);
-    setShowSubscriptionModal(true);
+    if (shouldShowPaywallMessage) {
+      setShowSubscriptionModal(true);
+      return;
+    }
+    navigate(`/organization/${organizationId}/iniciar-sesion`);
   };
 
   // -------- DATA FETCHING -----------
@@ -139,6 +141,22 @@ export default function OrganizationLanding() {
     fetchPlan();
   }, [userId]);
 
+  // Fetch memberShipStatus del usuario
+  useEffect(() => {
+    const fetchMemberShipStatus = async () => {
+      try {
+        if (userId) {
+          const orgUser = await fetchOrganizationUserByUserId(userId);
+          setMemberShipStatus(orgUser?.memberShipStatus ?? false);
+        }
+      } catch (error) {
+        console.error("Error fetching organization user:", error);
+        setMemberShipStatus(false);
+      }
+    };
+    fetchMemberShipStatus();
+  }, [userId]);
+
   // ----------- SEARCH LOGIC ------------
   const handleSearch = async () => {
     trackSearch(searchQuery.trim(), organizationId);
@@ -151,8 +169,13 @@ export default function OrganizationLanding() {
       setEventSearchMode(true);
       try {
         const events = await fetchEventByName(query);
+        const eventList = Array.isArray(events) ? events : events ? [events] : [];
         setEventSearchResults(
-          Array.isArray(events) ? events : events ? [events] : []
+          organizationId
+            ? eventList.filter(
+                (event) => String(event.organizer_id) === String(organizationId)
+              )
+            : eventList
         );
       } catch {
         setEventSearchResults([]);
@@ -176,7 +199,12 @@ export default function OrganizationLanding() {
       return;
     }
     try {
-      const paged = await searchSegments(searchQuery, 1, activityLimit);
+      const paged = await searchSegments(
+        searchQuery,
+        1,
+        activityLimit,
+        organizationId
+      );
       setSearchResults(paged.data);
       setActivityTotal(paged.total);
       setSearchPagedResults(paged.data);
@@ -214,7 +242,8 @@ export default function OrganizationLanding() {
         const paged = await searchSegments(
           searchQuery,
           activityPage,
-          activityLimit
+          activityLimit,
+          organizationId
         );
         setSearchResults(paged.data);
         setActivityTotal(paged.total);
@@ -345,7 +374,7 @@ export default function OrganizationLanding() {
   const handleCourseClick = async (eventId: string) => {
     trackCourseClick(eventId);
     if (!userId) {
-      setShowSubscriptionModal(true);
+      openPaywall();
     } else if (!paymentPlan || isMembershipExpired(paymentPlan)) {
       // Navega a pagos o muestra modal según UX deseada
       // openPaymentModal();
@@ -397,7 +426,7 @@ export default function OrganizationLanding() {
   if (!organization) return <Text>Organización no encontrada</Text>;
 
   return (
-    <div style={{ textAlign: "center" }}>
+    <div>
       <OrganizationBanner organization={organization} />
 
       <MembershipStatus
@@ -421,6 +450,7 @@ export default function OrganizationLanding() {
         eventSearchResults={eventSearchResults}
         events={events}
         handleCourseClick={handleCourseClick}
+        memberShipStatus={memberShipStatus}
         activityTabProps={{
           activities: filteredActivities,
           searchResults,
@@ -456,10 +486,13 @@ export default function OrganizationLanding() {
       <SubscriptionModal
         opened={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
-        onStart={() => {
-          trackSubscriptionStart(organizationId);
-          navigate(`/organization/${organizationId}/iniciar-sesion?payment=1`);
-        }}
+        onStart={() =>
+          navigate(
+            shouldShowPaywallMessage
+              ? `/organization/${organizationId}/iniciar-sesion?payment=1`
+              : `/organization/${organizationId}/iniciar-sesion`
+          )
+        }
         organizationId={organizationId}
       />
     </div>

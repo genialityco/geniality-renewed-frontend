@@ -12,6 +12,11 @@ function clearManualLogoutFlag() {
   localStorage.removeItem("manualLogout");
 }
 
+function getLogoutRedirectPath() {
+  const organizationId = localStorage.getItem("lastOrganizationId");
+  return organizationId ? `/organization/${organizationId}` : "/";
+}
+
 // =============== Interceptor de Request ===============
 api.interceptors.request.use(
   (config) => {
@@ -71,7 +76,7 @@ function showSessionEndModal(message: string) {
   // Redirección diferida
   setTimeout(() => {
     localStorage.removeItem("myUserInfo");
-    window.location.href = "/organization/63f552d916065937427b3b02"; // ajusta la ruta si aplica
+    window.location.href = getLogoutRedirectPath();
   }, 3000);
 }
 
@@ -109,8 +114,7 @@ api.interceptors.response.use(
       } catch {}
       localStorage.removeItem("myUserInfo");
       clearManualLogoutFlag();
-      // Redirige aquí si quieres que sea centralizado desde el interceptor:
-      window.location.href = "/organization/63f552d916065937427b3b02";
+      window.location.href = getLogoutRedirectPath();
       return Promise.reject(error);
     }
 

@@ -8,6 +8,7 @@ export interface OrganizationUserPayload {
   user_id: string | User;
   position_id: string;
   payment_plan_id?: string;
+  memberShipStatus?: boolean;
 }
 
 /**
@@ -73,12 +74,23 @@ export const fetchAllOrganizationUsersByOrganizationId = async (
   organizationId: string,
   search = ""
 ): Promise<OrganizationUser[]> => {
-  let url = `/organization-users/all-by-organization/${organizationId}`;
-  if (search && search.trim()) {
-    url += `?search=${encodeURIComponent(search)}`;
+  const limit = 500;
+  let page = 1;
+  let all: OrganizationUser[] = [];
+
+  while (true) {
+    const { results, total } = await fetchOrganizationUsersByOrganizationId(
+      organizationId,
+      page,
+      limit,
+      search
+    );
+    all = [...all, ...results];
+    if (all.length >= total || results.length === 0) break;
+    page++;
   }
-  const response = await api.get<OrganizationUser[]>(url);
-  return response.data;
+
+  return all;
 };
 
 export const deleteOrganizationUser = async (organizationUserId: string) => {

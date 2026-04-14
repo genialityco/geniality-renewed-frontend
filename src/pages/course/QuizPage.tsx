@@ -1,0 +1,1414 @@
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  Container,
+  Loader,
+  Text,
+  Button,
+  Group,
+  Title,
+  Center,
+  Card,
+  Stack,
+  Checkbox,
+  Radio,
+  Badge,
+  Divider,
+  Alert,
+  Progress,
+} from "@mantine/core";
+import {
+  FaArrowLeft,
+  FaCircleCheck,
+  FaClock,
+  FaTriangleExclamation,
+} from "react-icons/fa6";
+import {
+  getQuizById,
+  Quiz,
+  Question,
+  QuestionOption,
+  UserAnswer,
+  EditorBlock,
+  SCT_OPTIONS,
+} from "../../services/QuizService";
+import {
+  submitQuizAttempt,
+  getUserAttempts,
+} from "../../services/userQuizAttemptService";
+import { useUser } from "../../context/UserContext";
+
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
+
+/** Convierte una URL de YouTube (watch, youtu.be, embed) en URL de embed. Retorna null si no es YouTube. */
+function getYoutubeEmbedUrl(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?(?:.*&)?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return `https://www.youtube.com/embed/${match[1]}`;
+  }
+  return null;
+}
+
+/** Renderiza bloques con soporte de imagen y video */
+function BlocksDisplay({
+  blocks,
+  fallback,
+}: {
+  blocks: EditorBlock[];
+  fallback?: string;
+}) {
+  const hasContent = blocks?.length > 0;
+  if (!hasContent)
+    return fallback ? (
+      <Text fw={600} size="md" c="#111">
+        {fallback}
+      </Text>
+    ) : null;
+
+  return (
+    <>
+      {blocks.map((block) => {
+        if (block.type === "image") {
+          return block.content ? (
+            <img
+              key={block.id}
+              src={block.content}
+              alt=""
+              style={{
+                maxWidth: "100%",
+                borderRadius: 8,
+                margin: "6px 0",
+                display: "block",
+              }}
+            />
+          ) : null;
+        }
+        if (block.type === "video") {
+          if (!block.content) return null;
+          const youtubeEmbedUrl = getYoutubeEmbedUrl(block.content);
+          if (youtubeEmbedUrl) {
+            return (
+              <iframe
+                key={block.id}
+                src={youtubeEmbedUrl}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{
+                  width: "100%",
+                  aspectRatio: "16/9",
+                  border: "none",
+                  borderRadius: 8,
+                  margin: "6px 0",
+                  display: "block",
+                }}
+              />
+            );
+          }
+          return (
+            <video
+              key={block.id}
+              src={block.content}
+              controls
+              style={{
+                maxWidth: "100%",
+                borderRadius: 8,
+                margin: "6px 0",
+                display: "block",
+              }}
+            />
+          );
+        }
+        const text = block.content;
+        if (!text) return null;
+        if (block.type === "h1") {
+          return (
+            <Text key={block.id} fw={700} size="xl" mb={4} c="#111">
+              {text}
+            </Text>
+          );
+        }
+        if (block.type === "h2") {
+          return (
+            <Text key={block.id} fw={700} size="lg" mb={4} c="#111">
+              {text}
+            </Text>
+          );
+        }
+        if (block.type === "bullet-list") {
+          return (
+            <Text key={block.id} size="md" c="#111">
+              • {text}
+            </Text>
+          );
+        }
+        if (block.type === "numbered-list") {
+          return (
+            <Text key={block.id} size="md" c="#111">
+              {text}
+            </Text>
+          );
+        }
+        // paragraph
+        return (
+          <Text key={block.id} fw={600} size="md" c="#111">
+            {text}
+          </Text>
+        );
+      })}
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Sub-componentes por tipo
+// ─────────────────────────────────────────────
+
+function SingleQuestion({
+  question,
+  answer,
+  onChange,
+}: {
+  question: Question;
+  answer: string | undefined;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Radio.Group value={answer ?? ""} onChange={onChange}>
+      <Stack gap="xs" mt="sm">
+        {question.options?.map((opt) => (
+          <Card
+            key={opt.id}
+            withBorder
+            radius="md"
+            p="sm"
+            style={{
+              cursor: "pointer",
+              borderColor: answer === opt.id ? "#4dabf7" : "#d9d9d9",
+              background: answer === opt.id ? "#e7f5ff" : "#fff",
+              color: "#111",
+            }}
+            onClick={() => onChange(opt.id)}
+          >
+            <Radio
+              value={opt.id}
+              label={
+                <BlocksDisplay blocks={opt.blocks} fallback="(sin texto)" />
+              }
+            />
+          </Card>
+        ))}
+      </Stack>
+    </Radio.Group>
+  );
+}
+
+function MultipleQuestion({
+  question,
+  answers,
+  onChange,
+}: {
+  question: Question;
+  answers: string[];
+  onChange: (values: string[]) => void;
+}) {
+  const toggle = (id: string) => {
+    if (answers.includes(id)) {
+      onChange(answers.filter((a) => a !== id));
+    } else {
+      onChange([...answers, id]);
+    }
+  };
+
+  return (
+    <Stack gap="xs" mt="sm">
+      {question.options?.map((opt) => {
+        const checked = answers.includes(opt.id);
+        return (
+          <Card
+            key={opt.id}
+            withBorder
+            radius="md"
+            p="sm"
+            style={{
+              cursor: "pointer",
+              borderColor: checked ? "#4dabf7" : "#d9d9d9",
+              background: checked ? "#e7f5ff" : "#fff",
+              color: "#111",
+            }}
+            onClick={() => toggle(opt.id)}
+          >
+            <Checkbox
+              checked={checked}
+              onChange={() => toggle(opt.id)}
+              label={
+                <BlocksDisplay blocks={opt.blocks} fallback="(sin texto)" />
+              }
+            />
+          </Card>
+        );
+      })}
+    </Stack>
+  );
+}
+
+// ── Script Concordance Question ─────────────
+
+/**
+ * Muestra la escala SCT fija (-2 a +2) como opciones de radio.
+ * Las opciones siempre se leen de SCT_OPTIONS para garantizar consistencia.
+ */
+function ScriptConcordanceQuestion({
+  answer,
+  onChange,
+}: {
+  answer: string | undefined;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Radio.Group value={answer ?? ""} onChange={onChange}>
+      <Stack gap="xs" mt="sm">
+        {SCT_OPTIONS.map((opt) => {
+          const label = opt.blocks?.[0]?.content ?? opt.id;
+          return (
+            <Card
+              key={opt.id}
+              withBorder
+              radius="md"
+              p="sm"
+              style={{
+                cursor: "pointer",
+                borderColor: answer === opt.id ? "#4dabf7" : "#d9d9d9",
+                background: answer === opt.id ? "#e7f5ff" : "#fff",
+                color: "#111",
+              }}
+              onClick={() => onChange(opt.id)}
+            >
+              <Radio value={opt.id} label={label} />
+            </Card>
+          );
+        })}
+      </Stack>
+    </Radio.Group>
+  );
+}
+
+// ─────────────────────────────────────────────
+// MatchingPair: visual de líneas entre dos columnas
+// ─────────────────────────────────────────────
+
+function MatchingPair({
+  colAOptions,
+  colB,
+  colLabel,
+  matches,
+  onMatch,
+}: {
+  colAOptions: QuestionOption[];
+  colB: { label: string; options: QuestionOption[] };
+  colLabel: string;
+  /** { [aOptId]: bOptId } */
+  matches: Record<string, string>;
+  onMatch: (aId: string, bId: string | null) => void;
+}) {
+  const [selectedAId, setSelectedAId] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const aRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const bRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [, forceUpdate] = useState(0);
+
+  // Re-mide posiciones después de cada cambio de matches o tamaño
+  useLayoutEffect(() => {
+    forceUpdate((t) => t + 1);
+  }, [matches]);
+
+  useEffect(() => {
+    const observer = new ResizeObserver(() =>
+      forceUpdate((t: number) => t + 1),
+    );
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const getPoint = (
+    el: HTMLDivElement | null,
+    container: HTMLDivElement | null,
+    side: "right" | "left",
+  ) => {
+    if (!el || !container) return null;
+    const er = el.getBoundingClientRect();
+    const cr = container.getBoundingClientRect();
+    return {
+      x: side === "right" ? er.right - cr.left : er.left - cr.left,
+      y: er.top - cr.top + er.height / 2,
+    };
+  };
+
+  // Construye las líneas a dibujar
+  const lines: {
+    aId: string;
+    bId: string;
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+  }[] = [];
+  Object.entries(matches).forEach(([aId, bId]) => {
+    if (!bId) return;
+    const a = getPoint(aRefs.current[aId], containerRef.current, "right");
+    const b = getPoint(bRefs.current[bId], containerRef.current, "left");
+    if (a && b) lines.push({ aId, bId, x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+  });
+
+  const handleAClick = (aId: string) => {
+    setSelectedAId((prev) => (prev === aId ? null : aId));
+  };
+
+  const handleBClick = (bId: string) => {
+    if (selectedAId) {
+      // Si se clica el mismo B que ya está conectado → desconectar
+      if (matches[selectedAId] === bId) {
+        onMatch(selectedAId, null);
+      } else {
+        onMatch(selectedAId, bId);
+      }
+      setSelectedAId(null);
+    } else {
+      // Si no hay A seleccionada, clic en B desconecta esa línea
+      const aMatched = Object.entries(matches).find(([, v]) => v === bId)?.[0];
+      if (aMatched) onMatch(aMatched, null);
+    }
+  };
+
+  const itemBase: React.CSSProperties = {
+    padding: "8px 12px",
+    borderRadius: 8,
+    fontSize: 13,
+    cursor: "pointer",
+    userSelect: "none",
+    transition: "border-color 0.15s, background 0.15s",
+    marginBottom: 8,
+    border: "1.5px solid #d9d9d9",
+    background: "#fff",
+    color: "#111",
+  };
+
+  return (
+    <div>
+      {colLabel !== "B" && (
+        <Text size="xs" c="dimmed" mb="xs" fw={600}>
+          Columna {colLabel}
+        </Text>
+      )}
+      <div
+        ref={containerRef}
+        style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 0,
+        }}
+      >
+        {/* SVG de líneas */}
+        <svg
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+            overflow: "visible",
+            zIndex: 1,
+          }}
+        >
+          <defs>
+            <marker
+              id="arrow"
+              markerWidth="6"
+              markerHeight="6"
+              refX="3"
+              refY="3"
+              orient="auto"
+            >
+              <circle cx="3" cy="3" r="2" fill="#4dabf7" />
+            </marker>
+          </defs>
+          {lines.map((l) => (
+            <line
+              key={`${l.aId}-${l.bId}`}
+              x1={l.x1}
+              y1={l.y1}
+              x2={l.x2}
+              y2={l.y2}
+              stroke="#4dabf7"
+              strokeWidth={2}
+              strokeLinecap="round"
+              markerEnd="url(#arrow)"
+              markerStart="url(#arrow)"
+            />
+          ))}
+          {/* Línea provisional del A seleccionado si ya tiene match */}
+        </svg>
+
+        {/* Columna A */}
+        <div style={{ flex: 1, zIndex: 2 }}>
+          {colAOptions.map((opt) => {
+            const isSelected = selectedAId === opt.id;
+            const isMatched = !!matches[opt.id];
+            return (
+              <div
+                key={opt.id}
+                ref={(el) => {
+                  aRefs.current[opt.id] = el;
+                }}
+                onClick={() => handleAClick(opt.id)}
+                style={{
+                  ...itemBase,
+                  borderColor: isSelected
+                    ? "#4dabf7"
+                    : isMatched
+                      ? "#2c5f2e"
+                      : "#d9d9d9",
+                  background: isSelected
+                    ? "#e7f5ff"
+                    : isMatched
+                      ? "#ebfbee"
+                      : "#fff",
+                  boxShadow: isSelected ? "0 0 0 3px #4dabf730" : "none",
+                }}
+              >
+                <BlocksDisplay blocks={opt.blocks} fallback="(sin texto)" />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Espacio central para las líneas */}
+        <div style={{ minWidth: 64, flexShrink: 0 }} />
+
+        {/* Columna B (u otra) */}
+        <div style={{ flex: 1, zIndex: 2 }}>
+          {colB.options.map((opt) => {
+            const isMatchedToSelected = selectedAId
+              ? matches[selectedAId] === opt.id
+              : false;
+            const isMatched = Object.values(matches).includes(opt.id);
+            return (
+              <div
+                key={opt.id}
+                ref={(el) => {
+                  bRefs.current[opt.id] = el;
+                }}
+                onClick={() => handleBClick(opt.id)}
+                style={{
+                  ...itemBase,
+                  borderColor: isMatchedToSelected
+                    ? "#4dabf7"
+                    : isMatched
+                      ? "#2c5f2e"
+                      : selectedAId
+                        ? "#adb5bd"
+                        : "#d9d9d9",
+                  background: isMatchedToSelected
+                    ? "#e7f5ff"
+                    : isMatched
+                      ? "#ebfbee"
+                      : "#fff",
+                  opacity: selectedAId && !isMatchedToSelected ? 0.85 : 1,
+                }}
+              >
+                <BlocksDisplay blocks={opt.blocks} fallback="(sin texto)" />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Instrucción */}
+      <Text size="xs" c="dimmed" mt={4}>
+        {selectedAId
+          ? "Ahora haz clic en un elemento de la derecha para conectarlo."
+          : "Haz clic en un elemento de la izquierda para comenzar a conectar."}
+      </Text>
+    </div>
+  );
+}
+
+function MatchingQuestion({
+  question,
+  matchingAnswers,
+  onChange,
+}: {
+  question: Question;
+  matchingAnswers: Record<string, Record<string, string>>;
+  onChange: (
+    columnAId: string,
+    columnLabel: string,
+    selectedId: string | null,
+  ) => void;
+}) {
+  const colA = question.columns?.find((c) => c.label === "A");
+  const otherCols = question.columns?.filter((c) => c.label !== "A") ?? [];
+
+  return (
+    <Stack gap="xl" mt="sm">
+      {otherCols.map((col) => {
+        // matches para este par: { [aOptId]: bOptId }
+        const pairMatches: Record<string, string> = {};
+        (colA?.options ?? []).forEach((aOpt) => {
+          const matched = matchingAnswers[aOpt.id]?.[col.label];
+          if (matched) pairMatches[aOpt.id] = matched;
+        });
+
+        return (
+          <MatchingPair
+            key={col.label}
+            colAOptions={colA?.options ?? []}
+            colB={col}
+            colLabel={col.label}
+            matches={pairMatches}
+            onMatch={(aId, bId) => onChange(aId, col.label, bId)}
+          />
+        );
+      })}
+    </Stack>
+  );
+}
+
+function SortingQuestion({
+  question,
+  order,
+  onChange,
+}: {
+  question: Question;
+  order: string[];
+  onChange: (newOrder: string[]) => void;
+}) {
+  const currentOrder =
+    order.length > 0 ? order : (question.options?.map((o) => o.id) ?? []);
+
+  const optionsById = Object.fromEntries(
+    (question.options ?? []).map((o) => [o.id, o]),
+  );
+
+  const dragItem = useRef<number | null>(null);
+  const dragOver = useRef<number | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  const handleDragStart = (i: number) => {
+    dragItem.current = i;
+    setDraggingIndex(i);
+  };
+
+  const handleDragEnter = (i: number) => {
+    dragOver.current = i;
+    setOverIndex(i);
+  };
+
+  const handleDragEnd = () => {
+    if (
+      dragItem.current !== null &&
+      dragOver.current !== null &&
+      dragItem.current !== dragOver.current
+    ) {
+      const newOrd = [...currentOrder];
+      const dragged = newOrd.splice(dragItem.current, 1)[0];
+      newOrd.splice(dragOver.current, 0, dragged);
+      onChange(newOrd);
+    }
+    dragItem.current = null;
+    dragOver.current = null;
+    setDraggingIndex(null);
+    setOverIndex(null);
+  };
+
+  return (
+    <Stack gap="xs" mt="sm">
+      <Text size="xs" c="dimmed" mb={4}>
+        Arrastra los elementos para ordenarlos.
+      </Text>
+      {currentOrder.map((id, i) => {
+        const isDragging = draggingIndex === i;
+        const isOver = overIndex === i && draggingIndex !== i;
+        return (
+          <div
+            key={id}
+            draggable
+            onDragStart={() => handleDragStart(i)}
+            onDragEnter={() => handleDragEnter(i)}
+            onDragOver={(e) => e.preventDefault()}
+            onDragEnd={handleDragEnd}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "10px 14px",
+              borderRadius: 8,
+              border: isOver ? "1.5px dashed #4dabf7" : "1.5px solid #d9d9d9",
+              background: isDragging ? "#f1f3f5" : isOver ? "#e7f5ff" : "#fff",
+              color: "#111",
+              opacity: isDragging ? 0.45 : 1,
+              cursor: "grab",
+              transition: "border-color 0.15s, background 0.15s, opacity 0.15s",
+              userSelect: "none",
+            }}
+          >
+            {/* Handle visual */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 3,
+                flexShrink: 0,
+                opacity: 0.4,
+              }}
+            >
+              {[0, 1, 2].map((row) => (
+                <div key={row} style={{ display: "flex", gap: 3 }}>
+                  {[0, 1].map((dot) => (
+                    <div
+                      key={dot}
+                      style={{
+                        width: 3,
+                        height: 3,
+                        borderRadius: "50%",
+                        background: "#AFAFAF",
+                      }}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Número de posición */}
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: 22,
+                height: 22,
+                borderRadius: 6,
+                background: isOver ? "#d0ebff" : "#f1f3f5",
+                color: isOver ? "#1971c2" : "#495057",
+                fontSize: 11,
+                fontWeight: 700,
+                flexShrink: 0,
+                transition: "background 0.15s, color 0.15s",
+              }}
+            >
+              {i + 1}
+            </span>
+
+            <div style={{ flex: 1 }}>
+              <BlocksDisplay
+                blocks={optionsById[id]?.blocks ?? []}
+                fallback="(sin texto)"
+              />
+            </div>
+          </div>
+        );
+      })}
+    </Stack>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Open Question ────────────────────────────────
+// ─────────────────────────────────────────────
+
+function OpenQuestion({
+  answer,
+  onChange,
+}: {
+  answer: string;
+  onChange: (val: string) => void;
+}) {
+  return (
+    <Stack gap="md">
+      <textarea
+        placeholder="Escribe tu respuesta aquí..."
+        value={answer ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: "100%",
+          minHeight: 120,
+          padding: 12,
+          borderRadius: 8,
+          border: "1.5px solid #d9d9d9",
+          background: "#fff",
+          color: "#111",
+          fontSize: 14,
+          lineHeight: 1.5,
+          fontFamily: "inherit",
+          resize: "vertical",
+        }}
+      />
+    </Stack>
+  );
+}
+
+// ─────────────────────────────────────────────
+// QuestionCard — tarjeta reutilizable por modo
+// ─────────────────────────────────────────────
+
+interface QuestionCardProps {
+  q: Question;
+  i: number;
+  singleAnswers: Record<string, string>;
+  setSingleAnswers: React.Dispatch<
+    React.SetStateAction<Record<string, string>>
+  >;
+  multipleAnswers: Record<string, string[]>;
+  setMultipleAnswers: React.Dispatch<
+    React.SetStateAction<Record<string, string[]>>
+  >;
+  matchingAnswers: Record<string, Record<string, Record<string, string>>>;
+  setMatchingAnswers: React.Dispatch<
+    React.SetStateAction<Record<string, Record<string, Record<string, string>>>>
+  >;
+  sortingOrders: Record<string, string[]>;
+  setSortingOrders: React.Dispatch<
+    React.SetStateAction<Record<string, string[]>>
+  >;
+  openAnswers: Record<string, string>;
+  setOpenAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+}
+
+function QuestionCard({
+  q,
+  i,
+  singleAnswers,
+  setSingleAnswers,
+  multipleAnswers,
+  setMultipleAnswers,
+  matchingAnswers,
+  setMatchingAnswers,
+  sortingOrders,
+  setSortingOrders,
+  openAnswers,
+  setOpenAnswers,
+}: QuestionCardProps) {
+  return (
+    <Card
+      key={q.id}
+      shadow="sm"
+      radius="md"
+      withBorder
+      p="lg"
+      style={{ background: "#fff", color: "#111" }}
+    >
+      <Group gap="xs" mb="xs">
+        <Badge size="sm" variant="filled" color="gray">
+          {i + 1}
+        </Badge>
+        <Badge size="sm" variant="outline" color="blue">
+          {q.type === "single"
+            ? "Opción única"
+            : q.type === "multiple"
+              ? "Opción múltiple"
+              : q.type === "matching"
+                ? "Relacionamiento"
+                : q.type === "script-concordance"
+                  ? "Script Concordance"
+                  : "Ordenamiento"}
+        </Badge>
+      </Group>
+
+      <div style={{ marginBottom: 8 }}>
+        <BlocksDisplay blocks={q.blocks} fallback={`Pregunta ${i + 1}`} />
+      </div>
+
+      <Divider mb="sm" />
+
+      {q.type === "single" && (
+        <SingleQuestion
+          question={q}
+          answer={singleAnswers[q.id]}
+          onChange={(val) =>
+            setSingleAnswers((prev) => ({ ...prev, [q.id]: val }))
+          }
+        />
+      )}
+
+      {q.type === "script-concordance" && (
+        <ScriptConcordanceQuestion
+          answer={singleAnswers[q.id]}
+          onChange={(val) =>
+            setSingleAnswers((prev) => ({ ...prev, [q.id]: val }))
+          }
+        />
+      )}
+
+      {q.type === "multiple" && (
+        <MultipleQuestion
+          question={q}
+          answers={multipleAnswers[q.id] ?? []}
+          onChange={(vals) =>
+            setMultipleAnswers((prev) => ({ ...prev, [q.id]: vals }))
+          }
+        />
+      )}
+
+      {q.type === "matching" && (
+        <MatchingQuestion
+          question={q}
+          matchingAnswers={matchingAnswers[q.id] ?? {}}
+          onChange={(colAId, colLabel, selectedId) =>
+            setMatchingAnswers((prev) => {
+              const qMap = { ...(prev[q.id] ?? {}) };
+              if (selectedId === null) {
+                const aMap = { ...(qMap[colAId] ?? {}) };
+                delete aMap[colLabel];
+                qMap[colAId] = aMap;
+              } else {
+                qMap[colAId] = {
+                  ...(qMap[colAId] ?? {}),
+                  [colLabel]: selectedId,
+                };
+              }
+              return { ...prev, [q.id]: qMap };
+            })
+          }
+        />
+      )}
+
+      {q.type === "sorting" && (
+        <SortingQuestion
+          question={q}
+          order={sortingOrders[q.id] ?? []}
+          onChange={(newOrder) =>
+            setSortingOrders((prev) => ({ ...prev, [q.id]: newOrder }))
+          }
+        />
+      )}
+
+      {q.type === "open" && (
+        <OpenQuestion
+          answer={openAnswers[q.id] ?? ""}
+          onChange={(val) =>
+            setOpenAnswers((prev) => ({ ...prev, [q.id]: val }))
+          }
+        />
+      )}
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Página principal
+// ─────────────────────────────────────────────
+
+export default function QuizPage() {
+  const { organizationId, eventId, quizId } = useParams<{
+    organizationId: string;
+    eventId: string;
+    quizId: string;
+  }>();
+  const navigate = useNavigate();
+  const { userId } = useUser();
+
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /** Segundos restantes para completar el examen. null = sin límite. */
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  /** true cuando el usuario ya agotó sus intentos permitidos */
+  const [attemptsBlocked, setAttemptsBlocked] = useState(false);
+  const [attemptsUsed, setAttemptsUsed] = useState(0);
+  const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
+  const timerExpiredRef = useRef(false);
+
+  /** Índice de la pregunta activa en modo "one-by-one" */
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
+  // Respuestas del usuario por questionId
+  const [singleAnswers, setSingleAnswers] = useState<Record<string, string>>(
+    {},
+  );
+  const [multipleAnswers, setMultipleAnswers] = useState<
+    Record<string, string[]>
+  >({});
+  // matchingAnswers: { [columnAOptionId]: { [colLabel]: selectedOptionId } }
+  const [matchingAnswers, setMatchingAnswers] = useState<
+    Record<string, Record<string, Record<string, string>>>
+  >({});
+  const [sortingOrders, setSortingOrders] = useState<Record<string, string[]>>(
+    {},
+  );
+  // openAnswers: respuestas de texto para preguntas abiertas
+  const [openAnswers, setOpenAnswers] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!quizId || quizId === "undefined") return;
+    (async () => {
+      try {
+        const data = await getQuizById(quizId);
+        setQuiz(data);
+
+        // ── Verificar intentos ──
+        const cfg = data.config;
+        if (cfg?.attempts != null && userId) {
+          setMaxAttempts(cfg.attempts);
+          // Cargar intentos del usuario desde la nueva colección (tolerante a errores si el endpoint no existe aún)
+          try {
+            const userAttempts = await getUserAttempts(quizId, userId);
+            setAttemptsUsed(userAttempts.length);
+            if (userAttempts.length >= cfg.attempts) {
+              setAttemptsBlocked(true);
+            }
+          } catch {
+            // Si el servicio de intentos no está disponible, asumir 0 intentos
+            setAttemptsUsed(0);
+          }
+        }
+
+        // ── Iniciar temporizador ──
+        if (cfg?.time != null && cfg.time > 0) {
+          setTimeLeft(cfg.time * 60);
+        }
+      } catch (e: any) {
+        setError(e?.response?.data?.message ?? "Error al cargar el examen.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [quizId, userId]);
+
+  // ── Countdown ──
+  useEffect(() => {
+    if (timeLeft === null || timeLeft <= 0) return;
+    const id = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(id);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [timeLeft === null ? null : "active"]);
+
+  // ── Auto-enviar cuando el tiempo se agota ──
+  useEffect(() => {
+    if (timeLeft === 0 && !timerExpiredRef.current) {
+      timerExpiredRef.current = true;
+      handleSubmit();
+    }
+  }, [timeLeft]);
+
+  const handleBack = () =>
+    navigate(`/organization/${organizationId}/course/${eventId}`);
+
+  const answeredCount = () => {
+    if (!quiz) return 0;
+    return quiz.questions.filter((q) => {
+      if (q.type === "single") return !!singleAnswers[q.id];
+      if (q.type === "script-concordance") return !!singleAnswers[q.id];
+      if (q.type === "multiple")
+        return (multipleAnswers[q.id]?.length ?? 0) > 0;
+      if (q.type === "matching") {
+        const colA = q.columns?.find((c) => c.label === "A");
+        const otherCols = q.columns?.filter((c) => c.label !== "A") ?? [];
+        return colA?.options.every((aOpt) =>
+          otherCols.every(
+            (col) => matchingAnswers[q.id]?.[aOpt.id]?.[col.label],
+          ),
+        );
+      }
+      if (q.type === "sorting") return (sortingOrders[q.id]?.length ?? 0) > 0;
+      if (q.type === "open") return !!openAnswers[q.id]?.trim();
+      return false;
+    }).length;
+  };
+
+  const handleSubmit = async () => {
+    if (!quiz || !userId || !quizId) return;
+
+    // Construye userAnswers en el formato esperado por el backend
+    const userAnswers: UserAnswer[] = quiz.questions.map((q) => {
+      if (q.type === "single" || q.type === "script-concordance") {
+        return { questionId: q.id, answer: singleAnswers[q.id] ?? "" };
+      }
+      if (q.type === "multiple") {
+        return { questionId: q.id, answer: multipleAnswers[q.id] ?? [] };
+      }
+      if (q.type === "sorting") {
+        const order =
+          (sortingOrders[q.id]?.length ?? 0) > 0
+            ? sortingOrders[q.id]
+            : (q.options?.map((o) => o.id) ?? []);
+        return { questionId: q.id, answer: order };
+      }
+      if (q.type === "matching") {
+        // Convierte { [colAId]: { [colLabel]: optionId } } → MatchingAnswer[]
+        const ma = Object.entries(matchingAnswers[q.id] ?? {}).map(
+          ([columnAId, matches]) => ({ columnAId, matches }),
+        );
+        return { questionId: q.id, answer: ma };
+      }
+      if (q.type === "open") {
+        return { questionId: q.id, answer: openAnswers[q.id] ?? "" };
+      }
+      return { questionId: q.id, answer: "" };
+    });
+
+    // Detecta si hay preguntas abiertas
+    const hasOpenQuestions = quiz.questions.some((q) => q.type === "open");
+
+    // Calcula score localmente (porcentaje de preguntas correctas)
+    // Solo cuenta preguntas que se pueden calificar automáticamente (no-abiertas)
+    let correct = 0;
+    let autoGradable = 0; // Preguntas que se pueden calificar automáticamente
+
+    quiz.questions.forEach((q) => {
+      // Las preguntas abiertas no se cuentan en score automático
+      if (q.type === "open") return;
+
+      autoGradable++;
+
+      if (q.type === "single" || q.type === "script-concordance") {
+        if (singleAnswers[q.id] && singleAnswers[q.id] === q.correctAnswer)
+          correct++;
+      } else if (q.type === "multiple") {
+        const selected = multipleAnswers[q.id] ?? [];
+        const expected = q.correctAnswers ?? [];
+        if (
+          selected.length === expected.length &&
+          expected.every((id) => selected.includes(id))
+        )
+          correct++;
+      } else if (q.type === "sorting") {
+        const order =
+          (sortingOrders[q.id]?.length ?? 0) > 0
+            ? sortingOrders[q.id]
+            : (q.options?.map((o) => o.id) ?? []);
+        const expected = q.correctOrder ?? [];
+        if (
+          order.length === expected.length &&
+          order.every((id, i) => id === expected[i])
+        )
+          correct++;
+      } else if (q.type === "matching") {
+        const expected = q.matchingAnswers ?? [];
+        const allMatch = expected.every((exp) => {
+          const userMatches = matchingAnswers[q.id]?.[exp.columnAId] ?? {};
+          return Object.entries(exp.matches).every(
+            ([col, id]) => userMatches[col] === id,
+          );
+        });
+        if (allMatch && expected.length > 0) correct++;
+      }
+    });
+
+    try {
+      setSubmitting(true);
+      await submitQuizAttempt(quizId, {
+        userId,
+        userAnswers,
+        hasOpenQuestions,
+      });
+      navigate(
+        `/organization/${organizationId}/course/${eventId}/quiz/${quizId}/result`,
+      );
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? "Error al enviar el examen.");
+      setSubmitting(false);
+    }
+  };
+
+  // ── Estados de carga / error ──
+  if (loading)
+    return (
+      <Center mt="xl">
+        <Loader />
+      </Center>
+    );
+
+  if (error)
+    return (
+      <Container mt="xl">
+        <Alert icon={<FaTriangleExclamation />} color="red" mb="md">
+          {error}
+        </Alert>
+        <Button variant="subtle" onClick={handleBack}>
+          Volver al curso
+        </Button>
+      </Container>
+    );
+
+  if (!quiz)
+    return (
+      <Container mt="xl">
+        <Text>Examen no encontrado.</Text>
+        <Button mt="md" variant="subtle" onClick={handleBack}>
+          Volver al curso
+        </Button>
+      </Container>
+    );
+
+  // ── Intentos agotados ──
+  if (attemptsBlocked)
+    return (
+      <Container size="sm" mt="xl">
+        <Alert
+          icon={<FaTriangleExclamation size={16} />}
+          color="red"
+          title="Intentos agotados"
+          mb="md"
+        >
+          Has utilizado los {maxAttempts} intento{maxAttempts !== 1 ? "s" : ""}{" "}
+          permitido
+          {maxAttempts !== 1 ? "s" : ""} para este examen. Ya no puedes volver a
+          intentarlo.
+        </Alert>
+        <Button
+          variant="subtle"
+          leftSection={<FaArrowLeft size={14} />}
+          onClick={handleBack}
+        >
+          Volver al curso
+        </Button>
+      </Container>
+    );
+
+  const total = quiz.questions.length;
+  const answered = answeredCount();
+  const isOneByOne = (quiz.config?.questionDisplay ?? "all") === "one-by-one";
+
+  /** Devuelve true si la pregunta en el índice dado está respondida. */
+  const isQuestionAnswered = (idx: number): boolean => {
+    const q = quiz.questions[idx];
+    if (!q) return false;
+    if (q.type === "single") return !!singleAnswers[q.id];
+    if (q.type === "script-concordance") return !!singleAnswers[q.id];
+    if (q.type === "multiple") return (multipleAnswers[q.id]?.length ?? 0) > 0;
+    if (q.type === "sorting") return (sortingOrders[q.id]?.length ?? 0) > 0;
+    if (q.type === "open") return !!openAnswers[q.id]?.trim();
+    if (q.type === "matching") {
+      const colA = q.columns?.find((c) => c.label === "A");
+      const otherCols = q.columns?.filter((c) => c.label !== "A") ?? [];
+      return (
+        colA?.options.every((aOpt) =>
+          otherCols.every(
+            (col) => matchingAnswers[q.id]?.[aOpt.id]?.[col.label],
+          ),
+        ) ?? false
+      );
+    }
+    return false;
+  };
+
+  /** Formatea segundos como MM:SS */
+  const formatTime = (secs: number): string => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  const timerColor =
+    timeLeft !== null && timeLeft <= 60
+      ? "red"
+      : timeLeft !== null && timeLeft <= 300
+        ? "orange"
+        : "blue";
+
+  return (
+    <Container size="md" py="xl">
+      {/* Cabecera */}
+      <Group justify="space-between" mb="lg">
+        <Button
+          variant="subtle"
+          leftSection={<FaArrowLeft size={14} />}
+          onClick={handleBack}
+        >
+          Volver al curso
+        </Button>
+        <Group gap="xs">
+          {timeLeft !== null && (
+            <Badge
+              size="lg"
+              variant="filled"
+              color={timerColor}
+              leftSection={<FaClock size={12} />}
+            >
+              {formatTime(timeLeft)}
+            </Badge>
+          )}
+          {maxAttempts !== null && (
+            <Badge size="lg" variant="light" color="gray">
+              Intento {attemptsUsed + 1}/{maxAttempts}
+            </Badge>
+          )}
+          <Badge
+            size="lg"
+            variant="light"
+            color={answered === total ? "teal" : "blue"}
+          >
+            {answered}/{total} respondidas
+          </Badge>
+        </Group>
+      </Group>
+
+      <Title order={2} mb={4}>
+        Examen del curso
+      </Title>
+      <Text c="dimmed" size="sm" mb="md">
+        {isOneByOne
+          ? "Responde cada pregunta y avanza. No podrás regresar."
+          : 'Responde todas las preguntas y haz clic en "Enviar examen".'}
+      </Text>
+
+      {timeLeft !== null && timeLeft <= 60 && (
+        <Alert icon={<FaClock size={14} />} color="red" mb="md">
+          ¡Menos de 1 minuto! El examen se enviará automáticamente cuando el
+          tiempo se agote.
+        </Alert>
+      )}
+
+      <Progress
+        value={
+          isOneByOne
+            ? (currentQuestionIndex / total) * 100
+            : (answered / total) * 100
+        }
+        size="sm"
+        color={isOneByOne ? "blue" : answered === total ? "teal" : "blue"}
+        mb={isOneByOne ? "xs" : "xl"}
+        radius="xl"
+      />
+      {isOneByOne && (
+        <Text size="xs" c="dimmed" ta="right" mb="xl">
+          Pregunta {currentQuestionIndex + 1} de {total}
+        </Text>
+      )}
+
+      {/* ── Preguntas (modo "all") ── */}
+      {!isOneByOne && (
+        <Stack gap="xl">
+          {quiz.questions.map((q, i) => (
+            <QuestionCard
+              key={q.id}
+              q={q}
+              i={i}
+              singleAnswers={singleAnswers}
+              setSingleAnswers={setSingleAnswers}
+              multipleAnswers={multipleAnswers}
+              setMultipleAnswers={setMultipleAnswers}
+              matchingAnswers={matchingAnswers}
+              setMatchingAnswers={setMatchingAnswers}
+              sortingOrders={sortingOrders}
+              setSortingOrders={setSortingOrders}
+              openAnswers={openAnswers}
+              setOpenAnswers={setOpenAnswers}
+            />
+          ))}
+        </Stack>
+      )}
+
+      {/* ── Pregunta actual (modo "one-by-one") ── */}
+      {isOneByOne && (
+        <QuestionCard
+          q={quiz.questions[currentQuestionIndex]}
+          i={currentQuestionIndex}
+          singleAnswers={singleAnswers}
+          setSingleAnswers={setSingleAnswers}
+          multipleAnswers={multipleAnswers}
+          setMultipleAnswers={setMultipleAnswers}
+          matchingAnswers={matchingAnswers}
+          setMatchingAnswers={setMatchingAnswers}
+          sortingOrders={sortingOrders}
+          setSortingOrders={setSortingOrders}
+          openAnswers={openAnswers}
+          setOpenAnswers={setOpenAnswers}
+        />
+      )}
+
+      {/* ── Botón de envío (modo "all") ── */}
+      {!isOneByOne && (
+        <Card mt="xl" shadow="sm" radius="md" withBorder p="lg">
+          {answered < total && (
+            <Alert
+              icon={<FaTriangleExclamation size={14} />}
+              color="yellow"
+              mb="md"
+            >
+              Tienes {total - answered} pregunta
+              {total - answered !== 1 ? "s" : ""} sin responder. Puedes enviar
+              de todas formas.
+            </Alert>
+          )}
+          {answered === total && (
+            <Alert icon={<FaCircleCheck size={14} />} color="teal" mb="md">
+              ¡Respondiste todas las preguntas!
+            </Alert>
+          )}
+          <Button
+            fullWidth
+            size="md"
+            color="blue"
+            loading={submitting}
+            onClick={handleSubmit}
+          >
+            Enviar examen
+          </Button>
+        </Card>
+      )}
+
+      {/* ── Navegación (modo "one-by-one") ── */}
+      {isOneByOne && (
+        <Card mt="xl" shadow="sm" radius="md" withBorder p="lg">
+          {!isQuestionAnswered(currentQuestionIndex) && (
+            <Alert
+              icon={<FaTriangleExclamation size={14} />}
+              color="yellow"
+              mb="md"
+            >
+              Responde esta pregunta para poder avanzar.
+            </Alert>
+          )}
+          {currentQuestionIndex < total - 1 ? (
+            <Button
+              fullWidth
+              size="md"
+              color="blue"
+              disabled={!isQuestionAnswered(currentQuestionIndex)}
+              onClick={() => setCurrentQuestionIndex((prev) => prev + 1)}
+            >
+              Siguiente pregunta →
+            </Button>
+          ) : (
+            <>
+              {isQuestionAnswered(currentQuestionIndex) && (
+                <Alert icon={<FaCircleCheck size={14} />} color="teal" mb="md">
+                  ¡Respondiste todas las preguntas!
+                </Alert>
+              )}
+              <Button
+                fullWidth
+                size="md"
+                color="teal"
+                loading={submitting}
+                disabled={!isQuestionAnswered(currentQuestionIndex)}
+                onClick={handleSubmit}
+              >
+                Enviar examen
+              </Button>
+            </>
+          )}
+        </Card>
+      )}
+    </Container>
+  );
+}

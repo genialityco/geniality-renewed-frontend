@@ -32,6 +32,7 @@ import {
 import {
   fetchPaymentPlanByUserId,
   updatePaymentPlanDateUntil,
+  createPaymentPlan,
 } from "../services/paymentPlansService";
 
 interface SignUpData {
@@ -51,6 +52,7 @@ interface AdminCreateUserData {
   positionId: string;
   rolId: string;
   password: string;
+  memberShipStatus?: boolean;
 }
 
 interface UserContextValue {
@@ -66,6 +68,21 @@ interface UserContextValue {
   signOut: () => Promise<void>;
   adminCreateMember?: typeof adminCreateMember;
   adminCreateUserAndOrganizationUser?: typeof adminCreateUserAndOrganizationUser;
+}
+
+function extractOrganizationId(organizationUser: any): string | null {
+  const raw = organizationUser?.organization_id;
+  if (!raw) return null;
+  if (typeof raw === "string") return raw;
+  if (typeof raw === "object" && typeof raw._id === "string") return raw._id;
+  return null;
+}
+
+function persistLastOrganizationId(organizationUser: any) {
+  const organizationId = extractOrganizationId(organizationUser);
+  if (organizationId) {
+    localStorage.setItem("lastOrganizationId", organizationId);
+  }
 }
 
 /**
@@ -91,7 +108,7 @@ export async function adminCreateMember(data: AdminCreateUserData) {
     firebaseUser = await createUserWithEmailAndPassword(
       auth,
       data.email,
-      data.password
+      data.password,
     );
 
     // 2) Crear en /users (backend)
@@ -109,6 +126,7 @@ export async function adminCreateMember(data: AdminCreateUserData) {
       position_id: data.positionId,
       rol_id: data.rolId,
       properties: data.properties,
+      memberShipStatus: data.memberShipStatus,
     });
 
     return { user: userRecord, organizationUser: organizationUserRecord };
@@ -130,7 +148,7 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
     firebaseUser = await createUserWithEmailAndPassword(
       auth,
       data.email,
-      data.password
+      data.password,
     );
     // 2) Crea el usuario en el backend
     userRecord = await createOrUpdateUser({
@@ -147,6 +165,7 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
       position_id: data.positionId,
       rol_id: data.rolId,
       properties: data.properties,
+      memberShipStatus: data.memberShipStatus,
     });
 
     return { user: userRecord, organizationUser: organizationUserRecord };
@@ -156,7 +175,7 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
       const organizationUser = await fetchOrganizationUserByEmail(data.email);
       if (!organizationUser) {
         throw new Error(
-          "El usuario ya existe pero no se encontró su registro en la organización."
+          "El usuario ya existe pero no se encontró su registro en la organización.",
         );
       }
 
@@ -174,6 +193,10 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
         rol_id: data.rolId || organizationUser.rol_id,
         properties: mergedProperties,
         payment_plan_id: organizationUser.payment_plan_id,
+        memberShipStatus:
+          data.memberShipStatus !== undefined
+            ? data.memberShipStatus
+            : organizationUser.memberShipStatus,
       });
 
       // Si tiene payment_plan_id, actualiza date_until
@@ -182,7 +205,7 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
           const paymentPlan = await fetchPaymentPlanByUserId(
             typeof organizationUser.user_id === "string"
               ? organizationUser.user_id
-              : organizationUser.user_id?._id
+              : organizationUser.user_id?._id,
           );
           const names = organizationUser.properties.nombres
             ? organizationUser.properties.nombres
@@ -194,7 +217,7 @@ async function adminCreateUserAndOrganizationUser(data: AdminCreateUserData) {
             await updatePaymentPlanDateUntil(
               paymentPlan._id,
               newDate.toISOString(),
-              names
+              names,
             );
           }
         } catch {
@@ -224,7 +247,7 @@ const UserContext = createContext<
   signOut: async () => {},
   adminCreateUserAndOrganizationUser: undefined,
   sessionToken: null,
-  adminCreateMember: undefined
+  adminCreateMember: undefined,
 });
 
 export function UserProvider({ children }: { children: ReactNode }) {
@@ -280,9 +303,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
             setUserId(userData._id);
             setName(userData.name || userData.names);
             setEmail(userData.email);
-            setOrganizationUserData(
-              await fetchOrganizationUserByUserId(userData._id)
-            );
+            const orgUser = await fetchOrganizationUserByUserId(userData._id);
+            setOrganizationUserData(orgUser);
+            persistLastOrganizationId(orgUser);
           } catch {
             console.error("Error validando sesión múltiple (max 2)");
             await signOut();
@@ -314,12 +337,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     // 4) Data adicional (org user)
     const organizationUserData = await fetchOrganizationUserByUserId(
-      userData._id
+      userData._id,
     );
 
     // 5) Estado React
     setUserId(userData._id);
     setOrganizationUserData(organizationUserData);
+    persistLastOrganizationId(organizationUserData);
     setName(userData.name || userData.names);
     setEmail(userData.email);
     setSessionToken(sessionToken);
@@ -329,7 +353,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       JSON.stringify({
         ...userData,
         sessionToken, // ← SOLO el tuyo
-      })
+      }),
     );
   }, []);
 
@@ -353,21 +377,39 @@ export function UserProvider({ children }: { children: ReactNode }) {
       throw new Error("Faltan datos requeridos: nombres y/o correo.");
     }
 
-    // 1) Firebase Auth
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    const uid = result.user.uid;
+    // 1) Firebase Auth — si el email ya existe, intentar login con las mismas credenciales
+    //    (el usuario puede estar registrado en otra organización)
+    let uid: string;
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      uid = result.user.uid;
+    } catch (err: any) {
+      if (err?.code === "auth/email-already-in-use") {
+        try {
+          const result = await signInWithEmailAndPassword(auth, email, password);
+          uid = result.user.uid;
+        } catch (signInErr: any) {
+          console.error("[signUp] signInWithEmailAndPassword falló:", signInErr);
+          throw signInErr;
+        }
+      } else {
+        console.error("[signUp] createUserWithEmailAndPassword falló:", err);
+        throw err;
+      }
+    }
 
     // 2) /users
     const userRecord = await createOrUpdateUser({
       uid,
       email,
       names: fullName, // ¡Envíalo así!
-      password
+      password,
       // ...otros (no sobrescribir names con properties)
     });
 
     // 3) /organization-users
-    await createOrUpdateOrganizationUser({
+
+    const organizationUserRecord = await createOrUpdateOrganizationUser({
       user_id: userRecord._id,
       organization_id: organizationId,
       position_id: positionId,
@@ -375,20 +417,47 @@ export function UserProvider({ children }: { children: ReactNode }) {
       properties,
     });
 
+    if (organizationId === "69b8b6a29eb40b31cec35d88") {
+      const newPlan = await createPaymentPlan({
+        days: 365,
+        date_until: new Date(
+          new Date().setDate(new Date().getDate() + 365),
+        ).toISOString(),
+        price: 50000,
+        organization_user_id: organizationUserRecord._id,
+        source: "manual",
+      });
+
+      await createOrUpdateOrganizationUser({
+        properties: organizationUserRecord.properties ,
+        rol_id: organizationUserRecord.rol_id ,
+        organization_id: organizationUserRecord.organization_id ,
+        position_id: organizationUserRecord.position_id ,
+        user_id: organizationUserRecord.user_id,
+        payment_plan_id: newPlan._id,
+      });
+    }
+
     const sessionToken = await refreshSessionToken(uid);
     // Estado y localStorage
     setUserId(userRecord._id);
+    setOrganizationUserData(organizationUserRecord);
+    persistLastOrganizationId(organizationUserRecord);
     setName(userRecord.names); // <- usar 'names' aquí también
     setEmail(userRecord.email);
     setSessionToken(sessionToken);
     localStorage.setItem(
       "myUserInfo",
-      JSON.stringify({ ...userRecord, sessionToken })
+      JSON.stringify({ ...userRecord, sessionToken }),
     );
   }, []);
 
   // signOut: Firebase + limpiar estado
   const signOut = useCallback(async () => {
+    const targetOrganizationId =
+      extractOrganizationId(organizationUserData) ||
+      localStorage.getItem("lastOrganizationId");
+
     const info = localStorage.getItem("myUserInfo");
     const { uid, sessionToken } = info ? JSON.parse(info) : {};
 
@@ -405,10 +474,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
     } catch {}
     setFirebaseUser(null);
     setUserId(null);
+    setOrganizationUserData(null);
     setName("");
     setEmail("");
     localStorage.removeItem("myUserInfo");
-  }, []);
+    localStorage.removeItem("manualLogout");
+
+    if (typeof window !== "undefined") {
+      if (targetOrganizationId) {
+        window.location.href = `/organization/${targetOrganizationId}`;
+      } else {
+        window.location.href = "/";
+      }
+    }
+  }, [organizationUserData]);
 
   return (
     <UserContext.Provider
@@ -424,7 +503,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         signUp,
         signOut,
         adminCreateUserAndOrganizationUser,
-        adminCreateMember
+        adminCreateMember,
       }}
     >
       {children}

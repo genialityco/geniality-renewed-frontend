@@ -19,11 +19,20 @@ interface Props {
   onClose: () => void;
   user: OrganizationUser | null;
   userProps: UserProperty[];
-  onSave: (updatedProperties: any) => void;
+  onSave: (updatedProperties: any, memberShipStatus?: boolean) => void;
   mode?: "edit" | "create";
 }
 
 type AnyRecord = Record<string, any>;
+
+function isValidPropConfig(prop: UserProperty): boolean {
+  const hasValidName =
+    typeof prop?.name === "string" && prop.name.trim().length > 0;
+  const hasValidType =
+    typeof (prop as any)?.type === "string" &&
+    String((prop as any).type).trim().length > 0;
+  return hasValidName && hasValidType;
+}
 
 function normalizeName(
   name?: string
@@ -59,10 +68,14 @@ export default function EditUserModal({
   const isCreateMode = mode === "create";
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [memberShipStatus, setMemberShipStatus] = useState(false);
 
   // Sólo props visibles
   const visibleProps = useMemo(
-    () => (userProps ?? []).filter((p) => (p as any).visible !== false),
+    () =>
+      (userProps ?? []).filter(
+        (p) => (p as any).visible !== false && isValidPropConfig(p)
+      ),
     [userProps]
   );
 
@@ -328,6 +341,7 @@ export default function EditUserModal({
         const t = prop.type.toLowerCase();
         initialValues[prop.name] = t === "boolean" ? false : "";
       });
+      setMemberShipStatus(false);
     } else if (user) {
       visibleProps.forEach((prop) => {
         const name = prop.name;
@@ -340,6 +354,7 @@ export default function EditUserModal({
           initialValues[name] = raw ?? "";
         }
       });
+      setMemberShipStatus(user.memberShipStatus ?? false);
     }
 
     form.setValues(initialValues);
@@ -678,7 +693,7 @@ export default function EditUserModal({
         if (allowed.has(k)) filtered[k] = values[k];
       });
 
-      await onSave(filtered);
+      await onSave(filtered, memberShipStatus);
     } catch (error) {
       // Si hay error, desactivar el estado de carga
       setIsSubmitting(false);
@@ -714,6 +729,13 @@ export default function EditUserModal({
         ) : (
           visibleProps.map(renderField)
         )}
+        <Checkbox
+          label="Miembro exclusivo"
+          description="Acceso a eventos exclusivos para miembros"
+          checked={memberShipStatus}
+          onChange={(e) => setMemberShipStatus(e.currentTarget.checked)}
+          disabled={isSubmitting}
+        />
         <Button
           onClick={() => handleSubmit(form.values)}
           mt="md"

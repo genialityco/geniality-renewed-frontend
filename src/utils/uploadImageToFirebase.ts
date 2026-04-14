@@ -2,7 +2,10 @@
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../firebase/firebaseConfig";
 
-export async function uploadImageToFirebase(file: File, folder = "event_images") {
+export async function uploadImageToFirebase(
+  file: File,
+  folder = "event_images",
+) {
   const path = `${folder}/${Date.now()}_${file.name}`;
   try {
     const fileRef = ref(storage, path);

@@ -1,7 +1,18 @@
 import { useNavigate } from "react-router-dom";
-import { Card, Image, Text, Title, Grid, Flex, Highlight } from "@mantine/core";
+import {
+  Box,
+  Image,
+  Text,
+  Group,
+  Highlight,
+  UnstyledButton,
+} from "@mantine/core";
+import { IconClock } from "@tabler/icons-react";
 import { Activity } from "../services/types";
 import { useEffect, useState } from "react";
+
+const ACTIVITY_PLACEHOLDER =
+  "https://placehold.co/120x120/e9ecef/adb5bd?text=·";
 
 interface MatchedSegment {
   segmentId: string;
@@ -18,14 +29,13 @@ interface ActivityCardProps {
   organizationId: string;
   onCardClick?: (activityId: string) => void;
   onFragmentClick?: (seg: MatchedSegment) => void;
-  onEventClick?: (eventId: string) => void; // 👈 Nuevo
+  onEventClick?: (eventId: string) => void;
 }
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
-  const secsString = secs < 10 ? `0${secs}` : secs.toString();
-  return `${mins}:${secsString}`;
+  return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 }
 
 const ActivityCard: React.FC<ActivityCardProps> = ({
@@ -39,157 +49,154 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  // Imagen
-  let eventImage: string = "https://via.placeholder.com/160x160?text=No+Video";
+  let eventImage = ACTIVITY_PLACEHOLDER;
   if (typeof activity.event_id === "object" && activity.event_id !== null) {
-    const eventObj = activity.event_id as any;
+    const ev = activity.event_id as any;
     eventImage =
-      eventObj.picture ||
-      eventObj.styles?.event_image ||
-      eventObj.styles?.banner_image ||
-      eventImage;
+      ev.picture ||
+      ev.styles?.event_image ||
+      ev.styles?.banner_image ||
+      ACTIVITY_PLACEHOLDER;
   }
-  const [_imgSrc, setImgSrc] = useState<string>(eventImage);
+  const [imgSrc, setImgSrc] = useState<string>(eventImage);
   useEffect(() => setImgSrc(eventImage), [activity._id]);
 
-  const fallbackGoToActivity = (activityId: string) => {
-    navigate(`/organization/${organizationId}/activitydetail/${activityId}`);
+  const eventName =
+    typeof activity.event_id === "object" &&
+    activity.event_id !== null &&
+    "name" in activity.event_id
+      ? (activity.event_id as any).name
+      : null;
+
+  const eventId =
+    typeof activity.event_id === "object" && activity.event_id !== null
+      ? (activity.event_id as any)._id || (activity.event_id as any).id
+      : null;
+
+  const goToActivity = () => {
+    if (onCardClick) onCardClick(activity._id);
+    else
+      navigate(
+        `/organization/${organizationId}/activitydetail/${activity._id}`
+      );
   };
 
-  const fallbackGoToEvent = (eventId: string) => {
-    navigate(`/organization/${organizationId}/course/${eventId}`);
+  const goToEvent = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!eventId) return;
+    if (onEventClick) onEventClick(eventId);
+    else navigate(`/organization/${organizationId}/course/${eventId}`);
   };
 
   return (
-    <Card
-      shadow="sm"
-      radius="xs"
-      withBorder
-      style={{ position: "relative", cursor: "pointer" }}
-      onClick={() =>
-        onCardClick
-          ? onCardClick(activity._id)
-          : fallbackGoToActivity(activity._id)
-      }
+    <Box
+      onClick={goToActivity}
+      style={{
+        display: "flex",
+        gap: 12,
+        alignItems: "flex-start",
+        padding: "10px 12px",
+        borderRadius: 8,
+        cursor: "pointer",
+        border: "1px solid #e9ecef",
+        backgroundColor: "#fff",
+        transition: "background 0.15s, box-shadow 0.15s",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.backgroundColor = "#f8f9fa";
+        (e.currentTarget as HTMLDivElement).style.boxShadow =
+          "0 2px 8px rgba(0,0,0,0.08)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.backgroundColor = "#fff";
+        (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
+      }}
     >
-      <Grid gutter="md" align="center">
-        <Grid.Col span={4}>
-          <Image
-            src={_imgSrc}
-            alt={activity.name}
-            radius="xs"
-            height="auto"
-            width="100%"
-            fit="contain"
-            loading="lazy"
-            onError={() =>
-              setImgSrc("https://via.placeholder.com/160x160?text=No+Video")
-            }
-          />
-        </Grid.Col>
+      {/* Thumbnail */}
+      <Image
+        src={imgSrc}
+        alt={activity.name}
+        fit="cover"
+        radius={6}
+        loading="lazy"
+        onError={() => setImgSrc(ACTIVITY_PLACEHOLDER)}
+        style={{ width: 72, height: 72, flexShrink: 0, objectFit: "cover" }}
+      />
 
-        <Grid.Col span={8}>
-          <Flex direction="column" ta="left" justify="space-between">
-            <Title order={4}>{activity.name}</Title>
+      {/* Texto */}
+      <Box style={{ flex: 1, minWidth: 0 }}>
+        <Text fw={600} size="sm" lineClamp={2} style={{ lineHeight: 1.35 }}>
+          {activity.name}
+        </Text>
 
-            <Text size="sm" variant="gradient">
-              Evento:{" "}
-              {typeof activity.event_id === "object" &&
-              activity.event_id !== null &&
-              "name" in activity.event_id ? (
-                <span
-                  style={{
-                    color: "#228be6",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                  }}
+        {eventName && (
+          <Text
+            size="xs"
+            c="blue"
+            mt={3}
+            style={{
+              cursor: "pointer",
+              textDecoration: "underline",
+              width: "fit-content",
+            }}
+            onClick={goToEvent}
+          >
+            {eventName}
+          </Text>
+        )}
+
+        {/* Fragmentos de búsqueda */}
+        {matchedSegments.length > 0 && (
+          <Box
+            mt={8}
+            style={{ borderTop: "1px solid #f1f3f5", paddingTop: 6 }}
+          >
+            <Text size="xs" fw={600} c="dimmed" mb={3}>
+              Fragmentos:
+            </Text>
+            <Box style={{ maxHeight: 120, overflowY: "auto" }}>
+              {matchedSegments.map((seg) => (
+                <UnstyledButton
+                  key={seg.segmentId}
                   onClick={(e) => {
                     e.stopPropagation();
-                    const eventId =
-                      (activity.event_id as any)._id ||
-                      (activity.event_id as any).id ||
-                      "";
-                    if (!eventId) return;
-                    if (onEventClick) {
-                      onEventClick(eventId); // 👈 El padre decide (modal o navegar)
+                    if (onFragmentClick) {
+                      onFragmentClick(seg);
                     } else {
-                      fallbackGoToEvent(eventId); // fallback directo
+                      navigate(
+                        `/organization/${organizationId}/activitydetail/${activity._id}?t=${seg.startTime}` +
+                          `&fragments=${encodeURIComponent(
+                            JSON.stringify(matchedSegments)
+                          )}`
+                      );
                     }
                   }}
+                  style={{ width: "100%" }}
                 >
-                  {(activity.event_id as any).name}
-                </span>
-              ) : (
-                "Sin evento asignado"
-              )}
-            </Text>
-
-            {matchedSegments.length > 0 && (
-              <div style={{ textAlign: "left", marginTop: "1rem" }}>
-                <Text size="sm" fw="bold" mb="xs">
-                  Fragmentos que coinciden:
-                </Text>
-
-                <div
-                  style={{ maxHeight: 150, overflowY: "auto", paddingRight: 8 }}
-                >
-                  {matchedSegments.map((seg) => (
-                    <div
-                      key={seg.segmentId}
-                      style={{
-                        marginBottom: 5,
-                        cursor: "pointer",
-                        padding: 4,
-                        borderRadius: 4,
-                        backgroundColor:
-                          seg.segmentId === selectedId
-                            ? "rgba(45,212,191,0.2)"
-                            : seg.segmentId === hoveredId
-                            ? "rgba(45,212,191,0.1)"
-                            : "transparent",
-                        transition: "background-color 0.2s",
-                      }}
-                      onMouseEnter={() => setHoveredId(seg.segmentId)}
-                      onMouseLeave={() => setHoveredId(null)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedId(seg.segmentId);
-                        if (onFragmentClick) {
-                          onFragmentClick(seg); // 👈 El padre decide
-                        } else {
-                          navigate(
-                            `/organization/${organizationId}/activitydetail/${activity._id}?t=${seg.startTime}` +
-                              `&fragments=${encodeURIComponent(
-                                JSON.stringify(matchedSegments)
-                              )}`
-                          );
-                        }
-                      }}
-                    >
-                      <Text size="sm">
-                        <strong style={{ color: "teal" }}>
-                          {formatTime(seg.startTime)} -{" "}
-                          {formatTime(seg.endTime)}:
-                        </strong>{" "}
-                        <Highlight
-                          highlight={searchQuery || ""}
-                          component="span"
-                        >
-                          {seg.text}
-                        </Highlight>
+                  <Box px={4} py={3} mb={1} style={{ borderRadius: 4 }}>
+                    <Group gap={4} mb={1}>
+                      <IconClock size={11} color="#74c0fc" />
+                      <Text size="xs" c="blue" fw={500}>
+                        {formatTime(seg.startTime)} –{" "}
+                        {formatTime(seg.endTime)}
                       </Text>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </Flex>
-        </Grid.Col>
-      </Grid>
-    </Card>
+                    </Group>
+                    <Highlight
+                      highlight={searchQuery || ""}
+                      size="xs"
+                      c="dimmed"
+                      lineClamp={2}
+                    >
+                      {seg.text}
+                    </Highlight>
+                  </Box>
+                </UnstyledButton>
+              ))}
+            </Box>
+          </Box>
+        )}
+      </Box>
+    </Box>
   );
 };
 

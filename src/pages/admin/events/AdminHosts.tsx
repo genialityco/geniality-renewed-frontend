@@ -76,6 +76,10 @@ export default function AdminHosts({ eventId }: Props) {
     setLoading(true);
     fetchHostsByEventId(eventId)
       .then(setHosts)
+      .catch((error) => {
+        console.warn("No se pudieron cargar los hosts:", error);
+        setHosts([]); // Continuar sin hosts si falla
+      })
       .finally(() => setLoading(false));
   }, [eventId]);
 

@@ -27,7 +27,7 @@ export interface Event {
   picture?: string;
   venue?: string;
   location?: string;
-  visibility: "PUBLIC" | "PRIVATE";
+  visibility: "PUBLIC" | "PRIVATE" | "EXCLUSIVE_FOR_MEMBERS";
   description?: string;
   allow_register: boolean;
   organizer_id: string;
@@ -60,6 +60,7 @@ export interface Activity {
   datetime_start?: string;
   datetime_end?: string;
   event_id: Event | string;
+  organization_id?: Organization ;
   date_start_zoom?: string;
   date_end_zoom?: string;
   description?: string;
@@ -129,26 +130,7 @@ export interface CourseAttendee {
 }
 
 
-// Interfaz en TypeScript para tu Quiz
-export interface Quiz {
-  _id: string;
-  activity_id: string;      // ID de la actividad
-  quiz_json: any;           // El JSON de Survey
-  createdAt?: string;
-  updatedAt?: string;
-}
 
-export interface QuizAttempt {
-  _id: string;
-  quiz_id: string;
-  user_id: string;
-  attempt_number: number;
-  answers_data: any;
-  total_score: number;
-  max_score: number;
-  createdAt?: string | number | Date;
-  updatedAt?: string;
-}
 
 export interface OrganizationUser {
   _id: string;
@@ -158,6 +140,7 @@ export interface OrganizationUser {
   user_id: string | User;
   position_id: string;
   payment_plan_id?: string;
+  memberShipStatus?: boolean;
   created_at: string;
   updated_at: string;
 }

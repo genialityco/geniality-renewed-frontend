@@ -9,12 +9,17 @@ import {
 import { useLocation, matchPath } from "react-router-dom";
 import { fetchOrganizationById } from "../services/organizationService";
 
+const DEFAULT_TITLE = "EndoCampus";
+const DEFAULT_FAVICON =
+  "https://storage.googleapis.com/geniality-sas.appspot.com/evius/events/JqzemlKcQEClLYBMFxfSv8fAYX6PwXFZdKf0eNqT.png";
+
 export interface Organization {
   _id: string;
   name: string;
   image: string;
   user_properties?: Record<string, any>;
   default_position_id?: string;
+  author: string
 }
 
 interface OrganizationContextType {
@@ -30,6 +35,25 @@ const OrganizationContext = createContext<OrganizationContextType>({
 export function OrganizationProvider({ children }: { children: ReactNode }) {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const location = useLocation();
+
+  const setDocumentBranding = (title: string, faviconHref: string) => {
+    document.title = title;
+
+    const existingFavicon = document.querySelector(
+      "link[rel='icon']"
+    ) as HTMLLinkElement | null;
+
+    if (existingFavicon) {
+      existingFavicon.href = faviconHref;
+      return;
+    }
+
+    const favicon = document.createElement("link");
+    favicon.rel = "icon";
+    favicon.type = "image/svg+xml";
+    favicon.href = faviconHref;
+    document.head.appendChild(favicon);
+  };
 
   useEffect(() => {
     // Las rutas que queremos "escuchar"
@@ -48,15 +72,20 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
     if (match && match.params && match.params.orgId) {
       fetchOrganizationById(match.params.orgId).then((org) => {
-        setOrganization({
+        const orgData = {
           _id: org._id,
           name: org.name,
           image: org.styles?.event_image || org.styles?.banner_image || "",
           user_properties: org.user_properties || {},
-        });
+          author: org.author || "",
+        };
+
+        setOrganization(orgData);
+        setDocumentBranding(orgData.name || DEFAULT_TITLE, orgData.image || DEFAULT_FAVICON);
       });
     } else {
       setOrganization(null);
+      setDocumentBranding(DEFAULT_TITLE, DEFAULT_FAVICON);
     }
   }, [location.pathname]);
 
