@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Loader, Flex, Text } from "@mantine/core";
+import { Loader, Flex, Text, Modal, Button, Alert } from "@mantine/core";
+import { IconAlertCircle } from "@tabler/icons-react";
 
 import { fetchOrganizationById } from "../../services/organizationService";
 import {
@@ -57,6 +58,8 @@ export default function OrganizationLanding() {
   const [paymentPlan, setPaymentPlan] = useState<any>(null);
   const [planLoading, setPlanLoading] = useState(true);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showVideoIssuesModal, setShowVideoIssuesModal] = useState(false);
+  const [showVideoIssuesBanner, setShowVideoIssuesBanner] = useState(false);
 
   const [memberShipStatus, setMemberShipStatus] = useState(false);
 
@@ -155,6 +158,17 @@ export default function OrganizationLanding() {
       }
     };
     fetchMemberShipStatus();
+  }, [userId]);
+
+  // Mostrar modal de problemas con videos cuando el usuario inicia sesión
+  useEffect(() => {
+    if (userId && !localStorage.getItem("videoIssuesModalShown")) {
+      setShowVideoIssuesModal(true);
+      localStorage.setItem("videoIssuesModalShown", "true");
+    }
+    if (userId) {
+      setShowVideoIssuesBanner(true);
+    }
   }, [userId]);
 
   // ----------- SEARCH LOGIC ------------
@@ -423,6 +437,18 @@ export default function OrganizationLanding() {
 
   return (
     <div>
+      {showVideoIssuesBanner && (
+        <Alert
+          icon={<IconAlertCircle />}
+          color="yellow"
+          title="Aviso"
+          onClose={() => setShowVideoIssuesBanner(false)}
+          style={{ margin: 0 }}
+        >
+          Estamos teniendo dificultades en la visualización de los videos, estamos trabajando en ello.
+        </Alert>
+      )}
+
       <OrganizationBanner organization={organization} />
 
       <MembershipStatus
@@ -491,6 +517,26 @@ export default function OrganizationLanding() {
         }
         organizationId={organizationId}
       />
+
+      <Modal
+        opened={showVideoIssuesModal}
+        onClose={() => setShowVideoIssuesModal(false)}
+        title="Aviso Importante"
+        centered
+      >
+        <Flex direction="column" gap="md">
+          <Text>
+            Estamos teniendo dificultades en la visualización de los videos, estamos trabajando en ello.
+          </Text>
+          <Button
+            onClick={() => setShowVideoIssuesModal(false)}
+            fullWidth
+            variant="filled"
+          >
+            Entendido
+          </Button>
+        </Flex>
+      </Modal>
     </div>
   );
 }
