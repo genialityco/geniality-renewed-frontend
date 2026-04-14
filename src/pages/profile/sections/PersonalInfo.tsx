@@ -14,6 +14,7 @@ import {
   fetchUserById,
   createOrUpdateUser,
 } from "../../../services/userService";
+import { trackSavePersonalInfo } from "../../../utils/analytics";
 import { User } from "../../../services/types";
 import { FaX } from "react-icons/fa6";
 
@@ -50,6 +51,7 @@ const PersonalInfo = () => {
     setSaving(true);
     setError(null);
     setSuccess(false);
+    trackSavePersonalInfo(userId as string);
 
     try {
       await createOrUpdateUser({

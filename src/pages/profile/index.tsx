@@ -5,14 +5,28 @@ import PersonalInfo from "./sections/PersonalInfo";
 import MembershipPlan from "./sections/MembershipPlan";
 import ChangePassword from "./sections/ChangePassword";
 import MyOrganizations from "./sections/MyOrganizations";
+import {
+  trackProfileTabMyCourses,
+  trackProfileTabMyOrganizations,
+  trackProfileTabPersonalInfo,
+  trackProfileTabMembershipPlan,
+} from "../../utils/analytics";
 
+const TAB_TRACKERS: Record<string, () => void> = {
+  courses: trackProfileTabMyCourses,
+  Organizations: trackProfileTabMyOrganizations,
+  info: trackProfileTabPersonalInfo,
+  membership: trackProfileTabMembershipPlan,
+};
 
 const Profile = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get("tab") || "courses";
 
   const handleTabChange = (value: string | null) => {
-    setSearchParams({ tab: value || "courses" });
+    const tab = value || "courses";
+    TAB_TRACKERS[tab]?.();
+    setSearchParams({ tab });
   };
 
   return (

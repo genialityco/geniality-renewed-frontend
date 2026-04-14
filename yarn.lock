@@ -1140,15 +1140,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mantine/modals@npm:^8.3.1":
-  version: 8.3.18
-  resolution: "@mantine/modals@npm:8.3.18"
+"@mantine/modals@npm:^7.16.3":
+  version: 7.17.8
+  resolution: "@mantine/modals@npm:7.17.8"
   peerDependencies:
-    "@mantine/core": 8.3.18
-    "@mantine/hooks": 8.3.18
+    "@mantine/core": 7.17.8
+    "@mantine/hooks": 7.17.8
     react: ^18.x || ^19.x
     react-dom: ^18.x || ^19.x
-  checksum: 10c0/e9bc78e1ebd5217eaa2cda000cefc97cdbafb57a3323371ce62ec56b8df0abff24d5405a2400600c54999da5478587ae8711e835b5e8aa6d1c70aa182dc3192a
+  checksum: 10c0/18ec451d02627fff0906382fe5da395a28015514df6a4f067ff82c49c4c1ccd45a36ec58bbf197054e003a4daede4714737d1fe3f2e99d07ea6ce450b6dd4235
   languageName: node
   linkType: hard
 
@@ -4430,7 +4430,7 @@ __metadata:
     "@mantine/dates": "npm:^7.16.3"
     "@mantine/form": "npm:^7.16.3"
     "@mantine/hooks": "npm:^7.16.3"
-    "@mantine/modals": "npm:^8.3.1"
+    "@mantine/modals": "npm:^7.16.3"
     "@mantine/notifications": "npm:^7.16.3"
     "@react-pdf/renderer": "npm:^4.3.2"
     "@tabler/icons-react": "npm:^3.35.0"

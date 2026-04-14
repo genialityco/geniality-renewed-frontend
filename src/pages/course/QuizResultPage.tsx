@@ -30,6 +30,11 @@ import { getBestScore, getUserAttempts, UserAnswerDto, gradeOpenQuestion } from 
 import { useUser } from "../../context/UserContext";
 import { fetchEventById } from "../../services/eventService";
 import {
+  trackQuizCertificateAction,
+  trackQuizResultView,
+  trackQuizRetry,
+} from "../../utils/analytics";
+import {
   CertificateFormat,
   generateCertificate,
   getCertificateDeliveryUrls,
@@ -456,6 +461,7 @@ export default function QuizResultPage() {
   const [eventName, setEventName] = useState("");
   const [generatingCertificate, setGeneratingCertificate] = useState(false);
   const [generatedCertificate, setGeneratedCertificate] = useState<GeneratedCertificate | null>(null);
+  const [hasTrackedResultView, setHasTrackedResultView] = useState(false);
 
   useEffect(() => {
     if (!quizId || quizId === "undefined" || !userId) return;
@@ -610,6 +616,7 @@ export default function QuizResultPage() {
   };
 
   const handleOpenCertificate = async (mode: "view" | "download") => {
+    trackQuizCertificateAction(organizationId, eventId, quizId, mode);
     const certificate = await ensureCertificate();
     if (!certificate) return;
 
@@ -622,8 +629,26 @@ export default function QuizResultPage() {
   };
 
   const handleRetry = () => {
+    trackQuizRetry(organizationId, eventId, quizId);
     navigate(`/organization/${organizationId}/course/${eventId}/quiz/${quizId}`);
   };
+
+  useEffect(() => {
+    if (loading || hasTrackedResultView) return;
+    const numScore = score ?? 0;
+    const minNota = quiz?.config?.nota ?? null;
+    const passed = minNota != null ? numScore >= minNota : numScore >= 60;
+    trackQuizResultView(organizationId, eventId, quizId, numScore, passed);
+    setHasTrackedResultView(true);
+  }, [
+    loading,
+    hasTrackedResultView,
+    score,
+    quiz,
+    organizationId,
+    eventId,
+    quizId,
+  ]);
 
   return (
     <Container size="sm" py="xl">

@@ -15,6 +15,7 @@ import {
   linkTransaction,
 } from "../../services/paymentRequestsService";
 import { syncTransactionById } from "../../services/wompiService";
+import { trackPaymentSuccess, trackPaymentFailed } from "../../utils/analytics";
 
 type UiStatus = "loading" | "pending" | "success" | "fail";
 
@@ -101,9 +102,11 @@ const PaymentStatus = () => {
       const s = (payment.status || "").toUpperCase();
 
       if (s === "APPROVED") {
+        trackPaymentSuccess(organizationId, payment.amount, transactionId ?? undefined);
         setStatus("success");
         setMessage("Tu membresía ha sido activada por un año. ¡Gracias!");
       } else if (["DECLINED", "VOIDED", "ERROR"].includes(s)) {
+        trackPaymentFailed(organizationId, s, transactionId ?? undefined);
         setStatus("fail");
         setMessage("El pago no fue aprobado. Estado: " + s);
       } else {
