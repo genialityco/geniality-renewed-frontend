@@ -3,6 +3,10 @@ import { Text, Card, Stack, Image, Button, Group } from "@mantine/core";
 import { useUser } from "../../../context/UserContext";
 import { useOrganization, Organization as OrgContext } from "../../../context/OrganizationContext";
 import { useNavigate } from "react-router-dom";
+import {
+  trackAdminOrganizationClick,
+  trackVisitOrganization,
+} from "../../../utils/analytics";
 
 const getAuthorId = (author: any): string | undefined => {
   if (!author) return undefined;
@@ -17,10 +21,12 @@ export default function MyOrganizations() {
   const navigate = useNavigate();
 
   const handleVisit = (org: OrgContext) => {
+    trackVisitOrganization(org._id, org.name);
     navigate(`/organization/${org._id}`);
   };
 
   const handleAdmin = (org: OrgContext) => {
+    trackAdminOrganizationClick(org._id);
     navigate(`/organization/${org._id}/admin`);
   };
 

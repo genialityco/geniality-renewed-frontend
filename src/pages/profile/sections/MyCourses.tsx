@@ -13,15 +13,26 @@ import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useUser } from "../../../context/UserContext";
 import { fetchCourseAttendeesByUser } from "../../../services/courseAttendeeService";
 import { CourseAttendee } from "../../../services/types";
+import { useNavigate } from "react-router-dom";
+import { trackCourseClick } from "../../../utils/analytics";
 
 const MyCourses = () => {
   const { userId } = useUser();
+  const navigate = useNavigate();
   const [courses, setCourses] = useState<CourseAttendee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const handleCourseClick = (course: CourseAttendee) => {
+    const eventId = course.event_id?._id;
+    const organizationId = course.event_id?.organizer_id;
+    if (!eventId || !organizationId) return;
+    trackCourseClick(eventId, course.event_id?.name);
+    navigate(`/organization/${organizationId}/course/${eventId}`);
+  };
 
   const checkScrollButtons = () => {
     if (scrollRef.current) {
@@ -148,8 +159,9 @@ const MyCourses = () => {
                   key={course._id}
                   shadow="lg"
                   padding="0"
-                  style={{ width: 200, minWidth: 200 }}
+                  style={{ width: 200, minWidth: 200, cursor: "pointer" }}
                   radius="md"
+                  onClick={() => handleCourseClick(course)}
                 >
                   {course.event_id?.styles?.banner_image && (
                     <Image

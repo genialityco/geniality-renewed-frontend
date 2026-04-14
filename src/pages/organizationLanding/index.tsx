@@ -26,6 +26,13 @@ import MembershipStatus from "./components/MembershipStatus";
 import SearchBar from "./components/SearchBar";
 import OrganizationTabs from "./components/OrganizationTabs";
 import SubscriptionModal from "./components/SubscriptionModal";
+import {
+  trackActivityClick,
+  trackCourseClick,
+  trackOpenPaywall,
+  trackSearch,
+  trackSubscriptionStart,
+} from "../../utils/analytics";
 
 const PAYWALL_ORGANIZATION_ID = "63f552d916065937427b3b02";
 
@@ -84,6 +91,7 @@ export default function OrganizationLanding() {
   >([]);
 
   const openPaywall = () => {
+    trackOpenPaywall(organizationId);
     if (shouldShowPaywallMessage) {
       setShowSubscriptionModal(true);
       return;
@@ -173,6 +181,7 @@ export default function OrganizationLanding() {
 
   // ----------- SEARCH LOGIC ------------
   const handleSearch = async () => {
+    trackSearch(searchQuery.trim(), organizationId);
     setActiveTab("activities");
     setActivityPage(1);
     setSearching(true);
@@ -385,6 +394,7 @@ export default function OrganizationLanding() {
 
   // ----------- EVENTS/ACTIVITIES TABS CALLBACKS --------------
   const handleCourseClick = async (eventId: string) => {
+    trackCourseClick(eventId);
     if (!userId) {
       openPaywall();
     } else if (!paymentPlan || isMembershipExpired(paymentPlan)) {
@@ -396,6 +406,7 @@ export default function OrganizationLanding() {
   };
 
   const handleActivityClick = (activityId: string, t?: number) => {
+    trackActivityClick(activityId);
     if (!userId) {
       openPaywall(); // <- NO navegar, solo mostrar modal
       return;
@@ -406,6 +417,7 @@ export default function OrganizationLanding() {
   };
 
   const handleNameEventClick = (eventId: string) => {
+    trackCourseClick(eventId);
     if (!userId) {
       openPaywall(); 
       return;
@@ -508,13 +520,14 @@ export default function OrganizationLanding() {
       <SubscriptionModal
         opened={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
-        onStart={() =>
+        onStart={() => {
+          trackSubscriptionStart(organizationId);
           navigate(
             shouldShowPaywallMessage
               ? `/organization/${organizationId}/iniciar-sesion?payment=1`
               : `/organization/${organizationId}/iniciar-sesion`
-          )
-        }
+          );
+        }}
         organizationId={organizationId}
       />
 
