@@ -1383,7 +1383,7 @@ export default function QuizPage() {
             size="md"
             color="blue"
             loading={submitting}
-            onClick={handleSubmit}
+            onClick={() => handleSubmit("manual")}
           >
             Enviar examen
           </Button>
@@ -1425,7 +1425,7 @@ export default function QuizPage() {
                 color="teal"
                 loading={submitting}
                 disabled={!isQuestionAnswered(currentQuestionIndex)}
-                onClick={handleSubmit}
+                onClick={() => handleSubmit("manual")}
               >
                 Enviar examen
               </Button>
