@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Loader, Flex, Text, Modal, Button, Alert } from "@mantine/core";
-import { IconAlertCircle } from "@tabler/icons-react";
+import { Loader, Flex, Text } from "@mantine/core";
+//import { Modal, Button, Alert } from "@mantine/core";
+
+//import { IconAlertCircle } from "@tabler/icons-react";
 
 import { fetchOrganizationById } from "../../services/organizationService";
 import {
@@ -65,14 +67,14 @@ export default function OrganizationLanding() {
   const [paymentPlan, setPaymentPlan] = useState<any>(null);
   const [planLoading, setPlanLoading] = useState(true);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [showVideoIssuesModal, setShowVideoIssuesModal] = useState(false);
-  const [showVideoIssuesBanner, setShowVideoIssuesBanner] = useState(false);
+  // const [showVideoIssuesModal, setShowVideoIssuesModal] = useState(false);
+  // const [showVideoIssuesBanner, setShowVideoIssuesBanner] = useState(false);
 
   const [memberShipStatus, setMemberShipStatus] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<TranscriptSearchResult[]>(
-    []
+    [],
   );
   const [eventSearchResults, setEventSearchResults] = useState<Event[]>([]);
   const [eventSearchMode, setEventSearchMode] = useState(false);
@@ -110,14 +112,14 @@ export default function OrganizationLanding() {
           const eventData = await fetchEventsByOrganizer(organizationId);
           const sortedEvents = eventData.sort(
             (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
           );
           setEvents(sortedEvents);
 
           const activityData = await getActivitiesByOrganization(
             organizationId,
             activityPage,
-            activityLimit
+            activityLimit,
           );
           setActivities(activityData.results);
           setActivityTotal(activityData.total);
@@ -169,15 +171,15 @@ export default function OrganizationLanding() {
   }, [userId]);
 
   // Mostrar modal de problemas con videos cuando el usuario inicia sesión
-  useEffect(() => {
-    if (userId && !localStorage.getItem("videoIssuesModalShown")) {
-      setShowVideoIssuesModal(true);
-      localStorage.setItem("videoIssuesModalShown", "true");
-    }
-    if (userId) {
-      setShowVideoIssuesBanner(true);
-    }
-  }, [userId]);
+  // useEffect(() => {
+  //   if (userId && !localStorage.getItem("videoIssuesModalShown")) {
+  //     setShowVideoIssuesModal(true);
+  //     localStorage.setItem("videoIssuesModalShown", "true");
+  //   }
+  //   if (userId) {
+  //     setShowVideoIssuesBanner(true);
+  //   }
+  // }, [userId]);
 
   // ----------- SEARCH LOGIC ------------
   const handleSearch = async () => {
@@ -191,13 +193,18 @@ export default function OrganizationLanding() {
       setEventSearchMode(true);
       try {
         const events = await fetchEventByName(query);
-        const eventList = Array.isArray(events) ? events : events ? [events] : [];
+        const eventList = Array.isArray(events)
+          ? events
+          : events
+            ? [events]
+            : [];
         setEventSearchResults(
           organizationId
             ? eventList.filter(
-                (event) => String(event.organizer_id) === String(organizationId)
+                (event) =>
+                  String(event.organizer_id) === String(organizationId),
               )
-            : eventList
+            : eventList,
         );
       } catch {
         setEventSearchResults([]);
@@ -208,7 +215,7 @@ export default function OrganizationLanding() {
     }
 
     let filteredActs = activities.filter((act) =>
-      act.name?.toLowerCase().includes(query)
+      act.name?.toLowerCase().includes(query),
     );
 
     if (!query) {
@@ -225,7 +232,7 @@ export default function OrganizationLanding() {
         searchQuery,
         1,
         activityLimit,
-        organizationId
+        organizationId,
       );
       setSearchResults(paged.data);
       setActivityTotal(paged.total);
@@ -235,7 +242,7 @@ export default function OrganizationLanding() {
         const ids = paged.data.map((r) => String(r._id));
         const uniqueIds = Array.from(new Set(ids));
         const activitiesFound = await Promise.all(
-          uniqueIds.map((id) => getActivityById(id))
+          uniqueIds.map((id) => getActivityById(id)),
         );
         setSearchActivities(activitiesFound);
         setFilteredActivities(activitiesFound);
@@ -265,7 +272,7 @@ export default function OrganizationLanding() {
           searchQuery,
           activityPage,
           activityLimit,
-          organizationId
+          organizationId,
         );
         setSearchResults(paged.data);
         setActivityTotal(paged.total);
@@ -275,7 +282,7 @@ export default function OrganizationLanding() {
           const ids = paged.data.map((r) => String(r._id));
           const uniqueIds = Array.from(new Set(ids));
           const activitiesFound = await Promise.all(
-            uniqueIds.map((id) => getActivityById(id))
+            uniqueIds.map((id) => getActivityById(id)),
           );
           setSearchActivities(activitiesFound);
           setFilteredActivities(activitiesFound);
@@ -301,7 +308,7 @@ export default function OrganizationLanding() {
 
   // Cuando se limpia el input, recargar todo (reset)
   const handleSearchInputChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const value = e.target.value;
     setSearchQuery(value);
@@ -323,7 +330,7 @@ export default function OrganizationLanding() {
           const eventData = await fetchEventsByOrganizer(organizationId);
           const sortedEvents = eventData.sort(
             (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
           );
           setEvents(sortedEvents);
           setFilteredEvents(sortedEvents);
@@ -331,7 +338,7 @@ export default function OrganizationLanding() {
           const activityData = await getActivitiesByOrganization(
             organizationId,
             1,
-            activityLimit
+            activityLimit,
           );
           setActivities(activityData.results);
           setFilteredActivities(activityData.results);
@@ -367,7 +374,7 @@ export default function OrganizationLanding() {
         const eventData = await fetchEventsByOrganizer(organizationId);
         const sortedEvents = eventData.sort(
           (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
         setEvents(sortedEvents);
         setFilteredEvents(sortedEvents);
@@ -375,7 +382,7 @@ export default function OrganizationLanding() {
         const activityData = await getActivitiesByOrganization(
           organizationId,
           1,
-          activityLimit
+          activityLimit,
         );
         setActivities(activityData.results);
         setFilteredActivities(activityData.results);
@@ -419,7 +426,7 @@ export default function OrganizationLanding() {
   const handleNameEventClick = (eventId: string) => {
     trackCourseClick(eventId);
     if (!userId) {
-      openPaywall(); 
+      openPaywall();
       return;
     }
     // si hay sesión (puedes añadir chequeo de membresía si quieres)
@@ -449,7 +456,7 @@ export default function OrganizationLanding() {
 
   return (
     <div>
-      {showVideoIssuesBanner && (
+      {/* {showVideoIssuesBanner && (
         <Alert
           icon={<IconAlertCircle />}
           color="yellow"
@@ -459,7 +466,7 @@ export default function OrganizationLanding() {
         >
           Estamos teniendo dificultades en la visualización de los videos, estamos trabajando en ello.
         </Alert>
-      )}
+      )} */}
 
       <OrganizationBanner organization={organization} />
 
@@ -501,7 +508,7 @@ export default function OrganizationLanding() {
           onFragmentClick: (
             activityId: string,
             startTime: number,
-            matchedSegments: any[]
+            matchedSegments: any[],
           ) => {
             if (!userId) {
               openPaywall();
@@ -509,8 +516,8 @@ export default function OrganizationLanding() {
             }
             navigate(
               `/organization/${organizationId}/activitydetail/${activityId}?t=${startTime}&fragments=${encodeURIComponent(
-                JSON.stringify(matchedSegments)
-              )}`
+                JSON.stringify(matchedSegments),
+              )}`,
             );
           },
           onEventClick: handleNameEventClick,
@@ -525,13 +532,13 @@ export default function OrganizationLanding() {
           navigate(
             shouldShowPaywallMessage
               ? `/organization/${organizationId}/iniciar-sesion?payment=1`
-              : `/organization/${organizationId}/iniciar-sesion`
+              : `/organization/${organizationId}/iniciar-sesion`,
           );
         }}
         organizationId={organizationId}
       />
 
-      <Modal
+      {/* <Modal
         opened={showVideoIssuesModal}
         onClose={() => setShowVideoIssuesModal(false)}
         title="Aviso Importante"
@@ -549,7 +556,7 @@ export default function OrganizationLanding() {
             Entendido
           </Button>
         </Flex>
-      </Modal>
+      </Modal> */}
     </div>
   );
 }
