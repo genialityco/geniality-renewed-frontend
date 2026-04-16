@@ -14,7 +14,14 @@ import { Event } from "../../../services/types";
 const EVENT_PLACEHOLDER =
   "https://placehold.co/640x360/e9ecef/adb5bd?text=Curso";
 
-function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
+function EventCard({
+  event,
+  onClick,
+}: {
+  event: Event;
+  onClick: () => void;
+  progress?: number;
+}) {
   const imageSrc =
     event.picture || event.styles?.banner_image || EVENT_PLACEHOLDER;
 
@@ -33,11 +40,14 @@ function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
       radius="md"
       withBorder
       shadow="sm"
+      h="100%"
       style={{
         cursor: "pointer",
         overflow: "hidden",
         transition: "transform 0.18s ease, box-shadow 0.18s ease",
         borderColor: isExclusive ? "#fd7e14" : undefined,
+        display: "flex",
+        flexDirection: "column",
       }}
       onClick={onClick}
       onMouseEnter={(e) => {
@@ -55,8 +65,35 @@ function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
         <AspectRatio ratio={16 / 9}>
           <Image src={imageSrc} alt={event.name} fit="cover" />
         </AspectRatio>
-        {isExclusive && (
-          <Box style={{ position: "absolute", top: 10, right: 10, zIndex: 2 }}>
+      </Card.Section>
+
+      <Box
+        p="sm"
+        style={{
+          flex: 1,
+          minHeight: 78,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+        }}
+      >
+        <Text fw={600} size="sm" lineClamp={2} style={{ lineHeight: 1.4 }}>
+          {event.name}
+        </Text>
+
+        <Group justify="space-between" align="center" mt={6}>
+          {dateStr ? (
+            <Group gap={5}>
+              <IconCalendar size={13} color="#868e96" />
+              <Text size="xs" c="dimmed">
+                {dateStr}
+              </Text>
+            </Group>
+          ) : (
+            <Box />
+          )}
+
+          {isExclusive && (
             <Badge
               color="orange"
               variant="filled"
@@ -65,22 +102,8 @@ function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
             >
               Exclusivo
             </Badge>
-          </Box>
-        )}
-      </Card.Section>
-
-      <Box p="sm">
-        <Text fw={600} size="sm" lineClamp={2} style={{ lineHeight: 1.4 }}>
-          {event.name}
-        </Text>
-        {dateStr && (
-          <Group gap={5} mt={6}>
-            <IconCalendar size={13} color="#868e96" />
-            <Text size="xs" c="dimmed">
-              {dateStr}
-            </Text>
-          </Group>
-        )}
+          )}
+        </Group>
       </Box>
     </Card>
   );
@@ -121,11 +144,12 @@ export default function EventsGrid({
   }
 
   return (
-    <Grid gutter="md">
+    <Grid gutter="md" align="stretch">
       {visibleEvents.map((event) => (
         <Grid.Col
           key={event._id}
           span={{ base: 12, xs: 6, sm: 6, md: 4, lg: 3 }}
+          style={{ display: "flex" }}
         >
           <EventCard event={event} onClick={() => onClick(event._id)} />
         </Grid.Col>

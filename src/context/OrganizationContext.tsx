@@ -19,7 +19,8 @@ export interface Organization {
   image: string;
   user_properties?: Record<string, any>;
   default_position_id?: string;
-  author: string
+  author: string;
+  tab_titles?: { courses?: string; activities?: string; exclusive?: string };
 }
 
 interface OrganizationContextType {
@@ -71,18 +72,34 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
 
     if (match && match.params && match.params.orgId) {
-      fetchOrganizationById(match.params.orgId).then((org) => {
-        const orgData = {
-          _id: org._id,
-          name: org.name,
-          image: org.styles?.event_image || org.styles?.banner_image || "",
-          user_properties: org.user_properties || {},
-          author: org.author || "",
-        };
+      const orgId = match.params.orgId;
 
-        setOrganization(orgData);
-        setDocumentBranding(orgData.name || DEFAULT_TITLE, orgData.image || DEFAULT_FAVICON);
-      });
+      // Función para cargar la organización
+      const loadOrganization = () => {
+        fetchOrganizationById(orgId).then((org) => {
+          const orgData = {
+            _id: org._id,
+            name: org.name,
+            image: org.styles?.event_image || org.styles?.banner_image || "",
+            user_properties: org.user_properties || {},
+            author: org.author || "",
+            tab_titles: org.tab_titles || {},
+          };
+
+          setOrganization(orgData);
+          setDocumentBranding(orgData.name || DEFAULT_TITLE, orgData.image || DEFAULT_FAVICON);
+        });
+      };
+
+      // Cargar inmediatamente
+      loadOrganization();
+
+      // Polling cada 5 segundos
+      const interval = setInterval(loadOrganization, 5000);
+
+      return () => {
+        clearInterval(interval);
+      };
     } else {
       setOrganization(null);
       setDocumentBranding(DEFAULT_TITLE, DEFAULT_FAVICON);

@@ -125,3 +125,24 @@ export async function getTranscriptionStatus(jobId: string): Promise<{
   );
   return response.data;
 }
+
+/**
+ * Valida y actualiza un transcript específico si está en "done"
+ * POST /activities/validate-transcript/:activity_id
+ */
+export async function validateAndUpdateTranscript(
+  activityId: string
+): Promise<{
+  message: string;
+  status: string;
+  activity?: Activity;
+  segmentCount?: number;
+}> {
+  const response = await api.post<{
+    message: string;
+    status: string;
+    activity?: Activity;
+    segmentCount?: number;
+  }>(`${BASE_URL}/validate-transcript/${activityId}`);
+  return response.data;
+}

@@ -21,6 +21,16 @@ export const fetchActivityAttendeeById = async (
   return response.data;
 };
 
+export const fetchActivityAttendeesByUserAndEvent = async (
+  userId: string,
+  eventId: string
+): Promise<ActivityAttendee[]> => {
+  const response = await api.get<ActivityAttendee[]>(
+    `/activity-attendees/user/${userId}/event/${eventId}`
+  );
+  return response.data;
+};
+
 export const createActivityAttendee = async (
   attendee: Partial<ActivityAttendee>
 ): Promise<ActivityAttendee> => {
@@ -59,4 +69,23 @@ export const createOrUpdateActivityAttendee = async (
     data
   );
   return response.data;
+};
+
+/**
+ * Obtiene el progreso de una actividad específica desde la lista de attendees
+ * @param attendees Lista de activityAttendees
+ * @param activityId ID de la actividad
+ * @returns Progreso (0-100) o 0 si no existe
+ */
+export const getActivityProgress = (
+  attendees: ActivityAttendee[],
+  activityId: string
+): number => {
+  const attendee = attendees.find((att) => {
+    const attActivityId = typeof att.activity_id === 'object' 
+      ? (att.activity_id as any)._id || (att.activity_id as any).id
+      : att.activity_id;
+    return attActivityId === activityId;
+  });
+  return attendee?.progress || 0;
 };

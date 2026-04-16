@@ -21,6 +21,7 @@ import {
 import { fetchPaymentPlanByUserId } from "../../services/paymentPlansService";
 import { fetchOrganizationUserByUserId } from "../../services/organizationUserService";
 import { useUser } from "../../context/UserContext";
+import { useOrganization } from "../../context/OrganizationContext";
 import { Organization, Event, Activity } from "../../services/types";
 
 import OrganizationBanner from "./components/OrganizationBanner";
@@ -56,6 +57,7 @@ export default function OrganizationLanding() {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
   const { userId } = useUser();
+  const { organization: contextOrganization } = useOrganization();
   const shouldShowPaywallMessage = organizationId === PAYWALL_ORGANIZATION_ID;
 
   const [organization, setOrganization] = useState<Organization | null>(null);
@@ -492,6 +494,8 @@ export default function OrganizationLanding() {
         events={events}
         handleCourseClick={handleCourseClick}
         memberShipStatus={memberShipStatus}
+        // courseAttendees prop removed - not used by EventsGrid
+        tabTitles={contextOrganization?.tab_titles}
         activityTabProps={{
           activities: filteredActivities,
           searchResults,

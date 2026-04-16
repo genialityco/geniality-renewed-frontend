@@ -5,28 +5,18 @@ import PersonalInfo from "./sections/PersonalInfo";
 import MembershipPlan from "./sections/MembershipPlan";
 import ChangePassword from "./sections/ChangePassword";
 import MyOrganizations from "./sections/MyOrganizations";
-import {
-  trackProfileTabMyCourses,
-  trackProfileTabMyOrganizations,
-  trackProfileTabPersonalInfo,
-  trackProfileTabMembershipPlan,
-} from "../../utils/analytics";
-
-const TAB_TRACKERS: Record<string, () => void> = {
-  courses: trackProfileTabMyCourses,
-  Organizations: trackProfileTabMyOrganizations,
-  info: trackProfileTabPersonalInfo,
-  membership: trackProfileTabMembershipPlan,
-};
+import { MyActivity } from "../../components/MyActivity";
+import { useUser } from "../../context/UserContext";
 
 const Profile = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get("tab") || "courses";
+  const { userId, firebaseUser, organizationUserData } = useUser();
+
+  const organizationId = organizationUserData?.organization_id?._id || organizationUserData?.organization_id;
 
   const handleTabChange = (value: string | null) => {
-    const tab = value || "courses";
-    TAB_TRACKERS[tab]?.();
-    setSearchParams({ tab });
+    setSearchParams({ tab: value || "courses" });
   };
 
   return (
@@ -39,6 +29,7 @@ const Profile = () => {
             <Tabs.Tab value="Organizations">Mis Organizaciones</Tabs.Tab>
             <Tabs.Tab value="info">Información Personal</Tabs.Tab>
             <Tabs.Tab value="membership">Mi Plan</Tabs.Tab>
+            <Tabs.Tab value="activity">Mi Actividad</Tabs.Tab>
             {/* <Tabs.Tab value="password">Cambiar Contraseña</Tabs.Tab> */}
           </Tabs.List>
 
@@ -56,6 +47,14 @@ const Profile = () => {
 
           <Tabs.Panel value="membership">
             <MembershipPlan />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="activity">
+            <MyActivity
+              userId={userId}
+              firebaseUid={firebaseUser?.uid || null}
+              organizationId={organizationId || ''}
+            />
           </Tabs.Panel>
 
           <Tabs.Panel value="password">

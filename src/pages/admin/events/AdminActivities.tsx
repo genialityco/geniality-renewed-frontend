@@ -28,10 +28,11 @@ import {
   updateActivityPut,
   generateTranscript,
   getTranscriptionStatus,
+  validateAndUpdateTranscript,
 } from "../../../services/activityService";
 import { Activity, Host, Module, Organization } from "../../../services/types";
 import { getModulesByEventId } from "../../../services/moduleService";
-import { FaCheck, FaPencil, FaTrash, FaYoutube } from "react-icons/fa6";
+import { FaCheck, FaPencil, FaTrash, FaYoutube, FaCircleCheck } from "react-icons/fa6";
 import {
   createHost,
   fetchHostsByEventId,
@@ -251,17 +252,35 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
   ) => {
     setCheckingStatusId(activityId);
     try {
-      const result = await getTranscriptionStatus(jobId);
+      // Primero validar y actualizar si está done
+      const validationResult = await validateAndUpdateTranscript(activityId);
+      
       setTranscriptionStatus((prev) => ({
         ...prev,
-        [activityId]: result.status,
+        [activityId]: validationResult.status,
       }));
+
+      // Si fue actualizado exitosamente (status = done), recargar actividades
+      if (validationResult.status === 'done' && eventId) {
+        console.log('✅ Transcript validado y actualizado. Recargando actividades...');
+        const acts = await getActivitiesByEvent(eventId);
+        setActivities(acts);
+      }
     } catch (error) {
-      setTranscriptionStatus((prev) => ({
-        ...prev,
-        [activityId]: "Error",
-      }));
-      console.error("Error al consultar estado de transcripción:", error);
+      // Si falla, intentar con el método anterior (solo consultar estado)
+      try {
+        const result = await getTranscriptionStatus(jobId);
+        setTranscriptionStatus((prev) => ({
+          ...prev,
+          [activityId]: result.status,
+        }));
+      } catch {
+        setTranscriptionStatus((prev) => ({
+          ...prev,
+          [activityId]: "Error",
+        }));
+      }
+      console.error("Error al validar/consultar estado de transcripción:", error);
     } finally {
       setCheckingStatusId(null);
     }
@@ -417,14 +436,26 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
             </Stack>
 
             <Group mt="md" gap="xs" justify="flex-end">
-              <Button
-                size="xs"
-                loading={generatingTranscriptId === act._id}
-                onClick={() => handleGenerateTranscript(act._id)}
-                variant="light"
-              >
-                Generar Transcript
-              </Button>
+              {act.transcript_available ? (
+                <Group gap="xs">
+                  <Badge
+                    leftSection={<FaCircleCheck size={12} />}
+                    color="green"
+                    variant="filled"
+                  >
+                    Transcripción Disponible
+                  </Badge>
+                </Group>
+              ) : (
+                <Button
+                  size="xs"
+                  loading={generatingTranscriptId === act._id}
+                  onClick={() => handleGenerateTranscript(act._id)}
+                  variant="light"
+                >
+                  Generar Transcript
+                </Button>
+              )}
               <ActionIcon
                 color="blue"
                 variant="subtle"

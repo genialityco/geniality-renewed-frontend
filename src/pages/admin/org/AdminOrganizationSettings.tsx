@@ -13,13 +13,16 @@ import {
   Alert,
   Text,
   Textarea,
+  Accordion,
 } from "@mantine/core";
 import {
   fetchOrganizationById,
   updateOrganization,
 } from "../../../services/organizationService";
 import type { UserProperty } from "../../../services/types";
-// import { PropertyType } from "../../../services/types";
+import BrandingForm from "./components/BrandingForm";
+import TabsConfigForm from "./components/TabsConfigForm";
+import CompletionMessagesForm from "./components/CompletionMessagesForm";
 
 type Props = { organizationId: string };
 
@@ -46,12 +49,8 @@ function normalizeOrderWeights(list: UserProperty[]) {
 
 export default function AdminOrganizationSettings({ organizationId }: Props) {
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
   const [propsList, setPropsList] = useState<UserProperty[]>([]);
 
-  // Cargar y dejar el estado ya normalizado y en orden visual
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -62,36 +61,115 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
           ? [...org.user_properties]
           : [];
         const normalized = normalizeOrderWeights(list.sort(sortByOrderWeight));
-        // default visible=true si no viene
         setPropsList(
           normalized.map((p) => ({
             ...p,
             visible: p.visible !== false,
-            description: (p as any).description ?? "", // 👈 asegura que exista
+            description: (p as any).description ?? "",
           }))
         );
       })
-      .catch(() => setError("No se pudo cargar la organización"))
+      .catch(() => {
+        // Error handled in PropertiesPanel
+      })
       .finally(() => setLoading(false));
     return () => {
       mounted = false;
     };
   }, [organizationId]);
 
+  if (loading) return <Loader />;
+
+  return (
+    <Stack>
+      <Title order={3}>Configuración de Mi Organización</Title>
+
+      <Accordion variant="separated">
+        <Accordion.Item value="branding">
+          <Accordion.Control>
+            <Title order={5}>🎨 Branding</Title>
+            <Text size="xs" c="dimmed">
+              Banner, logo y título de la organización
+            </Text>
+          </Accordion.Control>
+          <Accordion.Panel>
+            <BrandingForm organizationId={organizationId} />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value="tabs">
+          <Accordion.Control>
+            <Title order={5}>📑 Configuración de Tabs</Title>
+            <Text size="xs" c="dimmed">
+              Personaliza los nombres y descripciones de las pestañas
+            </Text>
+          </Accordion.Control>
+          <Accordion.Panel>
+            <TabsConfigForm organizationId={organizationId} />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value="completion-messages">
+          <Accordion.Control>
+            <Title order={5}>✉️ Mensajes de Finalización</Title>
+            <Text size="xs" c="dimmed">
+              Mensajes personalizados al completar actividades
+            </Text>
+          </Accordion.Control>
+          <Accordion.Panel>
+            <CompletionMessagesForm organizationId={organizationId} />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value="properties">
+          <Accordion.Control>
+            <Title order={5}>📋 Propiedades de Usuario</Title>
+            <Text size="xs" c="dimmed">
+              Campos personalizables del registro de usuarios
+            </Text>
+          </Accordion.Control>
+          <Accordion.Panel>
+            <PropertiesPanel
+              propsList={propsList}
+              setPropsList={setPropsList}
+              organizationId={organizationId}
+            />
+          </Accordion.Panel>
+        </Accordion.Item>
+      </Accordion>
+    </Stack>
+  );
+}
+
+// Componente auxiliar para las propiedades
+interface PropertiesPanelProps {
+  propsList: UserProperty[];
+  setPropsList: (list: UserProperty[] | ((prev: UserProperty[]) => UserProperty[])) => void;
+  organizationId: string;
+}
+
+function PropertiesPanel({
+  propsList,
+  setPropsList,
+  organizationId,
+}: PropertiesPanelProps) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
   const handleChange = (
     i: number,
     patch: Partial<UserProperty> & { description?: string }
   ) => {
-    setPropsList((prev) => {
+    setPropsList((prev: UserProperty[]) => {
       const next = [...prev];
       next[i] = { ...next[i], ...patch };
       return next;
     });
   };
 
-  // ↑ / ↓ : intercambia posiciones y normaliza pesos/índices
   const moveRow = (i: number, dir: -1 | 1) => {
-    setPropsList((prev) => {
+    setPropsList((prev: UserProperty[]) => {
       const next = [...prev];
       const j = i + dir;
       if (j < 0 || j >= next.length) return prev;
@@ -100,9 +178,8 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
     });
   };
 
-  // Añadir al final y normalizar
   const addProperty = () => {
-    setPropsList((prev) => {
+    setPropsList((prev: UserProperty[]) => {
       const next = [
         ...prev,
         {
@@ -114,29 +191,26 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
           options: [],
           dependency: {},
           visible: true,
-          description: "", // 👈 nuevo
+          description: "" as any,
           order_weight: (prev.length || 0) + 1,
           index: prev.length || 0,
-        } as UserProperty & { description?: string },
+        } as UserProperty,
       ];
       return normalizeOrderWeights(next);
     });
   };
 
-  // Eliminar y normalizar
   const removeProperty = (i: number) => {
-    setPropsList((prev) =>
-      normalizeOrderWeights(prev.filter((_, idx) => idx !== i))
+    setPropsList((prev: UserProperty[]) =>
+      normalizeOrderWeights(prev.filter((_: UserProperty, idx: number) => idx !== i))
     );
   };
 
-  // Guardar
   const save = async () => {
     setSaving(true);
     setError(null);
     setOk(null);
     try {
-      // Validación simple
       for (const p of propsList) {
         if (!p.name || !p.label) {
           throw new Error("Todos los campos deben tener 'name' y 'label'.");
@@ -146,10 +220,9 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
         }
       }
 
-      // payload directo con description (opcional)
       const payload = { user_properties: normalizeOrderWeights(propsList) };
       await updateOrganization(organizationId, payload as any);
-      setOk("Configuración guardada correctamente.");
+      setOk("Propiedades guardadas correctamente.");
     } catch (e: any) {
       setError(e?.message || "No se pudo guardar la configuración.");
     } finally {
@@ -157,7 +230,6 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
     }
   };
 
-  // Render: NO ordenar aquí; respetamos el orden del estado
   const rows = useMemo(
     () =>
       propsList.map((p, i) => (
@@ -249,12 +321,8 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
     [propsList]
   );
 
-  if (loading) return <Loader />;
-
   return (
     <Stack>
-      <Title order={3}>Configuración de Mi Organización</Title>
-
       <Alert color="blue" variant="light">
         Administra <b>user_properties</b>: cambia orden (↑/↓), marca{" "}
         <b>Obligatorio</b>, <b>Visible</b> y añade una <b>Descripción</b>{" "}
