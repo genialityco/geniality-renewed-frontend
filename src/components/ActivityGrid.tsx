@@ -14,11 +14,50 @@ import {
 import { FaCircleCheck, FaPause, FaPlay } from "react-icons/fa6";
 import { Activity, Host } from "../services/types";
 import { getActivityProgress } from "../services/activityAttendeeService";
+import { useState, useEffect } from "react";
 
 function getVimeoId(videoUrl: string | null | undefined): string | null {
   if (!videoUrl) return null;
   const match = videoUrl.match(/(?:vimeo\.com\/|video\/)(\d+)/);
   return match ? match[1] : null;
+}
+
+interface VimeoThumbnailProps {
+  vimeoId: string;
+  activityName: string;
+}
+
+function VimeoThumbnail({ vimeoId, activityName }: VimeoThumbnailProps) {
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchThumbnail = async () => {
+      try {
+        const response = await fetch(
+          `https://vimeo.com/api/v2/video/${vimeoId}.json`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setThumbnail(data[0]?.thumbnail_large || data[0]?.thumbnail_url || null);
+        }
+      } catch (error) {
+        console.error(`Error fetching Vimeo thumbnail for ${vimeoId}:`, error);
+      }
+    };
+
+    if (vimeoId) {
+      fetchThumbnail();
+    }
+  }, [vimeoId]);
+
+  return thumbnail ? (
+    <Image
+      src={thumbnail}
+      alt={activityName}
+      fit="contain"
+      style={{ width: "100%", height: "100%" }}
+    />
+  ) : null;
 }
 
 interface ActivityGridProps {
@@ -107,11 +146,9 @@ export default function ActivityGrid({
               >
                 {/* Mostrar thumbnail de video si existe */}
                 {activity.video && getVimeoId(activity.video) && (
-                  <Image
-                    src={`https://vumbnail.com/${getVimeoId(activity.video)}.jpg`}
-                    alt={activity.name}
-                    fit="contain"
-                    style={{ width: "100%", height: "100%" }}
+                  <VimeoThumbnail
+                    vimeoId={getVimeoId(activity.video)!}
+                    activityName={activity.name}
                   />
                 )}
 
