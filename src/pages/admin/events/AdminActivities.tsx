@@ -94,6 +94,13 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
   >({});
   const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
 
+  // Modal de opciones de transcripción
+  const [transcriptModalActivity, setTranscriptModalActivity] =
+    useState<Activity | null>(null);
+  const [transcriptUseGpu, setTranscriptUseGpu] = useState(false);
+  const [transcriptGenerateEmbeddings, setTranscriptGenerateEmbeddings] =
+    useState(true);
+
   // Cargar data inicial
   useEffect(() => {
     if (!eventId) return;
@@ -231,10 +238,18 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
   };
 
   // --------- Transcript ---------
-  const handleGenerateTranscript = async (activityId: string) => {
+  const handleGenerateTranscript = async (
+    activityId: string,
+    useGpu: boolean,
+    generateEmbeddings: boolean,
+  ) => {
+    setTranscriptModalActivity(null);
     setGeneratingTranscriptId(activityId);
     try {
-      await generateTranscript(activityId);
+      await generateTranscript(activityId, {
+        use_gpu: useGpu,
+        generate_embeddings: generateEmbeddings,
+      });
       if (eventId) {
         const acts = await getActivitiesByEvent(eventId);
         setActivities(acts);
@@ -445,12 +460,29 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
                   >
                     Transcripción Disponible
                   </Badge>
+                  <Button
+                    size="xs"
+                    variant="subtle"
+                    color="orange"
+                    loading={generatingTranscriptId === act._id}
+                    onClick={() => {
+                      setTranscriptUseGpu(false);
+                      setTranscriptGenerateEmbeddings(true);
+                      setTranscriptModalActivity(act);
+                    }}
+                  >
+                    Re-generar
+                  </Button>
                 </Group>
               ) : (
                 <Button
                   size="xs"
                   loading={generatingTranscriptId === act._id}
-                  onClick={() => handleGenerateTranscript(act._id)}
+                  onClick={() => {
+                    setTranscriptUseGpu(false);
+                    setTranscriptGenerateEmbeddings(true);
+                    setTranscriptModalActivity(act);
+                  }}
                   variant="light"
                 >
                   Generar Transcript
@@ -665,6 +697,62 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
               leftSection={<FaCheck size={16} />}
             >
               Guardar Cambios
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* --------- OPCIONES DE TRANSCRIPCIÓN --------- */}
+      <Modal
+        opened={!!transcriptModalActivity}
+        onClose={() => setTranscriptModalActivity(null)}
+        title={
+          transcriptModalActivity?.transcript_available
+            ? `Re-generar transcripción: ${transcriptModalActivity?.name}`
+            : `Generar transcripción: ${transcriptModalActivity?.name}`
+        }
+        centered
+        size="sm"
+      >
+        <Stack gap="md">
+          <Switch
+            label="Usar GPU (CUDA)"
+            description="Más rápido si el servidor tiene GPU disponible"
+            checked={transcriptUseGpu}
+            onChange={(e) => setTranscriptUseGpu(e.currentTarget.checked)}
+          />
+          <Switch
+            label="Generar embeddings"
+            description="Genera vectores semánticos por segmento (requiere Gemini API)"
+            checked={transcriptGenerateEmbeddings}
+            onChange={(e) =>
+              setTranscriptGenerateEmbeddings(e.currentTarget.checked)
+            }
+          />
+          {transcriptModalActivity?.transcript_available && (
+            <Text size="xs" c="orange">
+              Esta actividad ya tiene transcripción. Se reemplazará al completar.
+            </Text>
+          )}
+          <Group justify="flex-end" mt="xs">
+            <Button
+              variant="default"
+              onClick={() => setTranscriptModalActivity(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() =>
+                handleGenerateTranscript(
+                  transcriptModalActivity!._id,
+                  transcriptUseGpu,
+                  transcriptGenerateEmbeddings,
+                )
+              }
+            >
+              {transcriptModalActivity?.transcript_available
+                ? "Re-generar"
+                : "Generar"}
             </Button>
           </Group>
         </Stack>

@@ -101,14 +101,18 @@ export async function updateVideoProgress(
  * Genera la transcripción de la actividad
  * POST /activities/generate-transcript/:activity_id
  */
-export async function generateTranscript(activityId: string): Promise<{
-  message: string;
-  totalSegments: number;
-}> {
+export async function generateTranscript(
+  activityId: string,
+  options?: { use_gpu?: boolean; generate_embeddings?: boolean },
+): Promise<{ message: string; jobId?: string; status?: string }> {
   const response = await api.post<{
     message: string;
-    totalSegments: number;
-  }>(`${BASE_URL}/generate-transcript/${activityId}`);
+    jobId?: string;
+    status?: string;
+  }>(`${BASE_URL}/generate-transcript/${activityId}`, {
+    use_gpu: options?.use_gpu ?? false,
+    generate_embeddings: options?.generate_embeddings ?? true,
+  });
   return response.data;
 }
 
