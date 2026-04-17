@@ -22,6 +22,19 @@ function getVimeoId(videoUrl: string | null | undefined): string | null {
   return match ? match[1] : null;
 }
 
+function getYouTubeId(videoUrl: string | null | undefined): string | null {
+  if (!videoUrl) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s?]+)/,
+    /youtube\.com\/embed\/([^?&]+)/,
+  ];
+  for (const pattern of patterns) {
+    const match = videoUrl.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
 interface VimeoThumbnailProps {
   vimeoId: string;
   activityName: string;
@@ -58,6 +71,25 @@ function VimeoThumbnail({ vimeoId, activityName }: VimeoThumbnailProps) {
       style={{ width: "100%", height: "100%" }}
     />
   ) : null;
+}
+
+interface YouTubeThumbnailProps {
+  youtubeId: string;
+  activityName: string;
+}
+
+function YouTubeThumbnail({ youtubeId, activityName }: YouTubeThumbnailProps) {
+  // YouTube proporciona miniaturas públicas en URLs estándar
+  const thumbnailUrl = `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+
+  return (
+    <Image
+      src={thumbnailUrl}
+      alt={activityName}
+      fit="cover"
+      style={{ width: "100%", height: "100%" }}
+    />
+  );
 }
 
 interface ActivityGridProps {
@@ -144,10 +176,18 @@ export default function ActivityGrid({
                   overflow: "hidden",
                 }}
               >
-                {/* Mostrar thumbnail de video si existe */}
+                {/* Mostrar thumbnail de video de Vimeo si existe */}
                 {activity.video && getVimeoId(activity.video) && (
                   <VimeoThumbnail
                     vimeoId={getVimeoId(activity.video)!}
+                    activityName={activity.name}
+                  />
+                )}
+
+                {/* Mostrar thumbnail de video de YouTube si existe */}
+                {activity.video && !getVimeoId(activity.video) && getYouTubeId(activity.video) && (
+                  <YouTubeThumbnail
+                    youtubeId={getYouTubeId(activity.video)!}
                     activityName={activity.name}
                   />
                 )}
