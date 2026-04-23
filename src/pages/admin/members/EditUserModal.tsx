@@ -1,5 +1,5 @@
 // src/pages/AdminOrganizationEvents/EditUserModal.tsx
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Modal,
   Button,
@@ -31,27 +31,34 @@ function isValidPropConfig(prop: UserProperty): boolean {
   const hasValidType =
     typeof (prop as any)?.type === "string" &&
     String((prop as any).type).trim().length > 0;
+
   return hasValidName && hasValidType;
 }
 
 function normalizeName(
-  name?: string
+  name?: string,
 ): "country" | "city" | "department" | "other" {
   const n = (name ?? "").toLowerCase();
+
   if (/(country|pa[ií]s)/.test(n)) return "country";
   if (/(city|ciudad)/.test(n)) return "city";
   if (/(department|departamento|depto)/.test(n)) return "department";
+
   return "other";
 }
 
 function isPropEnabled(prop: UserProperty, values: AnyRecord): boolean {
   const dep: any = (prop as any).dependency;
+
   if (!dep || !dep.fieldName) return true;
+
   const depVal = values?.[dep.fieldName];
   const triggers: any[] = dep?.triggerValues ?? [];
+
   if (Array.isArray(triggers) && triggers.length > 0) {
     return triggers.includes(depVal);
   }
+
   return (
     depVal !== undefined && depVal !== null && String(depVal).trim() !== ""
   );
@@ -66,31 +73,47 @@ export default function EditUserModal({
   mode = "edit",
 }: Props) {
   const isCreateMode = mode === "create";
+
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [memberShipStatus, setMemberShipStatus] = useState(false);
+
+  const lastInitKeyRef = useRef<string | null>(null);
 
   // Sólo props visibles
   const visibleProps = useMemo(
     () =>
       (userProps ?? []).filter(
-        (p) => (p as any).visible !== false && isValidPropConfig(p)
+        (p) => (p as any).visible !== false && isValidPropConfig(p),
       ),
-    [userProps]
+    [userProps],
   );
+
+  // Clave estable para inicializar solo cuando realmente cambie el contexto del modal
+  const initKey = useMemo(() => {
+    const propsKey = visibleProps
+      .map((p) => `${p.name}:${String((p as any).type).toLowerCase()}`)
+      .join("|");
+
+    const userKey = isCreateMode ? "create" : (user?._id ?? "no-user");
+
+    return `${mode}|${userKey}|${propsKey}`;
+  }, [visibleProps, isCreateMode, mode, user?._id]);
 
   // Nombres reales de los campos
   const countryProp = useMemo(
     () => visibleProps.find((p) => normalizeName(p.name) === "country"),
-    [visibleProps]
+    [visibleProps],
   );
+
   const cityProp = useMemo(
     () => visibleProps.find((p) => normalizeName(p.name) === "city"),
-    [visibleProps]
+    [visibleProps],
   );
+
   const deptProp = useMemo(
     () => visibleProps.find((p) => normalizeName(p.name) === "department"),
-    [visibleProps]
+    [visibleProps],
   );
 
   const countryName = countryProp?.name;
@@ -99,26 +122,36 @@ export default function EditUserModal({
 
   // Datos de países
   const countries = useMemo(() => Country.getAllCountries(), []);
+
   const countryOptions = useMemo(
     () => countries.map((c) => ({ value: c.isoCode, label: c.name })),
-    [countries]
+    [countries],
   );
+
   const countryByCode = useMemo(() => {
     const m = new Map<
       string,
       { name: string; iso: string; phonecode?: string | null }
     >();
-    for (const c of countries)
+
+    for (const c of countries) {
       m.set(c.isoCode, {
         name: c.name,
         iso: c.isoCode,
         phonecode: (c as any).phonecode ?? null,
       });
+    }
+
     return m;
   }, [countries]);
+
   const countryCodeByName = useMemo(() => {
     const m = new Map<string, string>();
-    for (const c of countries) m.set(c.name, c.isoCode);
+
+    for (const c of countries) {
+      m.set(c.name, c.isoCode);
+    }
+
     return m;
   }, [countries]);
 
@@ -127,32 +160,32 @@ export default function EditUserModal({
     validate: isCreateMode
       ? (values) => {
           const errors: AnyRecord = {};
+
           visibleProps.forEach((prop) => {
             const value = values[prop.name];
             const isEmpty = value == null || value === "";
             const enabled = isPropEnabled(prop, values);
 
-            // Validar campos obligatorios
             if (enabled && prop.mandatory && isEmpty) {
               errors[prop.name] = "Este campo es obligatorio";
             }
 
-            // Validación email
             if (prop.type.toLowerCase() === "email" && value) {
               const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-              if (!emailRegex.test(value)) {
+              if (!emailRegex.test(String(value))) {
                 errors[prop.name] = "Formato de correo inválido";
               }
             }
 
-            // Validación ID/documento
             const lname = prop.name.toLowerCase();
+
             const isIdField =
               lname === "id" ||
               lname === "documento" ||
               lname === "documentoid" ||
               lname === "cedula" ||
               lname === "cédula";
+
             if (isIdField && value) {
               const digits = String(value).replace(/\D+/g, "");
               if (digits.length < 6 || digits.length > 15) {
@@ -160,12 +193,12 @@ export default function EditUserModal({
               }
             }
 
-            // Validación teléfono
             const isPhoneField =
               lname.includes("phone") ||
               lname.includes("cel") ||
               lname.includes("tel") ||
               lname.includes("contacto");
+
             if (isPhoneField && value) {
               const digits = String(value).replace(/\D+/g, "");
               if (digits.length < 6 || digits.length > 15) {
@@ -173,19 +206,20 @@ export default function EditUserModal({
               }
             }
 
-            // Validación nombres/apellidos
             const isNamesField =
               lname === "nombres" ||
               lname === "names" ||
               lname === "apellidos" ||
               lname === "surnames";
+
             if (isNamesField && value) {
               const ONLY_LETTERS_RE = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s-]*$/;
-              if (!ONLY_LETTERS_RE.test(value)) {
+              if (!ONLY_LETTERS_RE.test(String(value))) {
                 errors[prop.name] = "Solo letras y espacios";
               }
             }
           });
+
           return errors;
         }
       : undefined,
@@ -193,66 +227,81 @@ export default function EditUserModal({
 
   // País seleccionado
   const selectedCountryName = countryName
-    ? (form.values[countryName] as string)
+    ? String(form.values[countryName] ?? "")
     : "";
+
   const selectedCountryCode = countryCodeByName.get(selectedCountryName) || "";
 
   // Estados/Departamentos
   const states = useMemo(
     () =>
       selectedCountryCode ? State.getStatesOfCountry(selectedCountryCode) : [],
-    [selectedCountryCode]
+    [selectedCountryCode],
   );
+
   const stateOptions = useMemo(
     () => states.map((s) => ({ value: s.isoCode, label: s.name })),
-    [states]
+    [states],
   );
+
   const stateByCode = useMemo(() => {
     const m = new Map<string, { name: string; code: string }>();
-    for (const s of states) m.set(s.isoCode, { name: s.name, code: s.isoCode });
+
+    for (const s of states) {
+      m.set(s.isoCode, { name: s.name, code: s.isoCode });
+    }
+
     return m;
   }, [states]);
 
-  const selectedStateName = deptName ? (form.values[deptName] as string) : "";
+  const selectedStateName = deptName ? String(form.values[deptName] ?? "") : "";
+
   const selectedStateCode =
     states.find((s) => s.name === selectedStateName)?.isoCode || "";
 
   // Ciudades
   const cities = useMemo(() => {
     if (!selectedCountryCode) return [];
-    if (selectedStateCode)
-      return City.getCitiesOfState(selectedCountryCode, selectedStateCode);
-    return City.getCitiesOfCountry(selectedCountryCode);
+
+    if (selectedStateCode) {
+      return (
+        City.getCitiesOfState(selectedCountryCode, selectedStateCode) ?? []
+      );
+    }
+
+    return City.getCitiesOfCountry(selectedCountryCode) ?? [];
   }, [selectedCountryCode, selectedStateCode]);
 
   const cityOptions = useMemo(
     () =>
-      cities?.map((c) => ({
+      cities.map((c) => ({
         value: `${c.name}::${c.stateCode ?? ""}`,
         label: c.name,
       })),
-    [cities]
+    [cities],
   );
 
-  const selectedCityName = cityName ? (form.values[cityName] as string) : "";
+  const selectedCityName = cityName ? String(form.values[cityName] ?? "") : "";
+
   const selectedCityKey = useMemo(() => {
     if (!selectedCityName) return null;
-    if (selectedStateCode) return `${selectedCityName}::${selectedStateCode}`;
-    const found = cities?.find((c) => c.name === selectedCityName);
+
+    if (selectedStateCode) {
+      return `${selectedCityName}::${selectedStateCode}`;
+    }
+
+    const found = cities.find((c) => c.name === selectedCityName);
     return found ? `${found.name}::${found.stateCode ?? ""}` : null;
   }, [selectedCityName, selectedStateCode, cities]);
 
-  // Helper: indicativo de país
   const getNormalizedPhoneCode = (code?: string | null) => {
     if (!code) return "";
     const first = String(code).split(",")[0].trim();
     return first ? `+${first.replace(/^\+/, "")}` : "";
   };
 
-  // Helper: ¿El país seleccionado es Colombia?
   const isColombia = selectedCountryName === "Colombia";
 
-  // Sanitización para campos numéricos
   const sanitizeNumeric = useCallback((raw: any, maxLength = 15) => {
     const str = raw?.currentTarget ? raw.currentTarget.value : raw;
     return String(str || "")
@@ -260,18 +309,15 @@ export default function EditUserModal({
       .slice(0, maxLength);
   }, []);
 
-  // Sanitización para nombres/apellidos
   const sanitizeNames = useCallback((raw: any) => {
     const str = raw?.currentTarget ? raw.currentTarget.value : raw;
     return String(str || "").replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñÜü\s-]/g, "");
   }, []);
 
-  // Validación en blur
   const validateOnBlur = useCallback((prop: UserProperty, value: any) => {
     const lname = prop.name.toLowerCase();
     const val = typeof value === "string" ? value.trimEnd() : value;
 
-    // Nombres/Apellidos
     const isNamesField =
       lname === "nombres" ||
       lname === "names" ||
@@ -279,7 +325,7 @@ export default function EditUserModal({
       lname === "surnames";
     if (isNamesField && val) {
       const ONLY_LETTERS_RE = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s-]*$/;
-      if (!ONLY_LETTERS_RE.test(val)) {
+      if (!ONLY_LETTERS_RE.test(String(val))) {
         setFieldErrors((prev) => ({
           ...prev,
           [prop.name]: "Solo letras y espacios.",
@@ -291,7 +337,7 @@ export default function EditUserModal({
     // Email
     if (prop.type.toLowerCase() === "email" && val) {
       const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-      if (!EMAIL_RE.test(val)) {
+      if (!EMAIL_RE.test(String(val))) {
         setFieldErrors((prev) => ({
           ...prev,
           [prop.name]: "Formato de correo inválido (ej. nombre@dominio.com).",
@@ -324,7 +370,6 @@ export default function EditUserModal({
       }
     }
 
-    // Limpiar error si todo está bien
     setFieldErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors[prop.name];
@@ -332,8 +377,17 @@ export default function EditUserModal({
     });
   }, []);
 
-  // Inicialización
+  // Inicialización controlada: solo al abrir el modal o cuando cambia de usuario/esquema real
   useEffect(() => {
+    if (!opened) {
+      lastInitKeyRef.current = null;
+      return;
+    }
+
+    if (lastInitKeyRef.current === initKey) {
+      return;
+    }
+
     const initialValues: AnyRecord = {};
 
     if (isCreateMode) {
@@ -348,11 +402,8 @@ export default function EditUserModal({
         const raw = user.properties?.[name];
         const t = prop.type.toLowerCase();
 
-        if (t === "boolean") {
-          initialValues[name] = String(raw).toLowerCase() === "true";
-        } else {
-          initialValues[name] = raw ?? "";
-        }
+        initialValues[name] =
+          t === "boolean" ? String(raw).toLowerCase() === "true" : (raw ?? "");
       });
       setMemberShipStatus(user.memberShipStatus ?? false);
     }
@@ -362,7 +413,7 @@ export default function EditUserModal({
     setFieldErrors({});
     setIsSubmitting(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, visibleProps, isCreateMode, opened]);
+  }, [opened, initKey, isCreateMode, user, visibleProps]);
 
   // Limpiar valores cuando una dependencia deshabilita un campo
   useEffect(() => {
@@ -372,30 +423,30 @@ export default function EditUserModal({
       if (!enabled && form.values[name]) {
         form.setFieldValue(
           name,
-          prop.type.toLowerCase() === "boolean" ? false : ""
+          prop.type.toLowerCase() === "boolean" ? false : "",
         );
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.values, visibleProps]);
 
-  // Efecto: si country cambia y NO es Colombia -> limpiar city & department
+  // Si country cambia y no es Colombia -> city y department no aplican
   useEffect(() => {
     if (!countryName) return;
-    const shouldShowDeptoCity = isColombia;
 
-    if (!shouldShowDeptoCity) {
+    if (!isColombia) {
       if (cityName && form.values[cityName] !== "No aplica") {
         form.setFieldValue(cityName, "No aplica");
       }
+
       if (deptName && form.values[deptName] !== "No aplica") {
         form.setFieldValue(deptName, "No aplica");
       }
     } else {
-      // Si es Colombia y tienen "No aplica", limpiar
       if (cityName && form.values[cityName] === "No aplica") {
         form.setFieldValue(cityName, "");
       }
+
       if (deptName && form.values[deptName] === "No aplica") {
         form.setFieldValue(deptName, "");
       }
@@ -405,28 +456,35 @@ export default function EditUserModal({
 
   // Auto-indicativo cuando cambia país
   useEffect(() => {
-    if (!selectedCountryCode || !countryName) return;
     const indicativoField = visibleProps.find(
-      (p) => p.name.toLowerCase() === "indicativodepais"
+      (p) => p.name.toLowerCase() === "indicativodepais",
     );
+
     if (!indicativoField) return;
+
+    if (!selectedCountryCode) {
+      if (form.values[indicativoField.name]) {
+        form.setFieldValue(indicativoField.name, "");
+      }
+      return;
+    }
 
     const phonecode = countryByCode.get(selectedCountryCode)?.phonecode ?? null;
     const normalized = getNormalizedPhoneCode(phonecode);
-    if (normalized && form.values.indicativodepais !== normalized) {
-      form.setFieldValue("indicativodepais", normalized);
+
+    if (normalized && form.values[indicativoField.name] !== normalized) {
+      form.setFieldValue(indicativoField.name, normalized);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCountryCode]);
+  }, [selectedCountryCode, visibleProps, countryByCode]);
 
-  // Renderizador de campos
   const renderField = (prop: UserProperty) => {
     const name = prop.name;
     const lname = name.toLowerCase();
     const cleanLabel =
       typeof prop.label === "string"
         ? prop.label.replace(/<[^>]*>?/gm, "")
-        : prop.label;
+        : String(prop.label ?? name);
 
     const type = prop.type.toLowerCase();
     const enabled = isPropEnabled(prop, form.values);
@@ -457,12 +515,10 @@ export default function EditUserModal({
 
     const error = fieldErrors[name] || form.errors[name];
 
-    // Ocultar city/department si no es Colombia
     if ((nName === "city" || nName === "department") && !isColombia) {
       return null;
     }
 
-    // ---------- COUNTRY ----------
     if (nName === "country") {
       return (
         <Select
@@ -477,18 +533,19 @@ export default function EditUserModal({
           required={isCreateMode && effectiveMandatory}
           error={error}
           onChange={(code) => {
-            const countryName = code ? countryByCode.get(code)?.name ?? "" : "";
-            form.setFieldValue(name, countryName);
+            const currentCountryName = code
+              ? (countryByCode.get(code)?.name ?? "")
+              : "";
+            form.setFieldValue(name, currentCountryName);
           }}
         />
       );
     }
 
-    // ---------- DEPARTMENT ----------
     if (nName === "department") {
       const selectedStateCodeFromName =
-        states.find((s) => s.name === (form.values[name] as string))?.isoCode ??
-        null;
+        states.find((s) => s.name === String(form.values[name] ?? ""))
+          ?.isoCode ?? null;
 
       return (
         <Select
@@ -503,15 +560,17 @@ export default function EditUserModal({
           required={isCreateMode && effectiveMandatory}
           error={error}
           onChange={(code) => {
-            const stateName = code ? stateByCode.get(code)?.name ?? "" : "";
+            const stateName = code ? (stateByCode.get(code)?.name ?? "") : "";
             form.setFieldValue(name, stateName);
-            if (cityName) form.setFieldValue(cityName, "");
+
+            if (cityName) {
+              form.setFieldValue(cityName, "");
+            }
           }}
         />
       );
     }
 
-    // ---------- CITY ----------
     if (nName === "city") {
       return (
         <Select
@@ -530,20 +589,22 @@ export default function EditUserModal({
               form.setFieldValue(name, "");
               return;
             }
-            const [cityName, stateCode] = val.split("::");
-            form.setFieldValue(name, cityName);
 
-            // Autoseleccionar departamento
+            const [currentCityName, stateCode] = val.split("::");
+            form.setFieldValue(name, currentCityName);
+
             const stateName = stateByCode.get(stateCode || "")?.name ?? "";
-            if (deptName) form.setFieldValue(deptName, stateName);
+            if (deptName) {
+              form.setFieldValue(deptName, stateName);
+            }
 
-            // Mantener país correcto
-            const countryName =
+            const currentCountryName =
               countryByCode.get(selectedCountryCode)?.name ?? "";
+
             if (countryProp?.name) {
-              const current = (form.values[countryProp.name] as string) || "";
-              if (!current || current !== countryName) {
-                form.setFieldValue(countryProp.name, countryName);
+              const current = String(form.values[countryProp.name] ?? "");
+              if (!current || current !== currentCountryName) {
+                form.setFieldValue(countryProp.name, currentCountryName);
               }
             }
           }}
@@ -551,7 +612,6 @@ export default function EditUserModal({
       );
     }
 
-    // ---------- Resto de tipos ----------
     switch (type) {
       case "text":
       case "codearea":
@@ -568,11 +628,13 @@ export default function EditUserModal({
             value={form.values[name] ?? ""}
             onChange={(e) => {
               let val = e.currentTarget.value;
+
               if (isIdField || isPhoneField) {
                 val = sanitizeNumeric(val);
               } else if (isNamesField) {
                 val = sanitizeNames(val);
               }
+
               form.setFieldValue(name, val);
             }}
             onBlur={() => validateOnBlur(prop, form.values[name])}
@@ -608,9 +670,11 @@ export default function EditUserModal({
             value={form.values[name] ?? ""}
             onChange={(e) => {
               let val = e.currentTarget.value;
+
               if (isIdField || isPhoneField) {
                 val = sanitizeNumeric(val);
               }
+
               form.setFieldValue(name, val);
             }}
             onBlur={() => validateOnBlur(prop, form.values[name])}
@@ -638,10 +702,12 @@ export default function EditUserModal({
                 : {
                     value: opt.value ?? opt.label,
                     label: opt.label ?? opt.value,
-                  }
+                  },
             )
           : [];
+
         const value = form.values[name] ?? "";
+
         return (
           <Select
             key={name}
@@ -676,29 +742,27 @@ export default function EditUserModal({
   };
 
   const handleSubmit = async (values: AnyRecord) => {
-    // Validar en modo crear
     if (isCreateMode) {
       const validation = form.validate();
       if (validation.hasErrors || Object.keys(fieldErrors).length > 0) return;
     }
 
-    // Activar estado de carga
     setIsSubmitting(true);
 
     try {
-      // Sólo enviar las visibles
       const allowed = new Set(visibleProps.map((p) => p.name));
       const filtered: AnyRecord = {};
+
       Object.keys(values).forEach((k) => {
-        if (allowed.has(k)) filtered[k] = values[k];
+        if (allowed.has(k)) {
+          filtered[k] = values[k];
+        }
       });
 
       await onSave(filtered, memberShipStatus);
     } catch (error) {
-      // Si hay error, desactivar el estado de carga
       setIsSubmitting(false);
     }
-    // No desactivamos aquí porque el modal se cerrará
   };
 
   return (
@@ -729,6 +793,7 @@ export default function EditUserModal({
         ) : (
           visibleProps.map(renderField)
         )}
+
         <Checkbox
           label="Miembro exclusivo"
           description="Acceso a eventos exclusivos para miembros"
@@ -736,6 +801,7 @@ export default function EditUserModal({
           onChange={(e) => setMemberShipStatus(e.currentTarget.checked)}
           disabled={isSubmitting}
         />
+
         <Button
           onClick={() => handleSubmit(form.values)}
           mt="md"
