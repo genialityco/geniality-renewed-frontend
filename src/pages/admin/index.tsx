@@ -16,7 +16,7 @@ import {
   Modal,
   Button,
 } from "@mantine/core";
-import { FaList, FaUsers, FaGear } from "react-icons/fa6";
+import { FaList, FaUsers, FaGear, FaFilm } from "react-icons/fa6";
 
 import { useOrganization } from "../../context/OrganizationContext";
 import {
@@ -29,8 +29,9 @@ import EventsTab from "./events/EventsTab";
 import AdminEventEdit from "./events/AdminEventEdit";
 import MembersTab from "./members/MembersTab";
 import AdminOrganizationPage from "./org/AdminOrganizationPage";
+import AdminActivitiesPage from "./activities/index";
 
-type Section = "events" | "members" | "org";
+type Section = "events" | "members" | "org" | "activities";
 
 export default function AdminOrganizationEvents() {
   const { organization } = useOrganization();
@@ -86,6 +87,8 @@ export default function AdminOrganizationEvents() {
         : "Eventos"
       : activeSection === "members"
       ? "Miembros"
+      : activeSection === "activities"
+      ? "Actividades"
       : "Mi Organización";
 
   return (
@@ -155,6 +158,26 @@ export default function AdminOrganizationEvents() {
               <FaUsers /> Ver Miembros
             </UnstyledButton>
 
+            {/* Ver Actividades */}
+            <UnstyledButton
+              onClick={() => {
+                setActiveSection("activities");
+                setEditingEventId(null);
+                setDrawerOpened(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: 8,
+                borderRadius: 4,
+                backgroundColor:
+                  activeSection === "activities" ? "#F0F4FF" : "transparent",
+              }}
+            >
+              <FaFilm /> Ver Actividades
+            </UnstyledButton>
+
             {/* Mi Organización */}
             <UnstyledButton
               onClick={() => {
@@ -204,6 +227,8 @@ export default function AdminOrganizationEvents() {
           )
         ) : activeSection === "members" ? (
           <MembersTab />
+        ) : activeSection === "activities" ? (
+          <AdminActivitiesPage />
         ) : (
           <AdminOrganizationPage organizationId={orgId} />
         )}
