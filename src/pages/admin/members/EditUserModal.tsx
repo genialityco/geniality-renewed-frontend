@@ -412,6 +412,7 @@ export default function EditUserModal({
     form.resetDirty();
     setFieldErrors({});
     setIsSubmitting(false);
+    lastInitKeyRef.current = initKey;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, initKey, isCreateMode, user, visibleProps]);
 
