@@ -1,4 +1,3 @@
-/// <reference types="multer" />
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Group,

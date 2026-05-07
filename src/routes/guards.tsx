@@ -25,11 +25,13 @@ function CenterLoader({ label = "Cargando..." }: { label?: string }) {
 
 // src/routes/guards.tsx
 export function RequireAuth() {
-  const { loading, firebaseUser } = useUser();
+  const { loading, loadingUserData, firebaseUser } = useUser();
   const location = useLocation();
   const { organizationId } = useParams();
 
-  if (loading) return <CenterLoader label="Verificando sesión..." />;
+  if (loading || loadingUserData) {
+    return <CenterLoader label="Verificando sesión..." />;
+  }
 
   if (!firebaseUser) {
     // Guarda el token del query
@@ -63,7 +65,7 @@ export function RequireMembership({
 }: {
   checkOrgMembership?: boolean;
 }) {
-  const { loading, firebaseUser, userId } = useUser();
+  const { loading, loadingUserData, firebaseUser, userId } = useUser();
   const { organizationId } = useParams();
   const location = useLocation();
 
@@ -81,11 +83,15 @@ export function RequireMembership({
 
   useEffect(() => {
     let mounted = true;
+    if (loading || loadingUserData) return;
+
     (async () => {
+      if (!mounted) return;
+      setBusy(true);
+      setHasAccess(false);
+
       try {
-        if (loading) return;
         if (!firebaseUser || !userId) {
-          setHasAccess(false);
           return;
         }
 
@@ -93,19 +99,21 @@ export function RequireMembership({
         if (checkOrgMembership && organizationId) {
           try {
             const orgUser = await fetchOrganizationUserByUserId(userId);
+            const organizationObject = orgUser?.organization_id;
             const belongs =
               orgUser?.organization_id === organizationId ||
-              (typeof orgUser?.organization_id === "object" &&
-                orgUser?.organization_id !== null &&
-                " _id" in orgUser.organization_id &&
-                (orgUser.organization_id as { _id: string })._id ===
-                  organizationId);
+              (typeof organizationObject === "object" &&
+                organizationObject !== null &&
+                (("_id" in organizationObject &&
+                  (organizationObject as { _id: string })._id ===
+                    organizationId) ||
+                  ("id" in organizationObject &&
+                    (organizationObject as { id: string }).id ===
+                      organizationId)));
             if (!belongs) {
-              setHasAccess(false);
               return;
             }
           } catch {
-            setHasAccess(false);
             return;
           }
         }
@@ -113,7 +121,6 @@ export function RequireMembership({
         // 2) validar payment plan
         const plan = await fetchPaymentPlanByUserId(userId);
         if (!plan || isExpired(plan.date_until)) {
-          setHasAccess(false);
           return;
         }
 
@@ -122,12 +129,14 @@ export function RequireMembership({
         if (mounted) setBusy(false);
       }
     })();
+
     return () => {
       mounted = false;
     };
-  }, [loading, firebaseUser, userId, organizationId, checkOrgMembership]);
+  }, [loading, loadingUserData, firebaseUser, userId, organizationId, checkOrgMembership]);
 
-  if (loading || busy) return <CenterLoader label="Validando membresía..." />;
+  if (loading || loadingUserData || busy)
+    return <CenterLoader label="Validando membresía..." />;
 
   if (!firebaseUser) {
     const usePaymentMessage = organizationId === PAYWALL_ORGANIZATION_ID;
