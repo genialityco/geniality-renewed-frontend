@@ -21,11 +21,19 @@ import { fetchHostById } from "../services/hostsService";
 import {
   createOrUpdateActivityAttendee,
   ActivityAttendeePayload,
+  fetchActivityAttendeesByUserAndEvent,
+  getActivityProgress,
 } from "../services/activityAttendeeService";
+import {
+  fetchCompletionMessagesByType,
+  CompletionMessageType,
+} from "../services/completionMessagesService";
+import { getModules } from "../services/moduleService";
 import { useUser } from "../context/UserContext";
 import { Activity, Host } from "../services/types";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import ActivityTranscript from "./ActivityTranscript";
+import CompletionModal from "./CompletionModal";
 
 interface Fragment {
   segmentId: number;
@@ -39,6 +47,7 @@ interface ActivityDetailProps {
   eventId: string; // ID del evento (para enlaces, etc.)
   shareUrl: string; // URL para compartir
   activities: Activity[]; // Lista de actividades
+  activityAttendees?: any[]; // Progreso de actividades desde BD
 
   videoTime?: number | null;
   fragments?: Fragment[];
@@ -47,10 +56,11 @@ interface ActivityDetailProps {
 
 export default function ActivityDetail({
   activity,
-  // eventId,
+  eventId,
   shareUrl,
   // onStartQuestionnaire,
   activities,
+  activityAttendees = [],
   videoTime: _vt = null,
   fragments: _frags = [],
   formatTime,
@@ -111,15 +121,27 @@ export default function ActivityDetail({
   );
 
   // STATES
-  const [videoProgress, setVideoProgress] = useState<number>(
-    activity?.video_progress || 0
-  );
+  const [videoProgress, setVideoProgress] = useState<number>(0);
+  const [completionMessage, setCompletionMessage] = useState<any>(null);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [hosts, setHosts] = useState<Host[]>([]);
   const [shareNotification, setShareNotification] = useState(false);
 
   const [player, setPlayer] = useState<Player | null>(null);
   const vimeoPlayerRef = useRef<HTMLIFrameElement | null>(null);
   const reactPlayerRef = useRef<ReactPlayer | null>(null);
+  const lastSavedProgressRef = useRef<{ [key: string]: number }>({});
+  const currentProgressRef = useRef<number>(0);
+
+  // ==================================================
+  // 0. Efecto: Sincronizar videoTime desde prop (para búsqueda de segmentos)
+  // ==================================================
+  useEffect(() => {
+    if (_vt !== null && _vt !== undefined && _vt > 0) {
+      console.log(`🎬 Saltando a tiempo ${_vt}s en actividad ${activity?._id}`);
+      setVideoTime(_vt);
+    }
+  }, [_vt, activity?._id]);
 
   // ==================================================
   // 1. Efecto: Cargar hosts
@@ -144,39 +166,265 @@ export default function ActivityDetail({
   }, [activity, userId]);
 
   // ==================================================
-  // 2. Efecto: Registrar/actualizar ActivityAttendee
+  // 2. Efecto: Registrar actividad en 0% al entrar + hidratar progreso real
   // ==================================================
   useEffect(() => {
-    if (!activity || !userId) return;
+    if (!activity?._id || !userId) return;
 
-    const enrollInActivity = async () => {
+    let cancelled = false;
+
+    const initializeActivityAttendee = async () => {
       try {
-        // A) Registrar en la actividad
-        const payloadActivity: ActivityAttendeePayload = {
+        let serverProgress = 0;
+
+        if (eventId) {
+          const attendees = await fetchActivityAttendeesByUserAndEvent(userId, eventId);
+          if (cancelled) return;
+          serverProgress = getActivityProgress(attendees, activity._id);
+        }
+
+        const propProgress = getActivityProgress(activityAttendees, activity._id);
+        const initialProgress = Math.max(serverProgress, propProgress, 0);
+
+        setVideoProgress(initialProgress);
+        currentProgressRef.current = initialProgress;
+        lastSavedProgressRef.current[activity._id] = initialProgress;
+
+        // Requerimiento: al entrar a la actividad debe existir registro en 0%
+        // Si ya existe con mayor progreso, backend no lo disminuye.
+        const payload: ActivityAttendeePayload = {
           user_id: userId,
           activity_id: activity._id,
-          progress: activity.video_progress || 0,
+          progress: 0,
         };
-        await createOrUpdateActivityAttendee(payloadActivity);
-
-        // B) Registrar en el curso (si existe event_id)
-        // if (activity.event_id) {
-        //   const payloadCourse: CourseAttendeePayload = {
-        //     user_id: userId,
-        //     event_id: activity.event_id.toString(),
-        //   };
-        //   await createOrUpdateCourseAttendee(payloadCourse);
-        // }
-      } catch (err) {
-        console.error(
-          "Error inscribiendo al usuario en la actividad/curso:",
-          err
-        );
+        await createOrUpdateActivityAttendee(payload);
+      } catch (error) {
+        console.error("❌ Error inicializando activityAttendee:", error);
       }
     };
 
-    enrollInActivity();
-  }, [activity, userId]);
+    initializeActivityAttendee();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activity?._id, userId, eventId]);
+
+  // ==================================================
+  // 2.1 Efecto: Sincronizar progreso cuando llega data nueva sin pisar a 0
+  // ==================================================
+  useEffect(() => {
+    if (!activity?._id || !activityAttendees?.length) return;
+
+    const incomingProgress = getActivityProgress(activityAttendees, activity._id);
+    if (incomingProgress > currentProgressRef.current) {
+      setVideoProgress(incomingProgress);
+      currentProgressRef.current = incomingProgress;
+      lastSavedProgressRef.current[activity._id] = incomingProgress;
+    }
+  }, [activity?._id, activityAttendees]);
+
+  // ==================================================  // Función auxiliar: Interpolar variables en mensajes
+  // ==================================================
+  const interpolateMessage = (message: any, modules: any[], eventName: string = "") => {
+    if (!message || !message.blocks) return message;
+
+    let activityName = activity?.name || "la actividad";
+    
+    // Encontrar el módulo actual
+    const currentModule = modules.find((m) => m._id === activity?.module_id);
+    let moduleName = currentModule?.title || currentModule?.name || "el módulo";
+
+    // Obtener nombre del curso/evento
+    let courseName = eventName || "el curso";
+
+    // Calcular remaining y progress
+    let remaining = 0;
+    let progress = 0;
+    if (activities && activities.length > 0) {
+      remaining = activities.length > 0 ? Math.max(0, activities.length - 1) : 0;
+      progress = Math.round(((activities.length - remaining) / (activities.length || 1)) * 100);
+    }
+
+    const newBlocks = message.blocks.map((block: any) => ({
+      ...block,
+      content: block.content
+        .replace(/\{\{activity_name\}\}/g, activityName)
+        .replace(/\{\{module_name\}\}/g, moduleName)
+        .replace(/\{\{course_name\}\}/g, courseName)
+        .replace(/\{\{remaining\}\}/g, remaining.toString())
+        .replace(/\{\{progress\}\}/g, progress.toString()),
+    }));
+
+    return { ...message, blocks: newBlocks };
+  };
+
+  // ==================================================
+  // 1.5 Efecto: Cargar mensajes de finalización
+  // ==================================================
+  useEffect(() => {
+    if (!organizationId || !activity) return;
+
+    const loadCompletionMessage = async () => {
+      try {
+        // Cargar todos los módulos una sola vez
+        const allModules = await getModules();
+        const eventModules = allModules.filter(
+          (m) => m.event_id === (typeof activity.event_id === "string" ? activity.event_id : activity.event_id?._id)
+        );
+
+        // Detectar tipo de mensaje basado en contexto de módulo
+        let messageType = CompletionMessageType.MODULO_PROGRESO;
+
+        if (eventModules.length > 0) {
+          eventModules.sort((a, b) => a.order - b.order);
+
+          // Encontrar el módulo actual
+          const currentModuleIndex = eventModules.findIndex((m) => m._id === activity.module_id);
+
+          if (currentModuleIndex === 0) {
+            // Primera actividad del primer módulo
+            messageType = CompletionMessageType.MODULO_INICIO;
+          } else if (currentModuleIndex === eventModules.length - 1) {
+            // En el último módulo - sería MODULO_FINAL, pero solo si es la última actividad
+            messageType = CompletionMessageType.MODULO_FINAL;
+          } else {
+            messageType = CompletionMessageType.MODULO_PROGRESO;
+          }
+        }
+
+        // Cargar mensajes del tipo detectado
+        const messages = await fetchCompletionMessagesByType(organizationId, messageType);
+        let selectedMessage = null;
+
+        if (messages && messages.length > 0) {
+          // Seleccionar uno aleatorio
+          selectedMessage = messages[Math.floor(Math.random() * messages.length)];
+        } else {
+          // Usar mensaje por defecto
+          selectedMessage = {
+            blocks: [
+              {
+                id: "default",
+                type: "paragraph",
+                content: "¡Felicidades! Has completado esta actividad. ¡Sigue adelante!",
+              },
+            ],
+          };
+        }
+
+        // Obtener nombre del evento/curso
+        const eventName = typeof activity.event_id === "string" 
+          ? "" 
+          : (activity.event_id as any)?.name || "";
+
+        // Interpolar variables en el mensaje
+        const interpolatedMessage = interpolateMessage(selectedMessage, eventModules, eventName);
+        setCompletionMessage(interpolatedMessage);
+      } catch (err) {
+        console.error("Error loading completion messages:", err);
+      }
+    };
+
+    loadCompletionMessage();
+  }, [organizationId, activity]);
+
+  // ==================================================
+  // Helper: Mapear progreso a hitos de negocio (25, 50, 100)
+  // ==================================================
+  const getProgressCheckpoint = (progress: number): number => {
+    if (progress >= 100) return 100;
+    if (progress >= 50) return 50;
+    if (progress >= 25) return 25;
+    return 0;
+  };
+
+  // ==================================================
+  // Helper: Guardar progreso cuando cruza un nuevo hito
+  // ==================================================
+  const saveActivityProgress = async (progress: number, activityId?: string) => {
+    const targetActivityId = activityId || activity?._id;
+    if (!targetActivityId || !userId) return;
+
+    const currentCheckpoint = getProgressCheckpoint(progress);
+    const lastSavedCheckpoint = getProgressCheckpoint(
+      lastSavedProgressRef.current[targetActivityId] || 0
+    );
+
+    // Solo guardar si avanzó al siguiente hito
+    if (currentCheckpoint <= lastSavedCheckpoint) return;
+
+    try {
+      const payload: ActivityAttendeePayload = {
+        user_id: userId,
+        activity_id: targetActivityId,
+        progress: currentCheckpoint,
+      };
+      await createOrUpdateActivityAttendee(payload);
+      lastSavedProgressRef.current[targetActivityId] = currentCheckpoint;
+      console.log(`✅ Progreso guardado: ${currentCheckpoint}% para actividad ${targetActivityId}`);
+    } catch (error) {
+      console.error("❌ Error guardando progreso:", error);
+    }
+  };
+
+  // Mantener referencia del progreso más reciente para usar en cleanups
+  useEffect(() => {
+    currentProgressRef.current = videoProgress;
+  }, [videoProgress]);
+
+  // ==================================================
+  // Efecto: Guardar al salir/cambiar de actividad
+  // ==================================================
+  useEffect(() => {
+    return () => {
+      if (activity?._id) {
+        saveActivityProgress(currentProgressRef.current, activity._id);
+      }
+    };
+  }, [activity?._id]);
+
+  // ==================================================
+  // Efecto: Guardar progreso antes de cerrar la pestaña
+  // ==================================================
+  useEffect(() => {
+    const handleBeforeUnload = (_e: BeforeUnloadEvent) => {
+      if (!activity?._id || !userId) return;
+
+      const checkpoint = getProgressCheckpoint(currentProgressRef.current);
+      const payload: ActivityAttendeePayload = {
+        user_id: userId,
+        activity_id: activity._id,
+        progress: checkpoint,
+      };
+
+      // Nota: intenta guardar, pero el navegador puede cortar la petición al cerrar.
+      createOrUpdateActivityAttendee(payload).catch(console.error);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [activity?._id, userId]);
+
+  // ==================================================
+  // Efecto: Guardar progreso con debounce mientras se reproduce
+  // ==================================================
+  useEffect(() => {
+    if (!activity?._id || videoProgress === 0) return;
+
+    const debounceTimer = setTimeout(() => {
+      saveActivityProgress(videoProgress);
+    }, 2000); // Guardar cada 2 segundos si el usuario sigue viendo
+
+    return () => clearTimeout(debounceTimer);
+  }, [videoProgress, activity?._id]);
+
+  // ==================================================
+  // NOTA: El registro de ActivityAttendee se hace ahora SOLO cuando hay progreso > 0
+  // Esto evita crear registros duplicados con 0% de progreso
+  // ==================================================
 
   // ==================================================
   // 3. Efecto: Instanciar Vimeo Player y manejar progreso + posicionar en videoTime
@@ -201,15 +449,22 @@ export default function ActivityDetail({
       setVideoProgress(progress);
     });
 
-    // Al montar, salto a videoTime si viene en URL, sino a progreso guardado
+    // Listener para cuando termina el video
+    newPlayer.on("ended", () => {
+      setVideoProgress(100);
+      saveActivityProgress(100); // Guardar como completado
+      setShowCompletionModal(true);
+    });
+
+    // Al montar, salto a videoTime si viene en URL, sino al progreso ya conocido
     newPlayer.getDuration().then((duration) => {
       if (videoTime !== null) {
         newPlayer.setCurrentTime(videoTime);
         setVideoProgress((videoTime / duration) * 100);
-      } else if (activity.video_progress) {
-        const savedTime = (activity.video_progress / 100) * duration;
+      } else if (currentProgressRef.current > 0) {
+        const savedTime = (currentProgressRef.current / 100) * duration;
         newPlayer.setCurrentTime(savedTime);
-        setVideoProgress(activity.video_progress);
+        setVideoProgress(currentProgressRef.current);
       }
     });
 
@@ -217,8 +472,14 @@ export default function ActivityDetail({
       newPlayer.off("timeupdate");
       newPlayer.off("pause");
       newPlayer.off("ended");
+      setPlayer((prev) => (prev === newPlayer ? null : prev));
     };
-  }, [activity, userId, videoTime]);
+  }, [activity?._id, activity?.video]);
+
+  useEffect(() => {
+    if (!player || videoTime === null) return;
+    player.setCurrentTime(videoTime).catch(console.error);
+  }, [videoTime, player]);
 
   // ==================================================
   // 4. Efecto: Saltar a videoTime en ReactPlayer (para URLs no-Vimeo)
@@ -271,7 +532,7 @@ export default function ActivityDetail({
     // Extrae el primer número largo después de vimeo.com/
     const match = url.match(/vimeo\.com\/(\d+)/);
     if (match) {
-      return `https://player.vimeo.com/video/${match[1]}?api=1&player_id=vimeo-player`;
+      return `https://player.vimeo.com/video/${match[1]}?api=1&player_id=vimeo-player&title=false&portrait=false`;
     }
     return url;
   }
@@ -354,15 +615,18 @@ export default function ActivityDetail({
       {activity.video ? (
         activity.video.includes("vimeo") ? (
           <iframe
+            key={activity._id}
             ref={vimeoPlayerRef}
             src={getVimeoEmbedUrl(activity.video)}
             style={{ width: "100%", aspectRatio: "16/9" }}
             frameBorder="0"
             allow="autoplay; encrypted-media"
+            sandbox="allow-same-origin allow-scripts allow-presentation"
             allowFullScreen
           />
         ) : (
           <ReactPlayer
+            key={activity._id}
             ref={(r) => {
               reactPlayerRef.current = r;
             }}
@@ -371,6 +635,11 @@ export default function ActivityDetail({
             style={{ aspectRatio: "16/9" }}
             controls
             onProgress={({ played }) => setVideoProgress(played * 100)}
+            onEnded={() => {
+              setVideoProgress(100);
+              saveActivityProgress(100);
+              setShowCompletionModal(true);
+            }}
             onReady={() => {
               if (videoTime !== null) {
                 reactPlayerRef.current?.seekTo(videoTime, "seconds");
@@ -499,6 +768,13 @@ export default function ActivityDetail({
           </Flex>
         </>
       )}
+
+      {/* Completion Modal */}
+      <CompletionModal
+        opened={showCompletionModal}
+        onClose={() => setShowCompletionModal(false)}
+        blocks={completionMessage?.blocks || []}
+      />
     </Card>
   );
 }

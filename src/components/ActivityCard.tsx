@@ -58,6 +58,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
       ev.styles?.banner_image ||
       ACTIVITY_PLACEHOLDER;
   }
+
   const [imgSrc, setImgSrc] = useState<string>(eventImage);
   useEffect(() => setImgSrc(eventImage), [activity._id]);
 
@@ -75,10 +76,11 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
 
   const goToActivity = () => {
     if (onCardClick) onCardClick(activity._id);
-    else
+    else {
       navigate(
-        `/organization/${organizationId}/activitydetail/${activity._id}`
+        `/organization/${organizationId}/activitydetail/${activity._id}`,
       );
+    }
   };
 
   const goToEvent = (e: React.MouseEvent) => {
@@ -101,6 +103,8 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
         border: "1px solid #e9ecef",
         backgroundColor: "#fff",
         transition: "background 0.15s, box-shadow 0.15s",
+        height: 230, // altura fija para todas
+        overflow: "hidden",
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLDivElement).style.backgroundColor = "#f8f9fa";
@@ -112,7 +116,6 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
         (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
       }}
     >
-      {/* Thumbnail */}
       <Image
         src={imgSrc}
         alt={activity.name}
@@ -123,78 +126,98 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
         style={{ width: 72, height: 72, flexShrink: 0, objectFit: "cover" }}
       />
 
-      {/* Texto */}
-      <Box style={{ flex: 1, minWidth: 0 }}>
-        <Text fw={600} size="sm" lineClamp={2} style={{ lineHeight: 1.35 }}>
-          {activity.name}
-        </Text>
-
-        {eventName && (
-          <Text
-            size="xs"
-            c="blue"
-            mt={3}
-            style={{
-              cursor: "pointer",
-              textDecoration: "underline",
-              width: "fit-content",
-            }}
-            onClick={goToEvent}
-          >
-            {eventName}
+      <Box
+        style={{
+          flex: 1,
+          minWidth: 0,
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Box>
+          <Text fw={600} size="sm" lineClamp={2} style={{ lineHeight: 1.35 }}>
+            {activity.name}
           </Text>
-        )}
 
-        {/* Fragmentos de búsqueda */}
-        {matchedSegments.length > 0 && (
-          <Box
-            mt={8}
-            style={{ borderTop: "1px solid #f1f3f5", paddingTop: 6 }}
-          >
-            <Text size="xs" fw={600} c="dimmed" mb={3}>
-              Fragmentos:
+          {eventName && (
+            <Text
+              size="xs"
+              c="blue"
+              mt={3}
+              lineClamp={1}
+              style={{
+                cursor: "pointer",
+                textDecoration: "underline",
+                width: "fit-content",
+              }}
+              onClick={goToEvent}
+            >
+              {eventName}
             </Text>
-            <Box style={{ maxHeight: 120, overflowY: "auto" }}>
-              {matchedSegments.map((seg) => (
-                <UnstyledButton
-                  key={seg.segmentId}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onFragmentClick) {
-                      onFragmentClick(seg);
-                    } else {
-                      navigate(
-                        `/organization/${organizationId}/activitydetail/${activity._id}?t=${seg.startTime}` +
-                          `&fragments=${encodeURIComponent(
-                            JSON.stringify(matchedSegments)
-                          )}`
-                      );
-                    }
-                  }}
-                  style={{ width: "100%" }}
-                >
-                  <Box px={4} py={3} mb={1} style={{ borderRadius: 4 }}>
-                    <Group gap={4} mb={1}>
-                      <IconClock size={11} color="#74c0fc" />
-                      <Text size="xs" c="blue" fw={500}>
-                        {formatTime(seg.startTime)} –{" "}
-                        {formatTime(seg.endTime)}
-                      </Text>
-                    </Group>
-                    <Highlight
-                      highlight={searchQuery || ""}
-                      size="xs"
-                      c="dimmed"
-                      lineClamp={2}
-                    >
-                      {seg.text}
-                    </Highlight>
-                  </Box>
-                </UnstyledButton>
-              ))}
+          )}
+        </Box>
+
+        <Box style={{ flex: 1, minHeight: 0 }}>
+          {matchedSegments.length > 0 && (
+            <Box
+              mt={8}
+              style={{
+                borderTop: "1px solid #f1f3f5",
+                paddingTop: 6,
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+              }}
+            >
+              <Text size="xs" fw={600} c="dimmed" mb={3}>
+                Fragmentos:
+              </Text>
+
+              <Box style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+                {matchedSegments.map((seg) => (
+                  <UnstyledButton
+                    key={seg.segmentId}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onFragmentClick) {
+                        onFragmentClick(seg);
+                      } else {
+                        navigate(
+                          `/organization/${organizationId}/activitydetail/${activity._id}?t=${seg.startTime}` +
+                            `&fragments=${encodeURIComponent(
+                              JSON.stringify(matchedSegments),
+                            )}`,
+                        );
+                      }
+                    }}
+                    style={{ width: "100%" }}
+                  >
+                    <Box px={4} py={3} mb={1} style={{ borderRadius: 4 }}>
+                      <Group gap={4} mb={1}>
+                        <IconClock size={11} color="#74c0fc" />
+                        <Text size="xs" c="blue" fw={500}>
+                          {formatTime(seg.startTime)} –{" "}
+                          {formatTime(seg.endTime)}
+                        </Text>
+                      </Group>
+
+                      <Highlight
+                        highlight={searchQuery || ""}
+                        size="xs"
+                        c="dimmed"
+                        lineClamp={2}
+                      >
+                        {seg.text}
+                      </Highlight>
+                    </Box>
+                  </UnstyledButton>
+                ))}
+              </Box>
             </Box>
-          </Box>
-        )}
+          )}
+        </Box>
       </Box>
     </Box>
   );

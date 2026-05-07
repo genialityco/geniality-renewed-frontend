@@ -29,6 +29,22 @@ export const fetchCourseAttendeesByUser = async (
   return response.data;
 };
 
+export const fetchCourseAttendeeByUserAndEvent = async (
+  userId: string,
+  eventId: string
+): Promise<CourseAttendee | null> => {
+  try {
+    const attendees = await fetchCourseAttendeesByUser(userId);
+    return attendees.find((att) => {
+      const attEventId = typeof att.event_id === 'string' ? att.event_id : att.event_id?._id;
+      return attEventId === eventId;
+    }) || null;
+  } catch (error) {
+    console.error("Error fetching courseAttendee:", error);
+    return null;
+  }
+};
+
 export const createCourseAttendee = async (
   attendee: Partial<CourseAttendee>
 ): Promise<CourseAttendee> => {
@@ -65,4 +81,23 @@ export const createOrUpdateCourseAttendee = async (
     data
   );
   return response.data;
+};
+
+/**
+ * Calcula el progreso general de un curso basado en los activityAttendees
+ * @param activityAttendees Lista de activityAttendees del usuario
+ * @param totalActivities Cantidad total de actividades en el curso
+ * @returns Porcentaje de progreso (0-100)
+ */
+export const calculateCourseProgress = (
+  activityAttendees: any[],
+  totalActivities: number
+): number => {
+  if (totalActivities === 0) return 0;
+  
+  const completedActivities = activityAttendees.filter(
+    (att) => att.progress === 100
+  ).length;
+  
+  return Math.round((completedActivities / totalActivities) * 100);
 };

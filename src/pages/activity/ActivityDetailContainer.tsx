@@ -8,7 +8,7 @@ import { Activity } from "../../services/types";
 import { getActivityById } from "../../services/activityService";
 
 // Importa tu componente “completo” (la ActivityDetail)
-import ActivityDetail from "../../components/ActivityDetail";
+import ActivityDetailWithTracker from "../../components/ActivityDetailWithTracker";
 
 // (Opcional) función para formatear el tiempo
 function formatTime(seconds: number): string {
@@ -92,7 +92,7 @@ export default function ActivityDetailContainer() {
   // 6. Renderizar el componente "completo" pasandole la actividad y otras props
   return (
     <Container id="main-container" fluid style={{overflow: "auto", maxHeight: "100vh"}}>
-      <ActivityDetail
+      <ActivityDetailWithTracker
         activity={activity}
         eventId=""
         shareUrl={getShareUrl(activity)} 

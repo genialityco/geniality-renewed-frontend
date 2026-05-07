@@ -8,15 +8,29 @@ import {
   trackVisitOrganization,
 } from "../../../utils/analytics";
 
-const getAuthorId = (author: any): string | undefined => {
-  if (!author) return undefined;
-  if (typeof author === "string") return author;
-  if (typeof author === "object" && author._id) return String(author._id);
-  return undefined;
+const isAuthorInArray = (author: any, userId: string | null): boolean => {
+  if (!author || !userId) return false;
+  
+  // Si author es un array, verificar si userId está en el array
+  if (Array.isArray(author)) {
+    return author.some(id => String(id) === String(userId));
+  }
+  
+  // Si author es un string
+  if (typeof author === "string") {
+    return String(author) === String(userId);
+  }
+  
+  // Si author es un objeto con _id
+  if (typeof author === "object" && author._id) {
+    return String(author._id) === String(userId);
+  }
+  
+  return false;
 };
 
 export default function MyOrganizations() {
-  const { userId } = useUser();
+  const { userId, organizationUserData } = useUser();
   const { organization } = useOrganization();
   const navigate = useNavigate();
 
@@ -31,8 +45,22 @@ export default function MyOrganizations() {
   };
 
   const isAuthor = (org: OrgContext) => {
-    const authorId = getAuthorId((org as any).author);
-    return userId && authorId && String(userId) === String(authorId);
+    return isAuthorInArray((org as any).author, userId);
+  };
+
+  const isAdmin = () => {
+    if (!organizationUserData) return false;
+    const rid =
+      typeof organizationUserData.rol_id === "string"
+        ? organizationUserData.rol_id
+        : organizationUserData.rol_id?._id;
+    return ["admin", "owner", "super_admin"].includes(
+      String(rid || "").toLowerCase()
+    );
+  };
+
+  const canAccessAdmin = (org: OrgContext) => {
+    return isAuthor(org) || isAdmin();
   };
 
   if (!organization) {
@@ -89,7 +117,7 @@ export default function MyOrganizations() {
               Visitar
             </Button>
 
-            {isAuthor(organization) && (
+            {canAccessAdmin(organization) && (
               <Button
                 size="xs"
                 variant="outline"

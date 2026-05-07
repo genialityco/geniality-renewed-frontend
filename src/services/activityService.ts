@@ -101,14 +101,18 @@ export async function updateVideoProgress(
  * Genera la transcripción de la actividad
  * POST /activities/generate-transcript/:activity_id
  */
-export async function generateTranscript(activityId: string): Promise<{
-  message: string;
-  totalSegments: number;
-}> {
+export async function generateTranscript(
+  activityId: string,
+  options?: { use_gpu?: boolean; generate_embeddings?: boolean },
+): Promise<{ message: string; jobId?: string; status?: string }> {
   const response = await api.post<{
     message: string;
-    totalSegments: number;
-  }>(`${BASE_URL}/generate-transcript/${activityId}`);
+    jobId?: string;
+    status?: string;
+  }>(`${BASE_URL}/generate-transcript/${activityId}`, {
+    use_gpu: options?.use_gpu ?? false,
+    generate_embeddings: options?.generate_embeddings ?? true,
+  });
   return response.data;
 }
 
@@ -123,5 +127,26 @@ export async function getTranscriptionStatus(jobId: string): Promise<{
   const response = await api.get<{ status: string }>(
     `${BASE_URL}/transcription-status/${jobId}`
   );
+  return response.data;
+}
+
+/**
+ * Valida y actualiza un transcript específico si está en "done"
+ * POST /activities/validate-transcript/:activity_id
+ */
+export async function validateAndUpdateTranscript(
+  activityId: string
+): Promise<{
+  message: string;
+  status: string;
+  activity?: Activity;
+  segmentCount?: number;
+}> {
+  const response = await api.post<{
+    message: string;
+    status: string;
+    activity?: Activity;
+    segmentCount?: number;
+  }>(`${BASE_URL}/validate-transcript/${activityId}`);
   return response.data;
 }

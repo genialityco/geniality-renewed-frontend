@@ -27,6 +27,12 @@ type ActivityTabProps = {
   onEventClick: (eventId: string) => void;
 };
 
+interface TabTitles {
+  courses?: string;
+  activities?: string;
+  exclusive?: string;
+}
+
 export default function OrganizationTabs({
   activeTab,
   setActiveTab,
@@ -36,6 +42,7 @@ export default function OrganizationTabs({
   handleCourseClick,
   memberShipStatus,
   activityTabProps,
+  tabTitles,
 }: {
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -45,13 +52,25 @@ export default function OrganizationTabs({
   handleCourseClick: (id: string) => void;
   memberShipStatus?: boolean;
   activityTabProps: ActivityTabProps;
+  tabTitles?: TabTitles;
 }) {
   const exclusiveEvents = events.filter(
     (event) => event.visibility === "EXCLUSIVE_FOR_MEMBERS"
   );
+  const regularEvents = events.filter(
+    (event) => event.visibility !== "EXCLUSIVE_FOR_MEMBERS"
+  );
+  const filteredSearchResults = eventSearchResults.filter(
+    (event) => event.visibility !== "EXCLUSIVE_FOR_MEMBERS"
+  );
   const visibleEventCount = eventSearchMode
-    ? eventSearchResults.length
-    : events.length;
+    ? filteredSearchResults.length
+    : regularEvents.length;
+
+  // Usar títulos personalizados o valores por defecto
+  const coursesLabel = tabTitles?.courses || "CURSOS";
+  const activitiesLabel = tabTitles?.activities || "ACTIVIDADES";
+  const exclusiveLabel = tabTitles?.exclusive || "MIEMBROS ACE";
 
   return (
     <Box px={{ base: "sm", md: "xl" }} py="md">
@@ -67,7 +86,7 @@ export default function OrganizationTabs({
             leftSection={<IconBook size={16} />}
           >
             <Group gap={6}>
-              <Text size="sm">Cursos</Text>
+              <Text size="sm">{coursesLabel}</Text>
               <Badge size="xs" variant="light" color="blue" radius="xl">
                 {visibleEventCount}
               </Badge>
@@ -79,7 +98,7 @@ export default function OrganizationTabs({
             leftSection={<IconVideo size={16} />}
           >
             <Group gap={6}>
-              <Text size="sm">Actividades</Text>
+              <Text size="sm">{activitiesLabel}</Text>
               <Badge size="xs" variant="light" color="blue" radius="xl">
                 {activityTabProps.activityTotal}
               </Badge>
@@ -92,7 +111,7 @@ export default function OrganizationTabs({
               leftSection={<IconStar size={16} />}
             >
               <Group gap={6}>
-                <Text size="sm">Exclusivo miembros</Text>
+                <Text size="sm">{exclusiveLabel}</Text>
                 <Badge size="xs" variant="light" color="orange" radius="xl">
                   {exclusiveEvents.length}
                 </Badge>
@@ -112,7 +131,7 @@ export default function OrganizationTabs({
 
         <Tabs.Panel value="courses">
           <EventsGrid
-            events={eventSearchMode ? eventSearchResults : events}
+            events={eventSearchMode ? filteredSearchResults : regularEvents}
             onClick={handleCourseClick}
             memberShipStatus={memberShipStatus}
           />

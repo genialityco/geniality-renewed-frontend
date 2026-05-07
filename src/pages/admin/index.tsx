@@ -16,7 +16,7 @@ import {
   Modal,
   Button,
 } from "@mantine/core";
-import { FaList, FaUsers, FaGear } from "react-icons/fa6";
+import { FaList, FaUsers, FaGear, FaFile } from "react-icons/fa6";
 
 import { useOrganization } from "../../context/OrganizationContext";
 import {
@@ -29,8 +29,9 @@ import EventsTab from "./events/EventsTab";
 import AdminEventEdit from "./events/AdminEventEdit";
 import MembersTab from "./members/MembersTab";
 import AdminOrganizationPage from "./org/AdminOrganizationPage";
+import { DocumentsAdminPage } from "./DocumentsAdminPage";
 
-type Section = "events" | "members" | "org";
+type Section = "events" | "members" | "org" | "documents";
 
 export default function AdminOrganizationEvents() {
   const { organization } = useOrganization();
@@ -85,8 +86,8 @@ export default function AdminOrganizationEvents() {
           : "Editar Evento"
         : "Eventos"
       : activeSection === "members"
-      ? "Miembros"
-      : "Mi Organización";
+        ? "Miembros"
+        : "Mi Organización";
 
   return (
     <>
@@ -175,6 +176,26 @@ export default function AdminOrganizationEvents() {
               <FaGear /> Mi Organización
             </UnstyledButton>
 
+            {/* Ver documentos */}
+            <UnstyledButton
+              onClick={() => {
+                setActiveSection("documents");
+                setEditingEventId(null);
+                setDrawerOpened(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: 8,
+                borderRadius: 4,
+                backgroundColor:
+                  activeSection === "documents" ? "#F0F4FF" : "transparent",
+              }}
+            >
+              <FaFile /> Ver Documentos
+            </UnstyledButton>
+
             <Divider my="sm" />
           </Stack>
         </ScrollArea>
@@ -204,6 +225,8 @@ export default function AdminOrganizationEvents() {
           )
         ) : activeSection === "members" ? (
           <MembersTab />
+        ) : activeSection === "documents" ? (
+          <DocumentsAdminPage />
         ) : (
           <AdminOrganizationPage organizationId={orgId} />
         )}

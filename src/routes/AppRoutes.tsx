@@ -6,7 +6,7 @@ import AuthPage from "../pages/auth/AuthPage";
 import NotFound from "../components/NotFound";
 
 import OrganizationLayout from "../layouts/OrganizationLayout";
-import CourseDetail from "../pages/course/CourseDetail";
+import CourseDetailWithTracker from "../pages/course/CourseDetailWithTracker";
 import ActivityDetailContainer from "../pages/activity/ActivityDetailContainer";
 import Profile from "../pages/profile";
 
@@ -21,6 +21,7 @@ import { RequireAuth, RequireMembership } from "./guards";
 
 // ⭐ Nueva página de recuperación (contenido/UX):
 import Recovery from "../pages/auth/RecoveryPassword/Recovery";
+// import { DocumentsAdminPage } from "../pages/admin/DocumentsAdminPage";
 
 export default function AppRoutes() {
   return (
@@ -46,7 +47,7 @@ export default function AppRoutes() {
 
         {/* Rutas que requieren membresía activa */}
         <Route element={<RequireMembership />}>
-          <Route path="course/:eventId" element={<CourseDetail />} />
+          <Route path="course/:eventId" element={<CourseDetailWithTracker />} />
           <Route path="course/:eventId/quiz/:quizId" element={<QuizPage />} />
           <Route path="course/:eventId/quiz/:quizId/result" element={<QuizResultPage />} />
           <Route
@@ -67,6 +68,7 @@ export default function AppRoutes() {
         <Route path="admin">
           <Route index element={<AdminOrganizationEvents />} />
         </Route>
+        {/* <Route path="documents" element={<DocumentsAdminPage />} /> */}
 
         {/* Callback de pago puede ser público (o moverlo a RequireAuth si quieres) */}
         <Route path="pago-exitoso" element={<PaymentStatus />} />

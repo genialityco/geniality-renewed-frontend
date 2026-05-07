@@ -25,5 +25,5 @@ export function useRealtimeSession() {
       off(nodeRef);
       unsub?.();
     };
-  }, [firebaseUser?.uid, sessionToken]);
+  }, [firebaseUser?.uid, sessionToken, signOut]);
 }

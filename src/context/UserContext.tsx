@@ -8,11 +8,13 @@ import {
   useCallback,
 } from "react";
 import { auth } from "../firebase/firebaseConfig";
+import { initializeApp, deleteApp } from "firebase/app";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
+  getAuth,
   User as FirebaseUser,
   setPersistence,
   browserLocalPersistence,
@@ -91,7 +93,6 @@ function persistLastOrganizationId(organizationUser: any) {
  * Si el usuario ya existe en Firebase, actualiza el organization-user y el paymentPlan.date_until.
  */
 export async function adminCreateMember(data: AdminCreateUserData) {
-  let firebaseUser;
   try {
     const methods = await fetchSignInMethodsForEmail(auth, data.email);
     if (methods.length > 0) {
@@ -104,10 +105,25 @@ export async function adminCreateMember(data: AdminCreateUserData) {
     return null;
   }
 
+  // Usamos una app Firebase secundaria para que createUserWithEmailAndPassword
+  // no desplace la sesión activa del admin (Firebase hace auto-login al crear).
+  const secondaryApp = initializeApp(
+    {
+      apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+      appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    },
+    `admin-create-${Date.now()}`,
+  );
+  const secondaryAuth = getAuth(secondaryApp);
+
   try {
-    // 1) Crear en Firebase Auth
-    firebaseUser = await createUserWithEmailAndPassword(
-      auth,
+    // 1) Crear en Firebase Auth (sin tocar la sesión del admin)
+    const firebaseUser = await createUserWithEmailAndPassword(
+      secondaryAuth,
       data.email,
       data.password,
     );
@@ -135,6 +151,9 @@ export async function adminCreateMember(data: AdminCreateUserData) {
     console.error("Error creating member:", error);
     alert("Error al crear el usuario");
     return null;
+  } finally {
+    await firebaseSignOut(secondaryAuth).catch(() => {});
+    await deleteApp(secondaryApp).catch(() => {});
   }
 }
 
