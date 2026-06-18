@@ -150,3 +150,30 @@ export async function validateAndUpdateTranscript(
   }>(`${BASE_URL}/validate-transcript/${activityId}`);
   return response.data;
 }
+
+/**
+ * Guarda el texto de transcripción en la actividad
+ * PATCH /activities/:id
+ */
+export async function saveTranscriptionText(
+  activityId: string,
+  textTranscription: string
+): Promise<Activity> {
+  const response = await api.patch<Activity>(`${BASE_URL}/${activityId}`, {
+    textTranscription,
+  });
+  return response.data;
+}
+
+/**
+ * Migra una actividad específica (llena el textTranscription desde los segmentos)
+ * POST /activities/migration/:activityId
+ */
+export async function migrateActivityTextTranscription(
+  activityId: string
+): Promise<{ success: boolean; message: string }> {
+  const response = await api.post<{ success: boolean; message: string }>(
+    `${BASE_URL}/migration/${activityId}`
+  );
+  return response.data;
+}

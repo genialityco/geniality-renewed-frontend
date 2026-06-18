@@ -73,6 +73,7 @@ export interface Activity {
   transcription_id?: string;
   transcript_available?: boolean;
   transcription_job_id?: string;
+  textTranscription?: string;
 }
 
 export interface GenerateGameRequest {

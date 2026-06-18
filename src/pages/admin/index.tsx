@@ -16,7 +16,7 @@ import {
   Modal,
   Button,
 } from "@mantine/core";
-import { FaList, FaUsers, FaGear, FaFile } from "react-icons/fa6";
+import { FaList, FaUsers, FaGear, FaFile, FaFilm } from "react-icons/fa6";
 
 import { useOrganization } from "../../context/OrganizationContext";
 import {
@@ -30,8 +30,9 @@ import AdminEventEdit from "./events/AdminEventEdit";
 import MembersTab from "./members/MembersTab";
 import AdminOrganizationPage from "./org/AdminOrganizationPage";
 import { DocumentsAdminPage } from "./DocumentsAdminPage";
+import AdminActivitiesPage from "./activities";
 
-type Section = "events" | "members" | "org" | "documents";
+type Section = "events" | "members" | "org" | "documents" | "activities";
 
 export default function AdminOrganizationEvents() {
   const { organization } = useOrganization();
@@ -86,8 +87,10 @@ export default function AdminOrganizationEvents() {
           : "Editar Evento"
         : "Eventos"
       : activeSection === "members"
-        ? "Miembros"
-        : "Mi Organización";
+      ? "Miembros"
+      : activeSection === "activities"
+      ? "Actividades"
+      : "Mi Organización";
 
   return (
     <>
@@ -154,6 +157,26 @@ export default function AdminOrganizationEvents() {
               }}
             >
               <FaUsers /> Ver Miembros
+            </UnstyledButton>
+
+            {/* Ver Actividades */}
+            <UnstyledButton
+              onClick={() => {
+                setActiveSection("activities");
+                setEditingEventId(null);
+                setDrawerOpened(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: 8,
+                borderRadius: 4,
+                backgroundColor:
+                  activeSection === "activities" ? "#F0F4FF" : "transparent",
+              }}
+            >
+              <FaFilm /> Ver Actividades
             </UnstyledButton>
 
             {/* Mi Organización */}
@@ -227,6 +250,8 @@ export default function AdminOrganizationEvents() {
           <MembersTab />
         ) : activeSection === "documents" ? (
           <DocumentsAdminPage />
+        ) : activeSection === "activities" ? (
+          <AdminActivitiesPage />
         ) : (
           <AdminOrganizationPage organizationId={orgId} />
         )}

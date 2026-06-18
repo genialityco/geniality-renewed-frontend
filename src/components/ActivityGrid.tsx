@@ -16,10 +16,11 @@ import { Activity, Host } from "../services/types";
 import { getActivityProgress } from "../services/activityAttendeeService";
 import { useState, useEffect } from "react";
 
-function getVimeoId(videoUrl: string | null | undefined): string | null {
-  if (!videoUrl) return null;
-  const match = videoUrl.match(/(?:vimeo\.com\/|video\/)(\d+)/);
-  return match ? match[1] : null;
+// (Vimeo detection and oEmbed are handled with isVimeoUrl + oEmbed below)
+
+function isVimeoUrl(videoUrl: string | null | undefined): boolean {
+  if (!videoUrl) return false;
+  return /vimeo\.com|player\.vimeo\.com/.test(videoUrl);
 }
 
 function getYouTubeId(videoUrl: string | null | undefined): string | null {
@@ -36,32 +37,31 @@ function getYouTubeId(videoUrl: string | null | undefined): string | null {
 }
 
 interface VimeoThumbnailProps {
-  vimeoId: string;
+  videoUrl: string;
   activityName: string;
 }
 
-function VimeoThumbnail({ vimeoId, activityName }: VimeoThumbnailProps) {
+function VimeoThumbnail({ videoUrl, activityName }: VimeoThumbnailProps) {
   const [thumbnail, setThumbnail] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchThumbnail = async () => {
       try {
-        const response = await fetch(
-          `https://vimeo.com/api/v2/video/${vimeoId}.json`
+        // Usamos el endpoint oEmbed de Vimeo con la URL completa — más fiable y soporta distintos formatos
+        const resp = await fetch(
+          `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(videoUrl)}`
         );
-        if (response.ok) {
-          const data = await response.json();
-          setThumbnail(data[0]?.thumbnail_large || data[0]?.thumbnail_url || null);
+        if (resp.ok) {
+          const data = await resp.json();
+          setThumbnail(data.thumbnail_url || data.thumbnail_url_with_play_button || null);
         }
       } catch (error) {
-        console.error(`Error fetching Vimeo thumbnail for ${vimeoId}:`, error);
+        console.error(`Error fetching Vimeo oEmbed for ${videoUrl}:`, error);
       }
     };
 
-    if (vimeoId) {
-      fetchThumbnail();
-    }
-  }, [vimeoId]);
+    if (videoUrl) fetchThumbnail();
+  }, [videoUrl]);
 
   return thumbnail ? (
     <Image
@@ -69,6 +69,7 @@ function VimeoThumbnail({ vimeoId, activityName }: VimeoThumbnailProps) {
       alt={activityName}
       fit="contain"
       style={{ width: "100%", height: "100%" }}
+      loading="lazy"
     />
   ) : null;
 }
@@ -176,21 +177,20 @@ export default function ActivityGrid({
                   overflow: "hidden",
                 }}
               >
-                {/* Mostrar thumbnail de video de Vimeo si existe */}
-                {activity.video && getVimeoId(activity.video) && (
-                  <VimeoThumbnail
-                    vimeoId={getVimeoId(activity.video)!}
-                    activityName={activity.name}
-                  />
-                )}
-
-                {/* Mostrar thumbnail de video de YouTube si existe */}
-                {activity.video && !getVimeoId(activity.video) && getYouTubeId(activity.video) && (
-                  <YouTubeThumbnail
-                    youtubeId={getYouTubeId(activity.video)!}
-                    activityName={activity.name}
-                  />
-                )}
+                {/* Mostrar siempre thumbnail derivado del link de video (Vimeo o YouTube) */}
+                {activity.video ? (
+                  isVimeoUrl(activity.video) ? (
+                    <VimeoThumbnail
+                      videoUrl={activity.video}
+                      activityName={activity.name}
+                    />
+                  ) : getYouTubeId(activity.video) ? (
+                    <YouTubeThumbnail
+                      youtubeId={getYouTubeId(activity.video)!}
+                      activityName={activity.name}
+                    />
+                  ) : null
+                ) : null}
 
                 {/* Botón play siempre al centro */}
                 <ThemeIcon
