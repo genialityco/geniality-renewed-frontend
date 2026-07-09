@@ -35,20 +35,12 @@ import {
   trackQuizRetry,
 } from "../../utils/analytics";
 import {
-  CertificateFormat,
   generateCertificate,
   getCertificateDeliveryUrls,
   GeneratedCertificate,
-  getTemplateFieldsByTemplate,
+  getCertificateTemplateByEvent,
+  CertificateTemplate,
 } from "../../services/certificateService";
-
-type MappingSource = "userName" | "eventName" | "approvalPercentage";
-
-interface CertificateConfig {
-  templateId: string;
-  format: CertificateFormat;
-  fieldMappings: Record<string, MappingSource>;
-}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -457,7 +449,7 @@ export default function QuizResultPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userAttemptsList, setUserAttemptsList] = useState<any[]>([]);
-  const [certificateConfig, setCertificateConfig] = useState<CertificateConfig | null>(null);
+  const [certificateTemplate, setCertificateTemplate] = useState<CertificateTemplate | null>(null);
   const [eventName, setEventName] = useState("");
   const [generatingCertificate, setGeneratingCertificate] = useState(false);
   const [generatedCertificate, setGeneratedCertificate] = useState<GeneratedCertificate | null>(null);
@@ -467,11 +459,12 @@ export default function QuizResultPage() {
     if (!quizId || quizId === "undefined" || !userId) return;
     (async () => {
       try {
-        const [scoreResult, quizResult, attemptsResult, eventResult] = await Promise.allSettled([
+        const [scoreResult, quizResult, attemptsResult, eventResult, certTemplateResult] = await Promise.allSettled([
           getBestScore(quizId!, userId!),
           getQuizById(quizId!),
           getUserAttempts(quizId!, userId!),
           eventId ? fetchEventById(eventId) : Promise.resolve(null),
+          eventId ? getCertificateTemplateByEvent(eventId) : Promise.resolve(null),
         ]);
         
         // El backend devuelve false si el usuario aún no ha intentado el examen.
@@ -490,14 +483,12 @@ export default function QuizResultPage() {
 
         if (eventResult.status === "fulfilled" && eventResult.value) {
           setEventName(eventResult.value.name || "");
-          const config = eventResult.value.styles?.certificateConfig as
-            | CertificateConfig
-            | undefined;
-          if (config?.templateId && config?.fieldMappings) {
-            setCertificateConfig(config);
-          } else {
-            setCertificateConfig(null);
-          }
+        }
+
+        if (certTemplateResult.status === "fulfilled" && certTemplateResult.value) {
+          setCertificateTemplate(certTemplateResult.value);
+        } else {
+          setCertificateTemplate(null);
         }
       } catch (e: any) {
         setError(
@@ -575,17 +566,11 @@ export default function QuizResultPage() {
   // ── Último intento: se muestra el desglose cuando se agotan los intentos y no hay 100% ──
   const showReview = attemptsLeft !== null && attemptsLeft <= 0 && numScore < 100;
 
-  const resolveMappingValue = (source: MappingSource): string | number => {
-    if (source === "userName") return name || "Participante";
-    if (source === "eventName") return eventName || "Evento";
-    return `${numScore}%`;
-  };
-
   const ensureCertificate = async (): Promise<GeneratedCertificate | null> => {
     if (generatedCertificate) return generatedCertificate;
 
-    if (!certificateConfig?.templateId) {
-      setError("Este evento no tiene configuración de certificado.");
+    if (!certificateTemplate) {
+      setError("Este evento no tiene un certificado configurado.");
       return null;
     }
 
@@ -593,32 +578,24 @@ export default function QuizResultPage() {
       setGeneratingCertificate(true);
       setError(null);
 
-      const fields = await getTemplateFieldsByTemplate(certificateConfig.templateId);
-      if (!fields.length) {
-        setError("El template configurado no tiene template-fields.");
-        return null;
-      }
-
-      const missing = fields.filter(
-        (field) => !certificateConfig.fieldMappings?.[field.name],
-      );
-      if (missing.length > 0) {
-        setError(
-          "Faltan relaciones de template-fields en la configuración del certificado.",
-        );
-        return null;
-      }
-
       const data: Record<string, string | number> = {};
-      fields.forEach((field) => {
-        const source = certificateConfig.fieldMappings[field.name];
-        data[field.name] = resolveMappingValue(source);
+      certificateTemplate.fields.forEach((field) => {
+        if (field.dataSource === "userName") {
+          data[field.name] = name || "Participante";
+        } else if (field.dataSource === "eventName") {
+          data[field.name] = eventName || "Evento";
+        } else if (field.dataSource === "approvalPercentage") {
+          data[field.name] = `${numScore}%`;
+        } else if (field.defaultValue) {
+          data[field.name] = field.defaultValue;
+        }
       });
 
       const generated = await generateCertificate({
-        templateId: certificateConfig.templateId,
-        format: certificateConfig.format || "PDF",
+        eventId: eventId!,
+        format: certificateTemplate.format,
         data,
+        userId: userId || undefined,
       });
       setGeneratedCertificate(generated);
       return generated;
@@ -708,7 +685,7 @@ export default function QuizResultPage() {
                   variant="light"
                   color="blue"
                   loading={generatingCertificate}
-                  disabled={!certificateConfig?.templateId}
+                  disabled={!certificateTemplate}
                   onClick={() => handleOpenCertificate("view")}
                 >
                   Ver certificado
@@ -717,7 +694,7 @@ export default function QuizResultPage() {
                   variant="light"
                   color="grape"
                   loading={generatingCertificate}
-                  disabled={!certificateConfig?.templateId}
+                  disabled={!certificateTemplate}
                   onClick={() => handleOpenCertificate("download")}
                 >
                   Descargar certificado
@@ -726,7 +703,7 @@ export default function QuizResultPage() {
             </Stack>
           )}
 
-          {passed === true && lastAttempt?.status === "graded" && !certificateConfig?.templateId && (
+          {passed === true && lastAttempt?.status === "graded" && !certificateTemplate && (
             <Alert color="yellow" variant="light" style={{ width: "100%" }}>
               El certificado aún no está configurado por el administrador del curso.
             </Alert>

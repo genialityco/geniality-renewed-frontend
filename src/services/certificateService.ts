@@ -1,23 +1,20 @@
-import axios from "axios";
-
-const CERTIFICATE_API_URL =
-  import.meta.env.VITE_CERTIFICATE_API_URL ||
-  "https://oyster-app-vupd3.ondigitalocean.app";
-
-const certificateApi = axios.create({
-  baseURL: CERTIFICATE_API_URL.replace(/\/$/, ""),
-});
+import api from "./api";
 
 export type CertificateFormat = "PNG" | "PDF";
+export type CertificateFieldType = "TEXT" | "EMAIL" | "DATE" | "NUMBER";
+export type CertificateFieldDataSource =
+  | "userName"
+  | "eventName"
+  | "approvalPercentage"
+  | "custom";
 
-export interface TemplateField {
-  _id: string;
-  templateId: string;
+export interface TemplateFieldElement {
   name: string;
   label: string;
-  type: "TEXT" | "EMAIL" | "DATE" | "NUMBER";
+  type: CertificateFieldType;
   required: boolean;
-  defaultValue: string | null;
+  defaultValue?: string | null;
+  dataSource: CertificateFieldDataSource;
   posX: number;
   posY: number;
   width: number;
@@ -31,14 +28,40 @@ export interface TemplateField {
   order: number;
 }
 
-export interface GenerateCertificateDto {
-  templateId: string;
+export interface CertificateTemplate {
+  _id: string;
+  eventId: string;
+  name?: string;
+  description?: string;
+  backgroundUrl: string;
+  width: number;
+  height: number;
   format: CertificateFormat;
+  status: "ACTIVE" | "INACTIVE";
+  fields: TemplateFieldElement[];
+}
+
+export interface UpsertCertificateTemplateDto {
+  name?: string;
+  description?: string;
+  backgroundUrl: string;
+  width: number;
+  height: number;
+  format?: CertificateFormat;
+  status?: "ACTIVE" | "INACTIVE";
+  fields: TemplateFieldElement[];
+}
+
+export interface GenerateCertificateDto {
+  eventId: string;
+  format?: CertificateFormat;
   data: Record<string, string | number>;
+  userId?: string;
 }
 
 export interface GeneratedCertificate {
   _id: string;
+  eventId: string;
   templateId: string;
   data: Record<string, unknown>;
   format: CertificateFormat;
@@ -51,11 +74,41 @@ export interface GeneratedCertificate {
   downloadUrl?: string;
 }
 
-export const getTemplateFieldsByTemplate = async (
-  templateId: string,
-): Promise<TemplateField[]> => {
-  const response = await certificateApi.get<TemplateField[]>(
-    `/internal/template-fields/template/${templateId}`,
+export const getCertificateTemplateByEvent = async (
+  eventId: string,
+): Promise<CertificateTemplate | null> => {
+  const response = await api.get<CertificateTemplate | null>(
+    `/certificate-templates/event/${eventId}`,
+  );
+  return response.data;
+};
+
+export const upsertCertificateTemplate = async (
+  eventId: string,
+  dto: UpsertCertificateTemplateDto,
+): Promise<CertificateTemplate> => {
+  const response = await api.put<CertificateTemplate>(
+    `/certificate-templates/event/${eventId}`,
+    dto,
+  );
+  return response.data;
+};
+
+export const deleteCertificateTemplate = async (
+  eventId: string,
+): Promise<void> => {
+  await api.delete(`/certificate-templates/event/${eventId}`);
+};
+
+export const uploadCertificateBackground = async (
+  file: File,
+): Promise<{ url: string }> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await api.post<{ url: string }>(
+    "/certificate-templates/upload-background",
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
   );
   return response.data;
 };
@@ -63,40 +116,25 @@ export const getTemplateFieldsByTemplate = async (
 export const generateCertificate = async (
   dto: GenerateCertificateDto,
 ): Promise<GeneratedCertificate> => {
-  const response = await certificateApi.post<GeneratedCertificate>(
-    "/api/v1/certificates/generate",
+  const response = await api.post<GeneratedCertificate>(
+    "/certificates/generate",
     dto,
   );
   return response.data;
 };
 
-export const getCertificateDeliveryUrl = (
-  certificate: Pick<GeneratedCertificate, "_id" | "viewUrl">,
-): string => {
-  const base = CERTIFICATE_API_URL.replace(/\/$/, "");
-  if (certificate.viewUrl) {
-    if (certificate.viewUrl.startsWith("http")) return certificate.viewUrl;
-    return `${base}${certificate.viewUrl}`;
-  }
-  return `${base}/api/v1/certificates/${certificate._id}/view`;
-};
-
 export const getCertificateDeliveryUrls = (
   certificate: Pick<GeneratedCertificate, "_id" | "viewUrl" | "downloadUrl">,
 ): { viewUrl: string; downloadUrl: string } => {
-  const base = CERTIFICATE_API_URL.replace(/\/$/, "");
+  const base = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
   const viewUrl = certificate.viewUrl
-    ? certificate.viewUrl.startsWith("http")
-      ? certificate.viewUrl
-      : `${base}${certificate.viewUrl}`
-    : `${base}/api/v1/certificates/${certificate._id}/view`;
+    ? `${base}${certificate.viewUrl}`
+    : `${base}/certificates/${certificate._id}/view`;
 
   const downloadUrl = certificate.downloadUrl
-    ? certificate.downloadUrl.startsWith("http")
-      ? certificate.downloadUrl
-      : `${base}${certificate.downloadUrl}`
-    : `${base}/api/v1/certificates/${certificate._id}/download`;
+    ? `${base}${certificate.downloadUrl}`
+    : `${base}/certificates/${certificate._id}/download`;
 
   return { viewUrl, downloadUrl };
 };
