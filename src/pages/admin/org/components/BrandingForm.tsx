@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Stack,
   TextInput,
+  FileInput,
   Button,
   Group,
   Alert,
@@ -15,6 +16,7 @@ import {
   fetchOrganizationById,
   updateOrganization,
 } from "../../../../services/organizationService";
+import { uploadImageToFirebase } from "../../../../utils/uploadImageToFirebase";
 
 type Props = { organizationId: string };
 
@@ -27,6 +29,7 @@ export default function BrandingForm({ organizationId }: Props) {
   const [title, setTitle] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [uploading, setUploading] = useState<"banner" | "logo" | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -44,6 +47,24 @@ export default function BrandingForm({ organizationId }: Props) {
       mounted = false;
     };
   }, [organizationId]);
+
+  const handleUpload = async (
+    file: File | null,
+    target: "banner" | "logo"
+  ) => {
+    if (!file) return;
+    setUploading(target);
+    setError(null);
+    try {
+      const url = await uploadImageToFirebase(file, "org_branding");
+      if (target === "banner") setBannerUrl(url);
+      else setLogoUrl(url);
+    } catch {
+      setError("No se pudo subir la imagen");
+    } finally {
+      setUploading(null);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -101,15 +122,15 @@ export default function BrandingForm({ organizationId }: Props) {
       />
 
       <Box>
-        <Text size="sm" fw={500} mb={8}>
-          URL del banner (JPG, PNG, WebP)
-        </Text>
-        <TextInput
-          placeholder="https://ejemplo.com/banner.jpg"
-          value={bannerUrl}
-          onChange={(e) => setBannerUrl(e.currentTarget.value)}
+        <FileInput
+          label="Banner"
+          placeholder="Selecciona una imagen"
+          accept="image/*"
+          onChange={(file) => handleUpload(file, "banner")}
+          disabled={uploading === "banner"}
           description="La imagen se mostrará al 100% del ancho"
         />
+        {uploading === "banner" && <Loader size="xs" mt="xs" />}
         {bannerUrl && (
           <Box mt="sm" p="sm" style={{ border: "1px solid #dee2e6" }}>
             <Text size="xs" c="dimmed" mb={8}>
@@ -127,15 +148,15 @@ export default function BrandingForm({ organizationId }: Props) {
       </Box>
 
       <Box>
-        <Text size="sm" fw={500} mb={8}>
-          URL del logo (JPG, PNG, WebP)
-        </Text>
-        <TextInput
-          placeholder="https://ejemplo.com/logo.png"
-          value={logoUrl}
-          onChange={(e) => setLogoUrl(e.currentTarget.value)}
+        <FileInput
+          label="Logo"
+          placeholder="Selecciona una imagen"
+          accept="image/*"
+          onChange={(file) => handleUpload(file, "logo")}
+          disabled={uploading === "logo"}
           description="Se recomienda 200x200px o más con transparencia"
         />
+        {uploading === "logo" && <Loader size="xs" mt="xs" />}
         {logoUrl && (
           <Box mt="sm" p="sm" style={{ border: "1px solid #dee2e6" }}>
             <Text size="xs" c="dimmed" mb={8}>

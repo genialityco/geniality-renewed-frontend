@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { Flex, Loader, Text } from "@mantine/core";
 import { useUser } from "../context/UserContext";
-import { fetchPaymentPlanByUserId } from "../services/paymentPlansService";
-import { fetchOrganizationUserByUserId } from "../services/organizationUserService";
+import { fetchPaymentPlanByUserAndOrg } from "../services/paymentPlansService";
+import { fetchOrganizationUserByUserAndOrg } from "../services/organizationUserService";
 
 const PAYWALL_ORGANIZATION_ID = "63f552d916065937427b3b02";
 
@@ -90,17 +90,16 @@ export function RequireMembership({
         }
 
         // 1) (opcional) validar que pertenece a la org de la URL
+        // Búsqueda scoped a (userId, organizationId): un usuario puede
+        // pertenecer a varias organizaciones, así que nunca se resuelve
+        // la membresía solo por userId.
         if (checkOrgMembership && organizationId) {
           try {
-            const orgUser = await fetchOrganizationUserByUserId(userId);
-            const belongs =
-              orgUser?.organization_id === organizationId ||
-              (typeof orgUser?.organization_id === "object" &&
-                orgUser?.organization_id !== null &&
-                " _id" in orgUser.organization_id &&
-                (orgUser.organization_id as { _id: string })._id ===
-                  organizationId);
-            if (!belongs) {
+            const orgUser = await fetchOrganizationUserByUserAndOrg(
+              userId,
+              organizationId
+            );
+            if (!orgUser) {
               setHasAccess(false);
               return;
             }
@@ -110,8 +109,12 @@ export function RequireMembership({
           }
         }
 
-        // 2) validar payment plan
-        const plan = await fetchPaymentPlanByUserId(userId);
+        // 2) validar payment plan (scoped a esta organización)
+        if (!organizationId) {
+          setHasAccess(false);
+          return;
+        }
+        const plan = await fetchPaymentPlanByUserAndOrg(userId, organizationId);
         if (!plan || isExpired(plan.date_until)) {
           setHasAccess(false);
           return;

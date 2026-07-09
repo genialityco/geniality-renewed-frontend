@@ -23,6 +23,22 @@ export const fetchOrganizationUserByUserId = async (
   return response.data;
 };
 
+/**
+ * Resuelve la membresía de un usuario en UNA organización específica.
+ * A diferencia de fetchOrganizationUserByUserId (ambigua si el usuario
+ * pertenece a varias organizaciones), esta siempre filtra por ambos IDs.
+ * Devuelve null si el usuario no es miembro de esa organización.
+ */
+export const fetchOrganizationUserByUserAndOrg = async (
+  userId: string,
+  organizationId: string
+): Promise<OrganizationUser | null> => {
+  const response = await api.get<OrganizationUser | null>(
+    `/organization-users/by-user/${userId}/organization/${organizationId}`
+  );
+  return response.data;
+};
+
 
 /**
  * Crea o actualiza un organization-user.
