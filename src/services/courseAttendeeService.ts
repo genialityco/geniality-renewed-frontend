@@ -29,6 +29,21 @@ export const fetchCourseAttendeesByUser = async (
   return response.data;
 };
 
+/**
+ * Cursos del usuario acotados a UNA organización. A diferencia de
+ * fetchCourseAttendeesByUser (devuelve cursos de todas las organizaciones
+ * en las que el usuario está inscrito), esta filtra por organizationId.
+ */
+export const fetchCourseAttendeesByUserAndOrg = async (
+  userId: string,
+  organizationId: string
+): Promise<CourseAttendee[]> => {
+  const response = await api.get<CourseAttendee[]>(
+    `/course-attendees/user/${userId}/organization/${organizationId}`
+  );
+  return response.data;
+};
+
 export const fetchCourseAttendeeByUserAndEvent = async (
   userId: string,
   eventId: string

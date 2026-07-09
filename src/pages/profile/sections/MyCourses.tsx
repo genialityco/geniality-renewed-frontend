@@ -11,13 +11,14 @@ import {
 } from "@mantine/core";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useUser } from "../../../context/UserContext";
-import { fetchCourseAttendeesByUser } from "../../../services/courseAttendeeService";
+import { fetchCourseAttendeesByUserAndOrg } from "../../../services/courseAttendeeService";
 import { CourseAttendee } from "../../../services/types";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { trackCourseClick } from "../../../utils/analytics";
 
 const MyCourses = () => {
   const { userId } = useUser();
+  const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
   const [courses, setCourses] = useState<CourseAttendee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +64,10 @@ const MyCourses = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const myCourses = await fetchCourseAttendeesByUser(userId as string);
+        const myCourses = await fetchCourseAttendeesByUserAndOrg(
+          userId as string,
+          organizationId as string
+        );
         setCourses(myCourses);
       } catch (err: any) {
         console.error("Error al cargar cursos:", err);
@@ -73,10 +77,10 @@ const MyCourses = () => {
       }
     };
 
-    if (userId) {
+    if (userId && organizationId) {
       fetchData();
     }
-  }, [userId]);
+  }, [userId, organizationId]);
 
   useEffect(() => {
     checkScrollButtons();
