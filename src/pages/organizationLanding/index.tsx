@@ -56,7 +56,7 @@ function isMembershipExpired(paymentPlan: {
 export default function OrganizationLanding() {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
-  const { userId } = useUser();
+  const { userId, name } = useUser();
   const { organization: contextOrganization } = useOrganization();
   const shouldShowPaywallMessage = organizationId === PAYWALL_ORGANIZATION_ID;
 
@@ -515,6 +515,8 @@ export default function OrganizationLanding() {
           onPageChange: setActivityPage,
           searching,
           organizationId: organizationId!,
+          userId: userId || "",
+          userName: name || "",
           onActivityClick: handleActivityClick,
           onFragmentClick: (
             activityId: string,

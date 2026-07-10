@@ -66,6 +66,7 @@ interface UserContextValue {
   name: string;
   email: string;
   loading: boolean;
+  loadingUserData: boolean;
   sessionToken: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (data: SignUpData) => Promise<void>;
@@ -263,12 +264,13 @@ const UserContext = createContext<
   name: "",
   email: "",
   loading: true,
-  signIn: async () => {},
-  signUp: async () => {},
-  signOut: async () => {},
+  signIn: async () => { },
+  signUp: async () => { },
+  signOut: async () => { },
   adminCreateUserAndOrganizationUser: undefined,
   sessionToken: null,
   adminCreateMember: undefined,
+  loadingUserData: false
 });
 
 export function UserProvider({ children }: { children: ReactNode }) {
@@ -279,6 +281,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [loadingUserData, setLoadingUserData] = useState(true);
 
   // Persistencia y suscripción a Auth
   useEffect(() => {
@@ -301,6 +304,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!loading && firebaseUser) {
       (async () => {
+        setLoadingUserData(true);
         const localData = localStorage.getItem("myUserInfo");
         if (localData) {
           try {
@@ -332,7 +336,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
             await signOut();
           }
         }
+        setLoadingUserData(false);
       })();
+    } else if (!loading && !firebaseUser) {
+      setLoadingUserData(false);
     }
     // eslint-disable-next-line
   }, [loading, firebaseUser]);
@@ -545,6 +552,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         name,
         email,
         loading,
+        loadingUserData,
         sessionToken,
         signIn,
         signUp,

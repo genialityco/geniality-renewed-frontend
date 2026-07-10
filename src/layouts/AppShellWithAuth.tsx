@@ -1,14 +1,17 @@
 // src/AppShellWithAuth.tsx
-import { Group, Avatar, Text, Button, Menu, Image } from "@mantine/core";
+import { Group, Avatar, Text, Button, Menu, Image, Modal } from "@mantine/core";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import { useOrganization } from "../context/OrganizationContext";
+import { useState } from "react";
 
 export default function AppShellWithAuth() {
   const { userId, name, email, signOut: contextSignOut } = useUser();
   const { organization: headerOrg } = useOrganization();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+
+  const [recommendationsOpened, setRecommendationsOpened] = useState(false);
 
   // extrae el orgId de la URL: espera rutas que empiecen "/organization/:orgId"
   const segments = pathname.split("/").filter(Boolean);
@@ -69,6 +72,9 @@ export default function AppShellWithAuth() {
 
         {userId ? (
           <Group>
+            <Button variant="subtle" onClick={() => setRecommendationsOpened(true)}>
+              Recomendaciones
+            </Button>
             <Menu shadow="md" width={200}>
               <Menu.Target>
                 <Avatar radius="xl">{name?.charAt(0) || "U"}</Avatar>
@@ -98,6 +104,22 @@ export default function AppShellWithAuth() {
           </Group>
         )}
       </Group>
+
+      <Modal
+        opened={recommendationsOpened}
+        onClose={() => setRecommendationsOpened(false)}
+        title="Recomendaciones"
+        size="lg"
+      >
+        <iframe
+          src={`${import.meta.env.VITE_WIDGET_BASE_URL}/widget/gencampus/recommendations?api_key=${import.meta.env.VITE_WIDGET_API_KEY}&user_id=${userId}&org_id=${orgId}&limit=8`}
+          width="100%"
+          height="600"
+          frameBorder="0"
+          style={{ borderRadius: "12px", boxShadow: "0 4px 20px rgba(0,0,0,.15)" }}
+          title="Recomendaciones"
+        />
+      </Modal>
     </div>
   );
 }
