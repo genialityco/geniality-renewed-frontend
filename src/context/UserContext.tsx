@@ -7,6 +7,7 @@ import {
   ReactNode,
   useCallback,
 } from "react";
+import { useLocation } from "react-router-dom";
 import { auth } from "../firebase/firebaseConfig";
 import { initializeApp, deleteApp } from "firebase/app";
 import {
@@ -28,7 +29,7 @@ import {
 } from "../services/userService";
 import {
   fetchOrganizationUserByEmail,
-  fetchOrganizationUserByUserId,
+  fetchOrganizationUserByUserAndOrg,
   createOrUpdateOrganizationUser,
 } from "../services/organizationUserService";
 import {
@@ -36,6 +37,7 @@ import {
   updatePaymentPlanDateUntil,
   createPaymentPlan,
 } from "../services/paymentPlansService";
+import { getOrgIdFromPathname } from "../utils/getOrgIdFromPathname";
 
 interface SignUpData {
   email: string;
@@ -322,13 +324,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
             //   return;
             // }
 
-            // Si es válido, sincroniza
+            // Si es válido, sincroniza. La membresía de organización (organizationUserData)
+            // NO se resuelve aquí: un User es válido independientemente de si pertenece
+            // a alguna organización. Se resuelve reactivamente más abajo, según la
+            // organización que se esté viendo en cada momento (ver efecto de membresía).
             setUserId(userData._id);
             setName(userData.name || userData.names);
             setEmail(userData.email);
-            const orgUser = await fetchOrganizationUserByUserId(userData._id);
-            setOrganizationUserData(orgUser);
-            persistLastOrganizationId(orgUser);
           } catch {
             console.error("Error validando sesión múltiple (max 2)");
             await signOut();
@@ -341,6 +343,36 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
     // eslint-disable-next-line
   }, [loading, firebaseUser]);
+
+  // Membresía de organización: reactiva a la organización que se está viendo
+  // actualmente (por URL), no un valor fijo obtenido una sola vez al iniciar
+  // sesión. Así, un mismo usuario puede navegar entre varias organizaciones
+  // en la misma sesión sin arrastrar la membresía de la organización anterior.
+  const location = useLocation();
+  useEffect(() => {
+    if (!userId) {
+      setOrganizationUserData(null);
+      return;
+    }
+    const orgId = getOrgIdFromPathname(location.pathname);
+    if (!orgId) {
+      setOrganizationUserData(null);
+      return;
+    }
+    let cancelled = false;
+    fetchOrganizationUserByUserAndOrg(userId, orgId)
+      .then((orgUser) => {
+        if (cancelled) return;
+        setOrganizationUserData(orgUser);
+        if (orgUser) persistLastOrganizationId(orgUser);
+      })
+      .catch(() => {
+        if (!cancelled) setOrganizationUserData(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, location.pathname]);
 
   // signIn: Firebase + carga user desde backend
   // En UserContext.tsx (signIn)
@@ -361,19 +393,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
       throw new Error("Usuario no encontrado en el backend.");
     }
 
-    // 4) Data adicional (org user)
-    const organizationUserData = await fetchOrganizationUserByUserId(
-      userData._id,
-    );
-
-    // 5) Estado React
+    // 4) Estado React. La membresía de organización (organizationUserData) se
+    // resuelve aparte, de forma reactiva según la organización que se esté
+    // viendo (ver efecto de membresía) — el login no depende de que el
+    // usuario pertenezca a alguna organización.
     setUserId(userData._id);
-    setOrganizationUserData(organizationUserData);
-    persistLastOrganizationId(organizationUserData);
     setName(userData.name || userData.names);
     setEmail(userData.email);
     setSessionToken(sessionToken);
-    // 6) Persistencia local para headers (x-uid / x-session-token)
+    // 5) Persistencia local para headers (x-uid / x-session-token)
     localStorage.setItem(
       "myUserInfo",
       JSON.stringify({

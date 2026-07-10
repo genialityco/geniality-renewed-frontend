@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Tabs, Container, Paper } from "@mantine/core";
 import UsersList from "./components/UsersList";
+import OrganizationsList from "./components/OrganizationsList";
 // Importa otros componentes de administración cuando los tengas
 
 export const SuperAdmin = () => {
@@ -12,16 +13,16 @@ export const SuperAdmin = () => {
         <Tabs value={activeTab} onChange={setActiveTab}>
           <Tabs.List>
             <Tabs.Tab value="users">Usuarios</Tabs.Tab>
-            {/* <Tabs.Tab value="orgs">Organizaciones</Tabs.Tab> */}
+            <Tabs.Tab value="orgs">Organizaciones</Tabs.Tab>
             {/* Agrega más tabs según tus vistas */}
           </Tabs.List>
 
           <Tabs.Panel value="users">
             <UsersList />
           </Tabs.Panel>
-          {/* <Tabs.Panel value="orgs">
+          <Tabs.Panel value="orgs">
             <OrganizationsList />
-          </Tabs.Panel> */}
+          </Tabs.Panel>
         </Tabs>
       </Paper>
     </Container>

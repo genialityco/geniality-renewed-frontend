@@ -18,8 +18,8 @@ import {
   searchSegments,
   TranscriptSearchResult,
 } from "../../services/transcriptSegmentsService";
-import { fetchPaymentPlanByUserId } from "../../services/paymentPlansService";
-import { fetchOrganizationUserByUserId } from "../../services/organizationUserService";
+import { fetchPaymentPlanByUserAndOrg } from "../../services/paymentPlansService";
+import { fetchOrganizationUserByUserAndOrg } from "../../services/organizationUserService";
 import { useUser } from "../../context/UserContext";
 import { useOrganization } from "../../context/OrganizationContext";
 import { Organization, Event, Activity } from "../../services/types";
@@ -143,8 +143,11 @@ export default function OrganizationLanding() {
   useEffect(() => {
     const fetchPlan = async () => {
       try {
-        if (userId) {
-          const planData = await fetchPaymentPlanByUserId(userId);
+        if (userId && organizationId) {
+          const planData = await fetchPaymentPlanByUserAndOrg(
+            userId,
+            organizationId
+          );
           setPaymentPlan(planData);
         }
       } catch (error) {
@@ -154,14 +157,18 @@ export default function OrganizationLanding() {
       }
     };
     fetchPlan();
-  }, [userId]);
+  }, [userId, organizationId]);
 
-  // Fetch memberShipStatus del usuario
+  // Fetch memberShipStatus del usuario (scoped a esta organización: el mismo
+  // usuario puede tener memberShipStatus distinto en cada organización)
   useEffect(() => {
     const fetchMemberShipStatus = async () => {
       try {
-        if (userId) {
-          const orgUser = await fetchOrganizationUserByUserId(userId);
+        if (userId && organizationId) {
+          const orgUser = await fetchOrganizationUserByUserAndOrg(
+            userId,
+            organizationId
+          );
           setMemberShipStatus(orgUser?.memberShipStatus ?? false);
         }
       } catch (error) {
@@ -170,7 +177,7 @@ export default function OrganizationLanding() {
       }
     };
     fetchMemberShipStatus();
-  }, [userId]);
+  }, [userId, organizationId]);
 
   // Mostrar modal de problemas con videos cuando el usuario inicia sesión
   // useEffect(() => {

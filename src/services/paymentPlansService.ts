@@ -49,6 +49,21 @@ export const fetchPaymentPlanByUserId = async (
   }
 };
 
+/**
+ * Resuelve el plan de pago de un usuario para UNA organización específica.
+ * A diferencia de fetchPaymentPlanByUserId (ambigua si el usuario
+ * pertenece a varias organizaciones), esta siempre filtra por ambos IDs.
+ */
+export const fetchPaymentPlanByUserAndOrg = async (
+  userId: string,
+  organizationId: string
+): Promise<PaymentPlan | null> => {
+  const response = await api.get<PaymentPlan | null>(
+    `/payment-plans/by-user/${userId}/organization/${organizationId}`
+  );
+  return response.data;
+};
+
 export interface SubscriptionReport {
   totalPaid: number;
   totalActive: number;

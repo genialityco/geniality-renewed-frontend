@@ -6,8 +6,9 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { useLocation, matchPath } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { fetchOrganizationById } from "../services/organizationService";
+import { getOrgIdFromPathname } from "../utils/getOrgIdFromPathname";
 
 const DEFAULT_TITLE = "EndoCampus";
 const DEFAULT_FAVICON =
@@ -57,22 +58,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Las rutas que queremos "escuchar"
-    const patterns = [
-      "/organization/:orgId", // la raíz de la organización
-      "/organization/:orgId/*", // cualquier subruta, incluido /admin
-      "/organization/:orgId/admin", // exactamente /admin
-      "/organization/:orgId/admin/*", // subrutas de admin
-    ];
+    const orgId = getOrgIdFromPathname(location.pathname);
 
-    let match: ReturnType<typeof matchPath> = null;
-    for (const pattern of patterns) {
-      match = matchPath({ path: pattern, end: false }, location.pathname);
-      if (match) break;
-    }
-
-    if (match && match.params && match.params.orgId) {
-      const orgId = match.params.orgId;
+    if (orgId) {
 
       // Función para cargar la organización
       const loadOrganization = () => {

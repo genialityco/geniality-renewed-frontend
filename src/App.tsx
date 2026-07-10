@@ -16,17 +16,17 @@ import ActivityWatcher from './components/ActivityWatcher';
 export default function App() {
   return (
     <MantineProvider theme={theme}>
-      <UserProvider>
-        <SessionWatcher />
-        <ActivityWatcher />
-        <PaymentModalProvider>
-          <BrowserRouter>
+      <BrowserRouter>
+        <UserProvider>
+          <SessionWatcher />
+          <ActivityWatcher />
+          <PaymentModalProvider>
             <OrganizationProvider>
               <AppRoutes />
             </OrganizationProvider>
-          </BrowserRouter>
-        </PaymentModalProvider>
-      </UserProvider>
+          </PaymentModalProvider>
+        </UserProvider>
+      </BrowserRouter>
     </MantineProvider>
   );
 }

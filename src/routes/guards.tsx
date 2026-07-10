@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { Flex, Loader, Text } from "@mantine/core";
 import { useUser } from "../context/UserContext";
-import { fetchPaymentPlanByUserId } from "../services/paymentPlansService";
-import { fetchOrganizationUserByUserId } from "../services/organizationUserService";
+import { fetchPaymentPlanByUserAndOrg } from "../services/paymentPlansService";
+import { fetchOrganizationUserByUserAndOrg } from "../services/organizationUserService";
 
 const PAYWALL_ORGANIZATION_ID = "63f552d916065937427b3b02";
 
@@ -96,21 +96,17 @@ export function RequireMembership({
         }
 
         // 1) (opcional) validar que pertenece a la org de la URL
+        // Búsqueda scoped a (userId, organizationId): un usuario puede
+        // pertenecer a varias organizaciones, así que nunca se resuelve
+        // la membresía solo por userId.
         if (checkOrgMembership && organizationId) {
           try {
-            const orgUser = await fetchOrganizationUserByUserId(userId);
-            const organizationObject = orgUser?.organization_id;
-            const belongs =
-              orgUser?.organization_id === organizationId ||
-              (typeof organizationObject === "object" &&
-                organizationObject !== null &&
-                (("_id" in organizationObject &&
-                  (organizationObject as { _id: string })._id ===
-                    organizationId) ||
-                  ("id" in organizationObject &&
-                    (organizationObject as { id: string }).id ===
-                      organizationId)));
-            if (!belongs) {
+            const orgUser = await fetchOrganizationUserByUserAndOrg(
+              userId,
+              organizationId
+            );
+            if (!orgUser) {
+              setHasAccess(false);
               return;
             }
           } catch {
@@ -118,8 +114,12 @@ export function RequireMembership({
           }
         }
 
-        // 2) validar payment plan
-        const plan = await fetchPaymentPlanByUserId(userId);
+        // 2) validar payment plan (scoped a esta organización)
+        if (!organizationId) {
+          setHasAccess(false);
+          return;
+        }
+        const plan = await fetchPaymentPlanByUserAndOrg(userId, organizationId);
         if (!plan || isExpired(plan.date_until)) {
           return;
         }
