@@ -7,27 +7,7 @@ import {
   trackAdminOrganizationClick,
   trackVisitOrganization,
 } from "../../../utils/analytics";
-
-const isAuthorInArray = (author: any, userId: string | null): boolean => {
-  if (!author || !userId) return false;
-  
-  // Si author es un array, verificar si userId está en el array
-  if (Array.isArray(author)) {
-    return author.some(id => String(id) === String(userId));
-  }
-  
-  // Si author es un string
-  if (typeof author === "string") {
-    return String(author) === String(userId);
-  }
-  
-  // Si author es un objeto con _id
-  if (typeof author === "object" && author._id) {
-    return String(author._id) === String(userId);
-  }
-  
-  return false;
-};
+import { isOrgAuthor, hasAdminRole } from "../../../utils/orgAccess";
 
 export default function MyOrganizations() {
   const { userId, organizationUserData } = useUser();
@@ -44,23 +24,8 @@ export default function MyOrganizations() {
     navigate(`/organization/${org._id}/admin`);
   };
 
-  const isAuthor = (org: OrgContext) => {
-    return isAuthorInArray((org as any).author, userId);
-  };
-
-  const isAdmin = () => {
-    if (!organizationUserData) return false;
-    const rid =
-      typeof organizationUserData.rol_id === "string"
-        ? organizationUserData.rol_id
-        : organizationUserData.rol_id?._id;
-    return ["admin", "owner", "super_admin"].includes(
-      String(rid || "").toLowerCase()
-    );
-  };
-
   const canAccessAdmin = (org: OrgContext) => {
-    return isAuthor(org) || isAdmin();
+    return isOrgAuthor((org as any).author, userId) || hasAdminRole(organizationUserData);
   };
 
   if (!organization) {

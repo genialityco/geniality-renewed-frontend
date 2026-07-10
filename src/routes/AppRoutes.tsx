@@ -17,7 +17,7 @@ import SuperAdmin from "../pages/superadmin";
 import QuizPage from "../pages/course/QuizPage";
 import QuizResultPage from "../pages/course/QuizResultPage";
 
-import { RequireAuth, RequireMembership } from "./guards";
+import { RequireAuth, RequireMembership, RequireAdmin } from "./guards";
 
 // ⭐ Nueva página de recuperación (contenido/UX):
 import Recovery from "../pages/auth/RecoveryPassword/Recovery";
@@ -56,17 +56,27 @@ export default function AppRoutes() {
           />
         </Route>
 
-        {/* Rutas que requieren solo sesión */}
-        <Route element={<RequireAuth />}>
+        {/* Perfil: requiere ser MIEMBRO de esta organización (no solo estar
+            logueado). Un miembro de otra org no debe ver el perfil aquí. No
+            se exige suscripción vigente: el miembro debe poder entrar a ver o
+            renovar su plan aunque esté vencido. */}
+        <Route element={<RequireMembership checkPayment={false} />}>
           <Route path="profile" element={<Profile />} />
+        </Route>
 
-          {/* ⭐ NUEVA ruta protegida: /organization/:organizationId/recuperar-datos?token=... */}
+        {/* Recuperación de datos: solo requiere sesión (se abre desde un link
+            enviado por correo, el usuario puede aún no ser miembro activo). */}
+        <Route element={<RequireAuth />}>
+          {/* ⭐ /organization/:organizationId/recuperar-datos?token=... */}
           <Route path="recuperar-datos" element={<Recovery />} />
         </Route>
 
-        {/* Rutas que requieren rol admin (si luego agregas RequireAdmin, envuélvela) */}
-        <Route path="admin">
-          <Route index element={<AdminOrganizationEvents />} />
+        {/* Administración: requiere ser AUTOR de la organización o tener rol
+            admin en ella. Antes esta ruta estaba SIN protección. */}
+        <Route element={<RequireAdmin />}>
+          <Route path="admin">
+            <Route index element={<AdminOrganizationEvents />} />
+          </Route>
         </Route>
         {/* <Route path="documents" element={<DocumentsAdminPage />} /> */}
 

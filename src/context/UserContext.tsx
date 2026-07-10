@@ -3,6 +3,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useState,
   ReactNode,
   useCallback,
@@ -66,8 +67,16 @@ interface UserContextValue {
   name: string;
   email: string;
   loading: boolean;
+  // true mientras se resuelve si el usuario es miembro de la organización
+  // que se está viendo (por URL). Sirve para no parpadear entre "logueado"
+  // y "no logueado" ni tomar decisiones de acceso con datos a medio cargar.
+  orgMembershipLoading: boolean;
   sessionToken: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (
+    email: string,
+    password: string,
+    organizationId?: string
+  ) => Promise<void>;
   signUp: (data: SignUpData) => Promise<void>;
   signOut: () => Promise<void>;
   adminCreateMember?: typeof adminCreateMember;
@@ -263,6 +272,7 @@ const UserContext = createContext<
   name: "",
   email: "",
   loading: true,
+  orgMembershipLoading: false,
   signIn: async () => {},
   signUp: async () => {},
   signOut: async () => {},
@@ -278,6 +288,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
+  const [orgMembershipLoading, setOrgMembershipLoading] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   // Persistencia y suscripción a Auth
@@ -342,18 +353,31 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // sesión. Así, un mismo usuario puede navegar entre varias organizaciones
   // en la misma sesión sin arrastrar la membresía de la organización anterior.
   const location = useLocation();
+  // Solo el id de organización de la URL, memoizado: así el efecto de membresía
+  // se re-ejecuta únicamente cuando cambia la ORGANIZACIÓN (o el usuario), no en
+  // cada navegación dentro de la misma org — evita refetches y parpadeos.
+  const currentOrgId = useMemo(
+    () => getOrgIdFromPathname(location.pathname),
+    [location.pathname]
+  );
   useEffect(() => {
     if (!userId) {
       setOrganizationUserData(null);
+      setOrgMembershipLoading(false);
       return;
     }
-    const orgId = getOrgIdFromPathname(location.pathname);
-    if (!orgId) {
+    if (!currentOrgId) {
       setOrganizationUserData(null);
+      setOrgMembershipLoading(false);
       return;
     }
     let cancelled = false;
-    fetchOrganizationUserByUserAndOrg(userId, orgId)
+    // Limpia la membresía anterior de inmediato: al pasar de la org A a la B
+    // no debe quedar visible (ni para el header ni para los guards) la
+    // membresía de A mientras se resuelve la de B. Mientras tanto, cargando.
+    setOrganizationUserData(null);
+    setOrgMembershipLoading(true);
+    fetchOrganizationUserByUserAndOrg(userId, currentOrgId)
       .then((orgUser) => {
         if (cancelled) return;
         setOrganizationUserData(orgUser);
@@ -361,23 +385,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         if (!cancelled) setOrganizationUserData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setOrgMembershipLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [userId, location.pathname]);
+  }, [userId, currentOrgId]);
 
   // signIn: Firebase + carga user desde backend
   // En UserContext.tsx (signIn)
-  const signIn = useCallback(async (email: string, password: string) => {
+  const signIn = useCallback(
+    async (email: string, password: string, organizationId?: string) => {
     // 1) Login Firebase
     const result = await signInWithEmailAndPassword(auth, email, password);
     const uid = result.user.uid;
 
-    // 2) REFRESCA y OBTÉN tu token propio (string)
-    const sessionToken = await refreshSessionToken(uid);
-
-    // 3) Trae el usuario (ya con sessionTokens en backend)
+    // 2) Trae el usuario (identidad global, sin importar organización)
     const userData = await fetchUserByFirebaseUid(uid);
     if (!userData) {
       // Usuario no existe en tu backend (404): limpia y error controlado
@@ -386,10 +411,45 @@ export function UserProvider({ children }: { children: ReactNode }) {
       throw new Error("Usuario no encontrado en el backend.");
     }
 
-    // 4) Estado React. La membresía de organización (organizationUserData) se
+    // 3) Aislamiento por organización: si el login ocurre dentro de una
+    // organización, el usuario DEBE ser miembro de ESA organización. Tener
+    // cuenta (Firebase) y ser miembro de otra organización no basta. Si no
+    // pertenece, se cierra la sesión y se lanza un error reconocible para que
+    // la UI muestre "no estás registrado en esta organización".
+    if (organizationId) {
+      let membership: any = null;
+      try {
+        membership = await fetchOrganizationUserByUserAndOrg(
+          userData._id,
+          organizationId
+        );
+      } catch {
+        // No se pudo verificar: no dejar una sesión de Firebase a medias.
+        await firebaseSignOut(auth);
+        localStorage.removeItem("myUserInfo");
+        throw new Error(
+          "No se pudo verificar tu membresía. Intenta de nuevo."
+        );
+      }
+      if (!membership) {
+        await firebaseSignOut(auth);
+        localStorage.removeItem("myUserInfo");
+        const notMember = new Error(
+          "No estás registrado en esta organización."
+        ) as Error & { code?: string };
+        notMember.code = "org/not-member";
+        throw notMember;
+      }
+    }
+
+    // 4) REFRESCA y OBTÉN tu token propio (string). Se hace después de validar
+    // la membresía para no crear una sesión que vamos a rechazar.
+    const sessionToken = await refreshSessionToken(uid);
+
+    // 5) Estado React. La membresía de organización (organizationUserData) se
     // resuelve aparte, de forma reactiva según la organización que se esté
-    // viendo (ver efecto de membresía) — el login no depende de que el
-    // usuario pertenezca a alguna organización.
+    // viendo (ver efecto de membresía); la validación de pertenencia para
+    // permitir el login ya se hizo arriba cuando se recibe organizationId.
     setUserId(userData._id);
     setName(userData.name || userData.names);
     setEmail(userData.email);
@@ -545,6 +605,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         name,
         email,
         loading,
+        orgMembershipLoading,
         sessionToken,
         signIn,
         signUp,

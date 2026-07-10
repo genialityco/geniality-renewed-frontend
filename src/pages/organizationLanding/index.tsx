@@ -56,8 +56,13 @@ function isMembershipExpired(paymentPlan: {
 export default function OrganizationLanding() {
   const { organizationId } = useParams<{ organizationId: string }>();
   const navigate = useNavigate();
-  const { userId } = useUser();
+  const { userId, organizationUserData, orgMembershipLoading } = useUser();
   const { organization: contextOrganization } = useOrganization();
+
+  // ¿Es miembro de ESTA organización? La membresía del contexto ya está
+  // acotada a la organización de la URL. Un usuario logueado en otra
+  // organización aquí es un visitante.
+  const isMemberOfOrg = !!organizationUserData;
   const shouldShowPaywallMessage = organizationId === PAYWALL_ORGANIZATION_ID;
 
   const [organization, setOrganization] = useState<Organization | null>(null);
@@ -480,8 +485,9 @@ export default function OrganizationLanding() {
       <OrganizationBanner organization={organization} />
 
       <MembershipStatus
-        loading={planLoading}
+        loading={planLoading || orgMembershipLoading}
         userId={userId}
+        isMember={isMemberOfOrg}
         paymentPlan={paymentPlan}
         isExpired={isMembershipExpired}
       />
