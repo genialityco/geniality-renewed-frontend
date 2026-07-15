@@ -19,6 +19,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import ActivityDetailWithTracker from "../../../components/ActivityDetailWithTracker";
 import CourseProgressCard from "../../../components/CourseProgressCard";
 import ActivityGrid from "../../../components/ActivityGrid";
+import { CourseFooter } from "./CourseFooter";
 import SearchBar, { SearchResult } from "../../organizationLanding/components/SearchBar";
 import { Activity, Host, Event } from "../../../services/types";
 import {
@@ -78,18 +79,35 @@ export function CourseMainContent({
   const [hostModalOpened, setHostModalOpened] = useState(false);
   const [videoStartTime, setVideoStartTime] = useState<number | null>(null);
 
+  const bannerSrc =
+    event?.styles?.banner_image ||
+    event?.picture ||
+    event?.styles?.event_image;
+
   if (selectedActivity) {
     return (
-      <ActivityDetailWithTracker
-        activity={selectedActivity}
-        eventId={event?._id || ""}
-        shareUrl={`${window.location.origin}/organization/${organizationId}/course/${eventId}?activity=${selectedActivity._id}`}
-        activities={activities}
-        activityAttendees={activityAttendees}
-        courseId={event?._id || ""}
-        courseName={event?.name || ""}
-        videoTime={videoStartTime}
-      />
+      <Stack gap="lg">
+        {/* Banner (mismo header que en el listado del curso) */}
+        {bannerSrc && (
+          <Box style={{ borderRadius: 16, overflow: "hidden" }}>
+            <Image src={bannerSrc} fit="cover" mah={280} w="100%" />
+          </Box>
+        )}
+
+        <ActivityDetailWithTracker
+          activity={selectedActivity}
+          eventId={event?._id || ""}
+          shareUrl={`${window.location.origin}/organization/${organizationId}/course/${eventId}?activity=${selectedActivity._id}`}
+          activities={activities}
+          activityAttendees={activityAttendees}
+          courseId={event?._id || ""}
+          courseName={event?.name || ""}
+          videoTime={videoStartTime}
+        />
+
+        {/* Footer del curso (imagen configurada en el evento) */}
+        <CourseFooter event={event} />
+      </Stack>
     );
   }
 
@@ -98,10 +116,6 @@ export function CourseMainContent({
   const completedCount = activities.filter(
     (activity) => getActivityProgress(activityAttendees, activity._id) >= 100
   ).length;
-  const bannerSrc =
-    event?.styles?.banner_image ||
-    event?.picture ||
-    event?.styles?.event_image;
 
   const orderedModules = sortModulesByOrder(modules);
   const moduleIds = new Set(orderedModules.map((module) => module._id));
@@ -416,6 +430,9 @@ export function CourseMainContent({
           </Box>
         </>
       )}
+
+      {/* Footer del curso (imagen configurada en el evento) */}
+      <CourseFooter event={event} />
 
       {/* Host Modal */}
       <Modal
