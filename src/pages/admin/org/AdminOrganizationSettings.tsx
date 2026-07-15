@@ -23,6 +23,7 @@ import type { UserProperty } from "../../../services/types";
 import BrandingForm from "./components/BrandingForm";
 import TabsConfigForm from "./components/TabsConfigForm";
 import CompletionMessagesForm from "./components/CompletionMessagesForm";
+import WelcomeEmailForm from "./components/WelcomeEmailForm";
 
 type Props = { organizationId: string };
 
@@ -118,6 +119,18 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
           </Accordion.Control>
           <Accordion.Panel>
             <CompletionMessagesForm organizationId={organizationId} />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value="welcome-email">
+          <Accordion.Control>
+            <Title order={5}>👋 Correo de Bienvenida</Title>
+            <Text size="xs" c="dimmed">
+              Correo que se envía al registrarse en la organización
+            </Text>
+          </Accordion.Control>
+          <Accordion.Panel>
+            <WelcomeEmailForm organizationId={organizationId} />
           </Accordion.Panel>
         </Accordion.Item>
 
