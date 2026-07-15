@@ -23,6 +23,10 @@ import type { UserProperty } from "../../../services/types";
 import BrandingForm from "./components/BrandingForm";
 import TabsConfigForm from "./components/TabsConfigForm";
 import CompletionMessagesForm from "./components/CompletionMessagesForm";
+import EmailTemplateForm from "./components/EmailTemplateForm";
+
+const NAME_VAR = { token: "{{nombres}}", label: "nombre del usuario" };
+const DATE_VAR = { token: "{{fecha}}", label: "fecha de vigencia" };
 
 type Props = { organizationId: string };
 
@@ -118,6 +122,91 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
           </Accordion.Control>
           <Accordion.Panel>
             <CompletionMessagesForm organizationId={organizationId} />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value="welcome-email">
+          <Accordion.Control>
+            <Title order={5}>👋 Correo de Bienvenida</Title>
+            <Text size="xs" c="dimmed">
+              Correo que se envía al registrarse en la organización
+            </Text>
+          </Accordion.Control>
+          <Accordion.Panel>
+            <EmailTemplateForm
+              organizationId={organizationId}
+              configKey="welcome_email"
+              enabledLabel="Enviar correo de bienvenida al registrarse"
+              variables={[NAME_VAR]}
+              defaults={{
+                subject: "{{nombres}}, te damos la bienvenida",
+                title: "¡Bienvenido(a)!",
+                body: "Es un gusto darte la bienvenida a nuestra plataforma.\n\n¡Explora, aprende y fortalece tus conocimientos con nosotros!",
+              }}
+              infoText={
+                <>
+                  Este correo se envía automáticamente cuando un usuario se
+                  registra en la organización. Usa el banner y el logo
+                  configurados en el <b>Branding</b>.
+                </>
+              }
+            />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value="subscription-created-email">
+          <Accordion.Control>
+            <Title order={5}>💳 Correo de Suscripción (creada)</Title>
+            <Text size="xs" c="dimmed">
+              Correo que se envía cuando el usuario activa su suscripción
+            </Text>
+          </Accordion.Control>
+          <Accordion.Panel>
+            <EmailTemplateForm
+              organizationId={organizationId}
+              configKey="subscription_created_email"
+              enabledLabel="Enviar correo al activar la suscripción"
+              variables={[NAME_VAR, DATE_VAR]}
+              defaults={{
+                subject: "{{nombres}}, gracias por tu suscripción",
+                title: "¡Gracias por tu suscripción!",
+                body: "Tu suscripción ha sido activada de manera exitosa.\n\nAhora tienes acceso hasta el {{fecha}}. ¡Comienza tu recorrido con nosotros!",
+              }}
+              infoText={
+                <>
+                  Este correo se envía cuando el usuario paga o se le activa por
+                  primera vez una suscripción.
+                </>
+              }
+            />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value="subscription-updated-email">
+          <Accordion.Control>
+            <Title order={5}>🔄 Correo de Suscripción (renovada)</Title>
+            <Text size="xs" c="dimmed">
+              Correo que se envía cuando se renueva o actualiza la suscripción
+            </Text>
+          </Accordion.Control>
+          <Accordion.Panel>
+            <EmailTemplateForm
+              organizationId={organizationId}
+              configKey="subscription_updated_email"
+              enabledLabel="Enviar correo al renovar/actualizar la suscripción"
+              variables={[NAME_VAR, DATE_VAR]}
+              defaults={{
+                subject: "{{nombres}}, tu suscripción fue actualizada",
+                title: "¡Tu suscripción fue actualizada!",
+                body: "Tu suscripción ha sido actualizada de manera exitosa.\n\nAhora tienes acceso hasta el {{fecha}}.",
+              }}
+              infoText={
+                <>
+                  Este correo se envía cuando se renueva o se extiende la fecha
+                  de vigencia de una suscripción.
+                </>
+              }
+            />
           </Accordion.Panel>
         </Accordion.Item>
 

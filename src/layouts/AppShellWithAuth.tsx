@@ -1,11 +1,18 @@
 // src/AppShellWithAuth.tsx
-import { Group, Avatar, Text, Button, Menu, Image } from "@mantine/core";
+import { Group, Avatar, Text, Button, Menu, Image, Loader } from "@mantine/core";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import { useOrganization } from "../context/OrganizationContext";
 
 export default function AppShellWithAuth() {
-  const { userId, name, email, signOut: contextSignOut } = useUser();
+  const {
+    userId,
+    name,
+    email,
+    organizationUserData,
+    orgMembershipLoading,
+    signOut: contextSignOut,
+  } = useUser();
   const { organization: headerOrg } = useOrganization();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -14,6 +21,15 @@ export default function AppShellWithAuth() {
   const segments = pathname.split("/").filter(Boolean);
   const orgId =
     segments[0] === "organization" && segments[1] ? segments[1] : null;
+
+  // La sesión es "por organización": estar autenticado en Firebase no basta.
+  // Dentro de una organización solo se muestra como logueado a quien es
+  // miembro de ESA organización. Un miembro de otra org se ve como visitante
+  // (puede registrarse/suscribirse aquí), no arrastra su sesión anterior.
+  // Fuera de una org (ruta raíz) basta con estar autenticado.
+  const isMemberOfCurrentOrg = orgId ? !!organizationUserData : !!userId;
+  const showAsLoggedIn = !!userId && isMemberOfCurrentOrg;
+  const resolvingMembership = !!userId && !!orgId && orgMembershipLoading;
 
   const handleLogout = async () => {
     try {
@@ -67,7 +83,9 @@ export default function AppShellWithAuth() {
           </Text>
         </Group>
 
-        {userId ? (
+        {resolvingMembership ? (
+          <Loader size="sm" />
+        ) : showAsLoggedIn ? (
           <Group>
             <Menu shadow="md" width={200}>
               <Menu.Target>

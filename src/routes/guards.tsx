@@ -1,10 +1,12 @@
 // src/routes/guards.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { Flex, Loader, Text } from "@mantine/core";
 import { useUser } from "../context/UserContext";
 import { fetchPaymentPlanByUserAndOrg } from "../services/paymentPlansService";
 import { fetchOrganizationUserByUserAndOrg } from "../services/organizationUserService";
+import { fetchOrganizationById } from "../services/organizationService";
+import { isOrgAuthor, hasAdminRole } from "../utils/orgAccess";
 
 const PAYWALL_ORGANIZATION_ID = "63f552d916065937427b3b02";
 
@@ -56,12 +58,18 @@ export function RequireAuth() {
  * Valida:
  * - Usuario logeado
  * - (Opcional) Pertenencia a la organización en URL
- * - Payment plan activo para ese usuario (date_until > now)
+ * - (Opcional) Payment plan activo para ese usuario (date_until > now)
+ *
+ * `checkPayment=false` permite acotar una ruta a los miembros de la
+ * organización sin exigir suscripción vigente (p. ej. el perfil, donde el
+ * miembro debe poder ver/renovar su plan aunque esté vencido).
  */
 export function RequireMembership({
   checkOrgMembership = true,
+  checkPayment = true,
 }: {
   checkOrgMembership?: boolean;
+  checkPayment?: boolean;
 }) {
   const { loading, firebaseUser, userId } = useUser();
   const { organizationId } = useParams();
@@ -69,6 +77,10 @@ export function RequireMembership({
 
   const [busy, setBusy] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
+  // Organización para la que se calculó la última decisión. Evita usar una
+  // decisión de la org anterior durante el frame en que cambia la URL (lo que
+  // mostraría contenido de otra org a un no-miembro por un instante).
+  const [decidedOrg, setDecidedOrg] = useState<string | undefined>(undefined);
 
   const isExpired = (dateUntil?: string | number | Date) => {
     if (!dateUntil) return true;
@@ -81,9 +93,16 @@ export function RequireMembership({
 
   useEffect(() => {
     let mounted = true;
+    // Aún resolviendo la sesión de Firebase: no decidir, mantener el loader.
+    if (loading) return;
+    // Firebase ya resolvió pero el userId del backend todavía está cargando
+    // (llega en una llamada posterior). No decidir aún: sin esto, un miembro
+    // válido que recarga la página sería expulsado por un falso "sin acceso".
+    if (firebaseUser && !userId) return;
+
+    setBusy(true);
     (async () => {
       try {
-        if (loading) return;
         if (!firebaseUser || !userId) {
           setHasAccess(false);
           return;
@@ -114,23 +133,40 @@ export function RequireMembership({
           setHasAccess(false);
           return;
         }
-        const plan = await fetchPaymentPlanByUserAndOrg(userId, organizationId);
-        if (!plan || isExpired(plan.date_until)) {
-          setHasAccess(false);
-          return;
+        if (checkPayment) {
+          const plan = await fetchPaymentPlanByUserAndOrg(
+            userId,
+            organizationId
+          );
+          if (!plan || isExpired(plan.date_until)) {
+            setHasAccess(false);
+            return;
+          }
         }
 
         setHasAccess(true);
       } finally {
-        if (mounted) setBusy(false);
+        if (mounted) {
+          setDecidedOrg(organizationId);
+          setBusy(false);
+        }
       }
     })();
     return () => {
       mounted = false;
     };
-  }, [loading, firebaseUser, userId, organizationId, checkOrgMembership]);
+  }, [
+    loading,
+    firebaseUser,
+    userId,
+    organizationId,
+    checkOrgMembership,
+    checkPayment,
+  ]);
 
-  if (loading || busy) return <CenterLoader label="Validando membresía..." />;
+  // No decidir hasta que la resolución corresponda a la organización actual.
+  if (loading || busy || decidedOrg !== organizationId)
+    return <CenterLoader label="Validando membresía..." />;
 
   if (!firebaseUser) {
     const usePaymentMessage = organizationId === PAYWALL_ORGANIZATION_ID;
@@ -158,27 +194,61 @@ export function RequireMembership({
 }
 
 /**
- * Valida que el usuario tenga rol admin en la organización.
- * Asume que `organizationUserData` en el UserContext tiene `rol_id` o similar.
+ * Valida que el usuario pueda administrar la organización de la URL.
+ * El acceso se concede a quien sea AUTOR de la organización O tenga un rol
+ * administrativo en su membresía (misma regla que `MyOrganizations`, ahora
+ * centralizada en `utils/orgAccess`). Es autosuficiente: resuelve membresía
+ * y organización aquí en vez de depender del estado reactivo del contexto,
+ * para no bloquear a un admin/autor por una condición de carrera de carga.
  */
 export function RequireAdmin() {
-  const { loading, firebaseUser, organizationUserData } = useUser();
+  const { loading, firebaseUser, userId } = useUser();
   const { organizationId } = useParams();
   const location = useLocation();
 
-  const isAdmin = useMemo(() => {
-    if (!organizationUserData) return false;
-    const rid =
-      typeof organizationUserData.rol_id === "string"
-        ? organizationUserData.rol_id
-        : organizationUserData.rol_id?._id;
-    // Ajusta esta condición a tu modelo de roles
-    return ["admin", "owner", "super_admin"].includes(
-      String(rid || "").toLowerCase()
-    );
-  }, [organizationUserData]);
+  const [busy, setBusy] = useState(true);
+  const [canAccess, setCanAccess] = useState(false);
+  // Ver nota en RequireMembership: ancla la decisión a la org calculada.
+  const [decidedOrg, setDecidedOrg] = useState<string | undefined>(undefined);
 
-  if (loading) return <CenterLoader label="Verificando permisos..." />;
+  useEffect(() => {
+    let mounted = true;
+    // Aún resolviendo la sesión de Firebase: no decidir, mantener el loader.
+    if (loading) return;
+    // Firebase ya resolvió pero el userId del backend aún carga: esperar, para
+    // no expulsar a un admin/autor válido por una condición de carrera.
+    if (firebaseUser && !userId) return;
+
+    setBusy(true);
+    (async () => {
+      try {
+        if (!firebaseUser || !userId || !organizationId) {
+          setCanAccess(false);
+          return;
+        }
+        const [orgUser, org] = await Promise.all([
+          fetchOrganizationUserByUserAndOrg(userId, organizationId).catch(
+            () => null
+          ),
+          fetchOrganizationById(organizationId).catch(() => null),
+        ]);
+        const allowed =
+          hasAdminRole(orgUser) || isOrgAuthor((org as any)?.author, userId);
+        if (mounted) setCanAccess(allowed);
+      } finally {
+        if (mounted) {
+          setDecidedOrg(organizationId);
+          setBusy(false);
+        }
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [loading, firebaseUser, userId, organizationId]);
+
+  if (loading || busy || decidedOrg !== organizationId)
+    return <CenterLoader label="Verificando permisos..." />;
 
   if (!firebaseUser) {
     const loginPath = organizationId
@@ -187,7 +257,7 @@ export function RequireAdmin() {
     return <Navigate to={loginPath} replace state={{ from: location }} />;
   }
 
-  if (!isAdmin) {
+  if (!canAccess) {
     // 403: redirige a landing de la org o muestra un NotAuthorized
     const fallback = organizationId ? `/organization/${organizationId}` : `/`;
     return (

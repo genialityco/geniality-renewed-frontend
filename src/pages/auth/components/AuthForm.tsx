@@ -224,12 +224,18 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
     setFormError(null);
     trackLoginAttempt(organizationId);
     try {
-      await signIn(email.trim(), String(password).trim());
+      // Se pasa organizationId para que el login exija ser miembro de ESTA
+      // organización (aislamiento entre organizaciones). Un usuario de otra
+      // organización no puede iniciar sesión aquí, solo registrarse.
+      await signIn(email.trim(), String(password).trim(), organizationId);
       trackLoginSuccess(organizationId);
       navigate(nextPath, { replace: true });
     } catch (err: any) {
       let msg = "Error al iniciar sesión. Intenta de nuevo.";
-      if (err?.code === "auth/user-not-found")
+      if (err?.code === "org/not-member")
+        msg =
+          "No estás registrado en esta organización. Crea una cuenta para acceder.";
+      else if (err?.code === "auth/user-not-found")
         msg = "No existe una cuenta con este correo.";
       else if (err?.code === "auth/invalid-credential")
         msg = "Email o cédula/ID incorrecto.";
