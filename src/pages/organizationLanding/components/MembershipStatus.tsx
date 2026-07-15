@@ -9,6 +9,10 @@ interface MembershipStatusProps {
   // global de Firebase) NO debe ver el mensaje de "Bienvenido / Pagar
   // Membresía" aquí: para esta organización es un visitante.
   isMember?: boolean;
+  // ¿La organización cobra membresía? Si es gratuita (o no tiene cobro
+  // configurado), no se muestra ningún mensaje de pago aunque el miembro no
+  // tenga un paymentPlan.
+  requiresPayment?: boolean;
   paymentPlan?: any; // Puedes reemplazar "any" por el tipo real de tu paymentPlan si lo tienes
   isExpired: (plan: any) => boolean;
 }
@@ -17,10 +21,11 @@ export default function MembershipStatus({
   loading,
   userId,
   isMember,
+  requiresPayment,
   paymentPlan,
   isExpired,
 }: MembershipStatusProps) {
-  if (loading || !userId || !isMember) return null;
+  if (loading || !userId || !isMember || !requiresPayment) return null;
   if (!paymentPlan) {
     return (
       <Card>

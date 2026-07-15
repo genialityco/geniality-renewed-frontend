@@ -134,13 +134,23 @@ export function RequireMembership({
           return;
         }
         if (checkPayment) {
-          const plan = await fetchPaymentPlanByUserAndOrg(
-            userId,
-            organizationId
+          // El pago solo se exige si la organización cobra membresía
+          // (access_settings.type === "payment"). En orgs gratuitas basta con
+          // ser miembro.
+          const org = await fetchOrganizationById(organizationId).catch(
+            () => null
           );
-          if (!plan || isExpired(plan.date_until)) {
-            setHasAccess(false);
-            return;
+          const requiresPayment =
+            (org as any)?.access_settings?.type === "payment";
+          if (requiresPayment) {
+            const plan = await fetchPaymentPlanByUserAndOrg(
+              userId,
+              organizationId
+            );
+            if (!plan || isExpired(plan.date_until)) {
+              setHasAccess(false);
+              return;
+            }
           }
         }
 

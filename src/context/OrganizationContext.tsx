@@ -10,7 +10,7 @@ import { useLocation } from "react-router-dom";
 import { fetchOrganizationById } from "../services/organizationService";
 import { getOrgIdFromPathname } from "../utils/getOrgIdFromPathname";
 
-const DEFAULT_TITLE = "EndoCampus";
+const DEFAULT_TITLE = "Geniality";
 const DEFAULT_FAVICON =
   "https://storage.googleapis.com/geniality-sas.appspot.com/evius/events/JqzemlKcQEClLYBMFxfSv8fAYX6PwXFZdKf0eNqT.png";
 
@@ -60,11 +60,29 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const orgId = getOrgIdFromPathname(location.pathname);
 
-    if (orgId) {
+    if (!orgId) {
+      setOrganization(null);
+      setDocumentBranding(DEFAULT_TITLE, DEFAULT_FAVICON);
+      return;
+    }
 
-      // Función para cargar la organización
-      const loadOrganization = () => {
-        fetchOrganizationById(orgId).then((org) => {
+    let cancelled = false;
+
+    // Al cambiar a una organización distinta de la que está cargada, limpia de
+    // inmediato para no mostrar el branding de la org anterior (ni el default)
+    // mientras llega la nueva. Si es la misma org (navegación interna, p.ej.
+    // /admin), conserva el estado para evitar parpadeos.
+    setOrganization((prev) => (prev && prev._id === orgId ? prev : null));
+
+    // Función para cargar la organización
+    const loadOrganization = () => {
+      fetchOrganizationById(orgId)
+        .then((org) => {
+          // Descarta respuestas obsoletas: el efecto se limpió (navegación) o
+          // la URL ya apunta a otra organización.
+          if (cancelled) return;
+          if (getOrgIdFromPathname(window.location.pathname) !== orgId) return;
+
           const orgData = {
             _id: org._id,
             name: org.name,
@@ -75,23 +93,26 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           };
 
           setOrganization(orgData);
-          setDocumentBranding(orgData.name || DEFAULT_TITLE, orgData.image || DEFAULT_FAVICON);
+          setDocumentBranding(
+            orgData.name || DEFAULT_TITLE,
+            orgData.image || DEFAULT_FAVICON
+          );
+        })
+        .catch(() => {
+          /* se reintenta en el siguiente ciclo de polling */
         });
-      };
+    };
 
-      // Cargar inmediatamente
-      loadOrganization();
+    // Cargar inmediatamente
+    loadOrganization();
 
-      // Polling cada 5 segundos
-      const interval = setInterval(loadOrganization, 5000);
+    // Polling cada 5 segundos
+    const interval = setInterval(loadOrganization, 5000);
 
-      return () => {
-        clearInterval(interval);
-      };
-    } else {
-      setOrganization(null);
-      setDocumentBranding(DEFAULT_TITLE, DEFAULT_FAVICON);
-    }
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [location.pathname]);
 
   return (

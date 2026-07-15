@@ -14,6 +14,8 @@ import {
   Text,
   Textarea,
   Accordion,
+  Switch,
+  NumberInput,
 } from "@mantine/core";
 import {
   fetchOrganizationById,
@@ -89,6 +91,18 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
       <Title order={3}>Configuración de Mi Organización</Title>
 
       <Accordion variant="separated">
+        <Accordion.Item value="membership">
+          <Accordion.Control>
+            <Title order={5}>💳 Cobro / Membresía</Title>
+            <Text size="xs" c="dimmed">
+              Activa o desactiva el cobro y define el valor de la membresía
+            </Text>
+          </Accordion.Control>
+          <Accordion.Panel>
+            <AccessSettingsPanel organizationId={organizationId} />
+          </Accordion.Panel>
+        </Accordion.Item>
+
         <Accordion.Item value="branding">
           <Accordion.Control>
             <Title order={5}>🎨 Branding</Title>
@@ -226,6 +240,121 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
           </Accordion.Panel>
         </Accordion.Item>
       </Accordion>
+    </Stack>
+  );
+}
+
+// Panel de cobro / membresía: activar/desactivar el cobro y editar el valor.
+function AccessSettingsPanel({ organizationId }: Props) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  const [charge, setCharge] = useState(false);
+  const [price, setPrice] = useState<number>(0);
+  const [days, setDays] = useState<number>(365);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    fetchOrganizationById(organizationId)
+      .then((org) => {
+        if (!mounted) return;
+        const acc = (org as any).access_settings ?? {};
+        setCharge(acc.type === "payment");
+        setPrice(Number(acc.price) || 0);
+        setDays(Number(acc.days) || 365);
+      })
+      .catch(() => setError("No se pudo cargar la configuración de cobro."))
+      .finally(() => setLoading(false));
+    return () => {
+      mounted = false;
+    };
+  }, [organizationId]);
+
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    setOk(null);
+    try {
+      if (charge && (!price || price <= 0)) {
+        throw new Error("Ingresa un valor a cobrar mayor a 0.");
+      }
+      const access_settings = {
+        type: charge ? "payment" : "free",
+        price: charge ? Number(price) || 0 : 0,
+        days: Number(days) || 0,
+      };
+      await updateOrganization(organizationId, { access_settings } as any);
+      setOk(
+        charge
+          ? "Cobro activado. Los nuevos usuarios deberán pagar para acceder."
+          : "Cobro desactivado. El acceso es gratuito para los miembros."
+      );
+    } catch (e: any) {
+      setError(e?.message || "No se pudo guardar la configuración de cobro.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <Loader />;
+
+  return (
+    <Stack>
+      <Alert color="blue" variant="light">
+        Cuando el cobro está <b>activo</b>, los usuarios nuevos verán el mensaje
+        para pagar la membresía y no podrán acceder al contenido hasta pagar.
+        Cuando está <b>desactivado</b>, el acceso es gratuito para los miembros.
+      </Alert>
+
+      {error && (
+        <Alert color="red" variant="light">
+          {error}
+        </Alert>
+      )}
+      {ok && (
+        <Alert color="green" variant="light">
+          {ok}
+        </Alert>
+      )}
+
+      <Paper withBorder p="md" radius="md">
+        <Stack>
+          <Switch
+            label="Cobrar membresía en esta organización"
+            checked={charge}
+            onChange={(e) => setCharge(e.currentTarget.checked)}
+          />
+
+          {charge && (
+            <NumberInput
+              label="Valor a cobrar (COP)"
+              description="Monto de la membresía por período"
+              min={0}
+              thousandSeparator="."
+              decimalSeparator=","
+              value={price}
+              onChange={(val) => setPrice(Number(val) || 0)}
+            />
+          )}
+
+          <NumberInput
+            label="Días de vigencia"
+            description="Duración del acceso tras el pago (o del período gratuito)"
+            min={0}
+            value={days}
+            onChange={(val) => setDays(Number(val) || 0)}
+          />
+
+          <Group justify="flex-end" mt="sm">
+            <Button onClick={save} loading={saving}>
+              Guardar cambios
+            </Button>
+          </Group>
+        </Stack>
+      </Paper>
     </Stack>
   );
 }

@@ -88,6 +88,10 @@ export default function OrganizationLanding() {
 
   const [activeTab, setActiveTab] = useState("courses");
 
+  // ¿Esta organización cobra membresía? Solo las orgs con
+  // access_settings.type === "payment" exigen pago; el resto son gratuitas.
+  const requiresPayment = organization?.access_settings?.type === "payment";
+
   const [, setFilteredEvents] = useState<Event[]>([]);
   const [filteredActivities, setFilteredActivities] = useState<Activity[]>([]);
 
@@ -418,12 +422,16 @@ export default function OrganizationLanding() {
     trackCourseClick(eventId);
     if (!userId) {
       openPaywall();
-    } else if (!paymentPlan || isMembershipExpired(paymentPlan)) {
+      return;
+    }
+    // Solo bloquea por pago si la org cobra membresía. En orgs gratuitas el
+    // miembro entra directo aunque no tenga paymentPlan.
+    if (requiresPayment && (!paymentPlan || isMembershipExpired(paymentPlan))) {
       // Navega a pagos o muestra modal según UX deseada
       // openPaymentModal();
-    } else {
-      navigate(`/organization/${organizationId}/course/${eventId}`);
+      return;
     }
+    navigate(`/organization/${organizationId}/course/${eventId}`);
   };
 
   const handleActivityClick = (activityId: string, t?: number) => {
@@ -488,6 +496,7 @@ export default function OrganizationLanding() {
         loading={planLoading || orgMembershipLoading}
         userId={userId}
         isMember={isMemberOfOrg}
+        requiresPayment={requiresPayment}
         paymentPlan={paymentPlan}
         isExpired={isMembershipExpired}
       />
