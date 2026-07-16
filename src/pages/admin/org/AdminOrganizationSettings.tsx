@@ -29,6 +29,21 @@ import EmailTemplateForm from "./components/EmailTemplateForm";
 
 const NAME_VAR = { token: "{{nombres}}", label: "nombre del usuario" };
 const DATE_VAR = { token: "{{fecha}}", label: "fecha de vigencia" };
+// Variables de usuario (disponibles en todos los correos).
+const LASTNAME_VAR = { token: "{{apellidos}}", label: "apellidos del usuario" };
+const EMAIL_VAR = { token: "{{email}}", label: "correo del usuario" };
+const PHONE_VAR = { token: "{{telefono}}", label: "teléfono del usuario" };
+// Variables de organización.
+const ORG_VAR = { token: "{{organizacion}}", label: "nombre de la organización" };
+const LINK_VAR = { token: "{{enlace_acceso}}", label: "enlace de acceso" };
+// Variables de suscripción.
+const PLAN_VAR = { token: "{{plan}}", label: "duración del plan" };
+const AMOUNT_VAR = { token: "{{valor}}", label: "valor pagado" };
+const DAYS_LEFT_VAR = { token: "{{dias_restantes}}", label: "días restantes" };
+
+const USER_VARS = [NAME_VAR, LASTNAME_VAR, EMAIL_VAR, PHONE_VAR];
+const ORG_VARS = [ORG_VAR, LINK_VAR];
+const SUBSCRIPTION_VARS = [DATE_VAR, PLAN_VAR, AMOUNT_VAR, DAYS_LEFT_VAR];
 
 type Props = { organizationId: string };
 
@@ -151,7 +166,7 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
               organizationId={organizationId}
               configKey="welcome_email"
               enabledLabel="Enviar correo de bienvenida al registrarse"
-              variables={[NAME_VAR]}
+              variables={[...USER_VARS, ...ORG_VARS]}
               defaults={{
                 subject: "{{nombres}}, te damos la bienvenida",
                 title: "¡Bienvenido(a)!",
@@ -180,7 +195,7 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
               organizationId={organizationId}
               configKey="subscription_created_email"
               enabledLabel="Enviar correo al activar la suscripción"
-              variables={[NAME_VAR, DATE_VAR]}
+              variables={[...USER_VARS, ...SUBSCRIPTION_VARS, ...ORG_VARS]}
               defaults={{
                 subject: "{{nombres}}, gracias por tu suscripción",
                 title: "¡Gracias por tu suscripción!",
@@ -208,7 +223,7 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
               organizationId={organizationId}
               configKey="subscription_updated_email"
               enabledLabel="Enviar correo al renovar/actualizar la suscripción"
-              variables={[NAME_VAR, DATE_VAR]}
+              variables={[...USER_VARS, ...SUBSCRIPTION_VARS, ...ORG_VARS]}
               defaults={{
                 subject: "{{nombres}}, tu suscripción fue actualizada",
                 title: "¡Tu suscripción fue actualizada!",
