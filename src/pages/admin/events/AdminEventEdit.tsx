@@ -13,6 +13,7 @@ import QuizList from "../../../components/QuizList";
 import QuizEditComponent from "../../../components/QuizEditComponent";
 import QuizConfig from "../../../components/QuizConfig";
 import CertificateComponent from "../../../components/CertificateComponent";
+import EventMetricsTab from "./EventMetricsTab";
 interface Props {
   organizationId: string;
   eventId: string; // puede ser "new" o un id real
@@ -53,6 +54,7 @@ export default function AdminEventEdit({
           <Tabs.Tab value="hosts">Hosts</Tabs.Tab>
           <Tabs.Tab value="Examen">Examen</Tabs.Tab>
           <Tabs.Tab value="certificado">Certificado</Tabs.Tab>
+          <Tabs.Tab value="metricas">Métricas</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="basicos" pt="md">
@@ -126,6 +128,18 @@ export default function AdminEventEdit({
           ) : (
             <Text mb="md">
               Guarda primero el evento para configurar el certificado.
+            </Text>
+          )}
+        </Tabs.Panel>
+        <Tabs.Panel value="metricas" pt="md">
+          {isEditing ? (
+            <EventMetricsTab
+              organizationId={organizationId}
+              eventId={eventId}
+            />
+          ) : (
+            <Text mb="md">
+              Guarda primero el evento para ver sus métricas.
             </Text>
           )}
         </Tabs.Panel>
