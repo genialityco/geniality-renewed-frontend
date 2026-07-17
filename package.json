@@ -35,6 +35,8 @@
     "country-state-city": "^3.2.1",
     "dayjs": "^1.11.13",
     "firebase": "^11.4.0",
+    "grapesjs": "^0.23.2",
+    "grapesjs-preset-newsletter": "^1.0.2",
     "lucide-react": "^0.575.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
