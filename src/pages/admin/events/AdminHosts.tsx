@@ -28,6 +28,7 @@ import {
   deleteHost,
 } from "../../../services/hostsService";
 import { uploadImageToFirebase } from "../../../utils/uploadImageToFirebase";
+import { toastSaved, toastUpdated, toastDeleted, toastError } from "../../../utils/toast";
 
 interface Props {
   organizationId?: string;
@@ -138,9 +139,10 @@ export default function AdminHosts({ eventId }: Props) {
       setCFile(null);
       setCPreview(null);
       setCreateOpen(false);
+      toastSaved("Host creado");
     } catch (err) {
       console.error(err);
-      alert("No se pudo crear el host.");
+      toastError("No se pudo crear el host");
     } finally {
       setCreating(false);
     }
@@ -196,9 +198,10 @@ export default function AdminHosts({ eventId }: Props) {
       setHosts((prev) => prev.map((x) => (x._id === updated._id ? updated : x)));
       setEditOpen(false);
       setCurrent(null);
+      toastUpdated("Host actualizado");
     } catch (err) {
       console.error(err);
-      alert("No se pudo actualizar el host.");
+      toastError("No se pudo actualizar el host");
     } finally {
       setUpdating(false);
     }
@@ -213,9 +216,10 @@ export default function AdminHosts({ eventId }: Props) {
       setHosts((prev) => prev.filter((x) => x._id !== toDelete._id));
       setDelOpen(false);
       setToDelete(null);
+      toastDeleted("Host eliminado");
     } catch (err) {
       console.error(err);
-      alert("No se pudo eliminar el host.");
+      toastError("No se pudo eliminar el host");
     } finally {
       setDeleting(false);
     }

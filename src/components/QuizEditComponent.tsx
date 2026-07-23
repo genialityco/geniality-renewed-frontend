@@ -10,6 +10,7 @@ import {
   QuestionType,
   SCT_OPTIONS,
 } from "../services/QuizService";
+import { toastSaved, toastError } from "../utils/toast";
 
 const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
@@ -885,11 +886,13 @@ export default function QuizEditComponent({ eventId }: QuizEditComponentProps) {
       );
       setQuizId(quiz._id);
       setSaved(true);
+      toastSaved("Examen guardado");
       setTimeout(() => setSaved(false), 3000);
     } catch (e: any) {
-      setError(
-        e?.response?.data?.message ?? "Error al guardar. Intenta de nuevo.",
-      );
+      const msg =
+        e?.response?.data?.message ?? "Error al guardar. Intenta de nuevo.";
+      setError(msg);
+      toastError("No se pudo guardar el examen", msg);
     } finally {
       setSaving(false);
     }

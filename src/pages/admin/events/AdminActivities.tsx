@@ -39,6 +39,7 @@ import {
   updateHost,
 } from "../../../services/hostsService";
 import { uploadImageToFirebase } from "../../../utils/uploadImageToFirebase";
+import { toastSaved, toastUpdated, toastDeleted, toastError } from "../../../utils/toast";
 
 interface Props {
   organizationId?: string;
@@ -185,8 +186,10 @@ export default function AdminActivities({
       setSelectedModule(null);
       setVideoUrl("");
       setSelectedHostIdsCreate([]);
+      toastSaved("Actividad creada");
     } catch (error) {
       console.error("Error al crear actividad:", error);
+      toastError("No se pudo crear la actividad");
     }
   };
 
@@ -245,8 +248,10 @@ export default function AdminActivities({
       );
       setEditModalOpen(false);
       setEditActivity(null);
+      toastUpdated("Actividad actualizada");
     } catch (error) {
       console.error("Error al editar actividad:", error);
+      toastError("No se pudo actualizar la actividad");
     }
   };
 
@@ -260,8 +265,10 @@ export default function AdminActivities({
       );
       setDeleteModalOpen(false);
       setActivityToDelete(null);
+      toastDeleted("Actividad eliminada");
     } catch (error) {
       console.error("Error al eliminar actividad:", error);
+      toastError("No se pudo eliminar la actividad");
     }
   };
 
@@ -702,9 +709,10 @@ export default function AdminActivities({
                       setNewHostFile(null);
                       setNewHostPreview(null);
                       setNewHostOpen(false);
+                      toastSaved("Host creado");
                     } catch (err) {
                       console.error("Error creando host:", err);
-                      alert("No se pudo crear el host. Revisa la consola.");
+                      toastError("No se pudo crear el host");
                     } finally {
                       setCreatingHostInline(false);
                     }

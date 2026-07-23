@@ -21,6 +21,7 @@ import {
 } from "../../../services/moduleService";
 import { Module } from "../../../services/types";
 import { FaCheck, FaPencil, FaPlus, FaX } from "react-icons/fa6";
+import { toastSaved, toastUpdated, toastDeleted, toastError } from "../../../utils/toast";
 
 interface Props {
   organizationId?: string;
@@ -66,8 +67,10 @@ export default function AdminModules({ eventId }: Props) {
       });
       setModules((prev) => [...prev, createdModule]);
       setNewModuleName("");
+      toastSaved("Módulo creado");
     } catch (error) {
       console.error(error);
+      toastError("No se pudo crear el módulo");
     } finally {
       setCreating(false);
     }
@@ -78,8 +81,10 @@ export default function AdminModules({ eventId }: Props) {
     try {
       await deleteModule(moduleId);
       setModules((prev) => prev.filter((m) => m._id !== moduleId));
+      toastDeleted("Módulo eliminado");
     } catch (error) {
       console.error(error);
+      toastError("No se pudo eliminar el módulo");
     }
   };
 
@@ -108,8 +113,10 @@ export default function AdminModules({ eventId }: Props) {
         prev.map((m) => (m._id === mod._id ? updated : m))
       );
       cancelEdit();
+      toastUpdated("Módulo actualizado");
     } catch (error) {
       console.error(error);
+      toastError("No se pudo actualizar el módulo");
     } finally {
       setUpdating(false);
     }

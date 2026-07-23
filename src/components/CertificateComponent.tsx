@@ -27,6 +27,7 @@ import {
 	uploadCertificateBackground,
 	upsertCertificateTemplate,
 } from "../services/certificateService";
+import { toastSaved, toastDeleted, toastError } from "../utils/toast";
 
 interface Props {
 	eventId: string;
@@ -314,8 +315,11 @@ export default function CertificateComponent({ eventId }: Props) {
 
 			setExistingTemplateId(template._id);
 			setSuccess("Certificado guardado correctamente.");
+			toastSaved("Certificado guardado");
 		} catch (e: any) {
-			setError(e?.response?.data?.message || "No se pudo guardar el certificado.");
+			const msg = e?.response?.data?.message || "No se pudo guardar el certificado.";
+			setError(msg);
+			toastError("No se pudo guardar el certificado", msg);
 		} finally {
 			setSaving(false);
 		}
@@ -332,8 +336,11 @@ export default function CertificateComponent({ eventId }: Props) {
 			setImageHeight(0);
 			setFields([]);
 			setSuccess("Certificado eliminado correctamente.");
+			toastDeleted("Certificado eliminado");
 		} catch (e: any) {
-			setError(e?.response?.data?.message || "No se pudo eliminar el certificado.");
+			const msg = e?.response?.data?.message || "No se pudo eliminar el certificado.";
+			setError(msg);
+			toastError("No se pudo eliminar el certificado", msg);
 		} finally {
 			setSaving(false);
 		}

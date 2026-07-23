@@ -19,6 +19,7 @@ import {
   QuizConfig as QuizConfigType,
   DEFAULT_QUIZ_CONFIG,
 } from "../services/QuizService";
+import { toastSaved, toastError } from "../utils/toast";
 
 interface QuizConfigProps {
   eventId: string;
@@ -101,11 +102,13 @@ export default function QuizConfig({ eventId }: QuizConfigProps) {
       };
       await saveQuizConfig(quizId, config);
       setSaveSuccess(true);
+      toastSaved("Configuración del examen guardada");
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (e: any) {
-      setSaveError(
-        e?.response?.data?.message ?? "Error al guardar la configuración.",
-      );
+      const msg =
+        e?.response?.data?.message ?? "Error al guardar la configuración.";
+      setSaveError(msg);
+      toastError("No se pudo guardar la configuración del examen", msg);
     } finally {
       setSaving(false);
     }

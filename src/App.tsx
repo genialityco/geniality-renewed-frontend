@@ -2,7 +2,9 @@
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import '@mantine/tiptap/styles.css';
+import '@mantine/notifications/styles.css';
 import { MantineProvider } from "@mantine/core";
+import { Notifications } from "@mantine/notifications";
 import { BrowserRouter } from "react-router-dom";
 
 import { UserProvider } from "./context/UserContext";
@@ -17,6 +19,7 @@ import ActivityWatcher from './components/ActivityWatcher';
 export default function App() {
   return (
     <MantineProvider theme={theme}>
+      <Notifications position="top-center" zIndex={2000} />
       <BrowserRouter>
         <UserProvider>
           <SessionWatcher />

@@ -23,6 +23,7 @@ import { createEvent, updateEvent } from "../../../services/eventService";
 import type { Event } from "../../../services/types";
 import { useUser } from "../../../context/UserContext";
 import { useOrganization } from "../../../context/OrganizationContext";
+import { toastSaved, toastUpdated, toastError } from "../../../utils/toast";
 
 interface Props {
   formData: Partial<Event>;
@@ -158,18 +159,21 @@ export default function BasicEventData({
         // y en tu código original llamabas updateEvent(organizationId, eventId, formData)
         // Mantengo ese contrato:
         const updated = await updateEvent(eventId, payload);
+        toastUpdated("Evento actualizado");
         onSaved(updated._id);
       } else {
         const created = await createEvent(organizationId, payload);
+        toastSaved("Evento creado");
         onSaved(created._id);
       }
     } catch (error: any) {
       console.error("Error saving event:", error);
-      setErrorMsg(
+      const msg =
         error?.response?.data?.message ||
-          error?.message ||
-          "No se pudo guardar el evento"
-      );
+        error?.message ||
+        "No se pudo guardar el evento";
+      setErrorMsg(msg);
+      toastError("No se pudo guardar el evento", msg);
     } finally {
       setSaving(false);
     }
