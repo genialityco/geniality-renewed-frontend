@@ -251,7 +251,7 @@ export default function BasicEventData({
         {/* Miniatura */}
         <Grid.Col span={{ base: 12, md: 4 }}>
           <FileInput
-            label="Imagen miniatura"
+            label="Imagen miniatura (catálogo)"
             placeholder="Selecciona una imagen"
             accept="image/*"
             onChange={(file) => handleFileUpload(file, ["picture"])}
@@ -277,7 +277,7 @@ export default function BasicEventData({
         {/* Banner superior */}
         <Grid.Col span={{ base: 12, md: 4 }}>
           <FileInput
-            label="Banner superior"
+            label="Banner superior (header del curso)"
             placeholder="Selecciona una imagen"
             accept="image/*"
             onChange={(file) =>
@@ -304,100 +304,10 @@ export default function BasicEventData({
           )}
         </Grid.Col>
 
-        {/* Banner de correo electrónico */}
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <FileInput
-            label="Banner Email"
-            placeholder="Selecciona una imagen"
-            accept="image/*"
-            onChange={(file) =>
-              handleFileUpload(file, ["styles", "banner_image_email"])
-            }
-            disabled={!!uploading}
-          />
-          {getImage(["styles", "banner_image_email"]) && (
-            <Image
-              key={getImage(["styles", "banner_image_email"])}
-              src={getImage(["styles", "banner_image_email"])}
-              alt="Banner Email"
-              height={120}
-              mt="xs"
-              radius="md"
-              fit="cover"
-              style={{
-                border:
-                  uploading === "styles.banner_image_email"
-                    ? "2px dashed #228be6"
-                    : undefined,
-              }}
-            />
-          )}
-        </Grid.Col>
-
-        {/* Fondo */}
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <FileInput
-            label="Fondo del evento"
-            placeholder="Selecciona una imagen"
-            accept="image/*"
-            onChange={(file) =>
-              handleFileUpload(file, ["styles", "BackgroundImage"])
-            }
-            disabled={!!uploading}
-          />
-          {getImage(["styles", "BackgroundImage"]) && (
-            <Image
-              key={getImage(["styles", "BackgroundImage"])}
-              src={getImage(["styles", "BackgroundImage"])}
-              alt="Fondo"
-              height={120}
-              mt="xs"
-              radius="md"
-              fit="cover"
-              style={{
-                border:
-                  uploading === "styles.BackgroundImage"
-                    ? "2px dashed #228be6"
-                    : undefined,
-              }}
-            />
-          )}
-        </Grid.Col>
-
-        {/* Logo */}
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <FileInput
-            label="Logo"
-            placeholder="Selecciona una imagen"
-            accept="image/*"
-            onChange={(file) =>
-              handleFileUpload(file, ["styles", "menu_image"])
-            }
-            disabled={!!uploading}
-          />
-          {getImage(["styles", "menu_image"]) && (
-            <Image
-              key={getImage(["styles", "menu_image"])}
-              src={getImage(["styles", "menu_image"])}
-              alt="Logo"
-              height={120}
-              mt="xs"
-              radius="md"
-              fit="cover"
-              style={{
-                border:
-                  uploading === "styles.menu_image"
-                    ? "2px dashed #228be6"
-                    : undefined,
-              }}
-            />
-          )}
-        </Grid.Col>
-
         {/* Footer */}
         <Grid.Col span={{ base: 12, md: 4 }}>
           <FileInput
-            label="Imagen Footer"
+            label="Imagen Footer (pie del curso)"
             placeholder="Selecciona una imagen"
             accept="image/*"
             onChange={(file) =>
@@ -424,40 +334,10 @@ export default function BasicEventData({
           )}
         </Grid.Col>
 
-        {/* Footer Email */}
+          {/* Logo del curso (cabecera) */}
         <Grid.Col span={{ base: 12, md: 4 }}>
           <FileInput
-            label="Footer para Email"
-            placeholder="Selecciona una imagen"
-            accept="image/*"
-            onChange={(file) =>
-              handleFileUpload(file, ["styles", "banner_footer_email"])
-            }
-            disabled={!!uploading}
-          />
-          {getImage(["styles", "banner_footer_email"]) && (
-            <Image
-              key={getImage(["styles", "banner_footer_email"])}
-              src={getImage(["styles", "banner_footer_email"])}
-              alt="Footer Email"
-              height={120}
-              mt="xs"
-              radius="md"
-              fit="cover"
-              style={{
-                border:
-                  uploading === "styles.banner_footer_email"
-                    ? "2px dashed #228be6"
-                    : undefined,
-              }}
-            />
-          )}
-        </Grid.Col>
-
-          {/*Imagen evento*/}
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <FileInput
-            label="Imagen Evento"
+            label="Logo del curso (cabecera)"
             placeholder="Selecciona una imagen"
             accept="image/*"
             onChange={(file) =>

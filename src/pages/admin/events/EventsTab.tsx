@@ -9,7 +9,7 @@ import {
   Stack,
   Badge,
 } from "@mantine/core";
-import { FaPencil, FaTrash } from "react-icons/fa6";
+import { FaPencil, FaTrash, FaEye } from "react-icons/fa6";
 import { Event } from "../../../services/types";
 
 interface Props {
@@ -17,6 +17,7 @@ interface Props {
   onCreate: () => void;
   onEdit: (eventId: string) => void;
   onDelete: (eventId: string) => void;
+  onPreview: (eventId: string) => void;
 }
 
 export default function EventsTab({
@@ -24,6 +25,7 @@ export default function EventsTab({
   onCreate,
   onEdit,
   onDelete,
+  onPreview,
 }: Props) {
   return (
     <Stack p="xs" gap="md">
@@ -103,6 +105,15 @@ export default function EventsTab({
                   </Table.Td>
                   {/* Acciones */}
                   <Table.Td>
+                    <Button
+                      size="xs"
+                      variant="subtle"
+                      color="teal"
+                      leftSection={<FaEye size={12} />}
+                      onClick={() => onPreview(event._id!)}
+                    >
+                      Vista previa
+                    </Button>
                     <Button
                       size="xs"
                       variant="subtle"

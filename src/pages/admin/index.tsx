@@ -31,6 +31,7 @@ import MembersTab from "./members/MembersTab";
 import AdminOrganizationPage from "./org/AdminOrganizationPage";
 import { DocumentsAdminPage } from "./DocumentsAdminPage";
 import AdminActivitiesPage from "./activities";
+import { openCoursePreview } from "../../utils/previewUrl";
 
 type Section = "events" | "members" | "org" | "documents" | "activities";
 
@@ -244,6 +245,7 @@ export default function AdminOrganizationEvents() {
               onCreate={() => setEditingEventId("new")}
               onEdit={(id) => setEditingEventId(id)}
               onDelete={(id) => setDeletingEventId(id)}
+              onPreview={(id) => openCoursePreview(orgId, id)}
             />
           )
         ) : activeSection === "members" ? (

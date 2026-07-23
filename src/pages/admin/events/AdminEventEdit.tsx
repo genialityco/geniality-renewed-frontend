@@ -1,9 +1,11 @@
 // src/pages/admin/AdminEventEdit.tsx
 import { useEffect, useState } from "react";
 import { Container, Tabs, Loader, Text, Button, Group } from "@mantine/core";
+import { FaEye } from "react-icons/fa6";
 
 import { Event } from "../../../services/types";
 import { fetchEventById } from "../../../services/eventService";
+import { openCoursePreview } from "../../../utils/previewUrl";
 
 import BasicEventData from "./BasicEventData";
 import AdminModules from "./AdminModules";
@@ -137,6 +139,16 @@ export default function AdminEventEdit({
         <Button variant="default" onClick={() => onFinish()}>
           Cancelar
         </Button>
+        {isEditing && (
+          <Button
+            variant="light"
+            color="teal"
+            leftSection={<FaEye size={16} />}
+            onClick={() => openCoursePreview(organizationId, eventId)}
+          >
+            Vista previa del curso
+          </Button>
+        )}
       </Group>
     </Container>
   );

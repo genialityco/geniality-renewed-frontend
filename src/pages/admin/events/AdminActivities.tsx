@@ -32,7 +32,7 @@ import {
 } from "../../../services/activityService";
 import { Activity, Host, Module, Organization } from "../../../services/types";
 import { getModulesByEventId } from "../../../services/moduleService";
-import { FaCheck, FaPencil, FaTrash, FaYoutube, FaCircleCheck } from "react-icons/fa6";
+import { FaCheck, FaPencil, FaTrash, FaYoutube, FaCircleCheck, FaEye } from "react-icons/fa6";
 import {
   createHost,
   fetchHostsByEventId,
@@ -40,6 +40,7 @@ import {
 } from "../../../services/hostsService";
 import { uploadImageToFirebase } from "../../../utils/uploadImageToFirebase";
 import { toastSaved, toastUpdated, toastDeleted, toastError } from "../../../utils/toast";
+import { openCoursePreview } from "../../../utils/previewUrl";
 
 interface Props {
   organizationId?: string;
@@ -486,6 +487,19 @@ export default function AdminActivities({
             </Stack>
 
             <Group mt="md" gap="xs" justify="flex-end">
+              <ActionIcon
+                color="teal"
+                variant="subtle"
+                onClick={() =>
+                  organizationId &&
+                  eventId &&
+                  openCoursePreview(organizationId, eventId, act._id)
+                }
+                title="Vista previa"
+                disabled={!organizationId || !eventId}
+              >
+                <FaEye size={18} />
+              </ActionIcon>
               {act.transcript_available ? (
                 <Group gap="xs">
                   <Badge
