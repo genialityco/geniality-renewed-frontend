@@ -43,9 +43,16 @@ import { uploadImageToFirebase } from "../../../utils/uploadImageToFirebase";
 interface Props {
   organizationId?: string;
   eventId?: string;
+  /** Indica si la pestaña de actividades está visible/activa. Al pasar a true
+   *  se recargan módulos y hosts para reflejar los creados en otras pestañas. */
+  active?: boolean;
 }
 
-export default function AdminActivities({ organizationId, eventId }: Props) {
+export default function AdminActivities({
+  organizationId,
+  eventId,
+  active = true,
+}: Props) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +127,27 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
       })
       .finally(() => setLoading(false));
   }, [eventId]);
+
+  // Recargar módulos y hosts cada vez que la pestaña se vuelve activa, para
+  // reflejar los que se hayan creado en las pestañas de Módulos / Hosts sin
+  // tener que refrescar toda la plataforma.
+  useEffect(() => {
+    if (!eventId || !active) return;
+    Promise.all([
+      getModulesByEventId(eventId),
+      fetchHostsByEventId(eventId).catch((error) => {
+        console.warn("No se pudieron recargar los hosts:", error);
+        return [];
+      }),
+    ])
+      .then(([mods, hs]) => {
+        setModules(mods);
+        setHosts(hs);
+      })
+      .catch((error) =>
+        console.error("Error al recargar módulos/hosts:", error),
+      );
+  }, [eventId, active]);
 
   // --------- Crear ACTIVIDAD (solo selecciona hosts existentes) ---------
   const handleCreateActivity = async () => {

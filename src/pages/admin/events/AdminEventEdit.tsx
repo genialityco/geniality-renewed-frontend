@@ -26,6 +26,7 @@ export default function AdminEventEdit({
 }: Props) {
   const [formData, setFormData] = useState<Partial<Event>>({});
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<string | null>("basicos");
 
   const isEditing = eventId !== "new";
 
@@ -45,7 +46,7 @@ export default function AdminEventEdit({
 
   return (
     <Container fluid>
-      <Tabs defaultValue="basicos">
+      <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>
           <Tabs.Tab value="basicos">Datos Curso</Tabs.Tab>
           <Tabs.Tab value="modulos">Módulos</Tabs.Tab>
@@ -106,6 +107,7 @@ export default function AdminEventEdit({
             <AdminActivities
               organizationId={organizationId}
               eventId={eventId}
+              active={activeTab === "actividades"}
             />
           ) : (
             <Text mb="md">
