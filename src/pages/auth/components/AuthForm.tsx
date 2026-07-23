@@ -445,9 +445,9 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
 
   return (
     <Container size="xs" p="md" style={{ maxWidth: 480 }}>
-      {organization.styles?.event_image && (
+      {(organization.styles?.auth_image || organization.styles?.event_image) && (
         <Image
-          src={organization.styles.event_image}
+          src={organization.styles.auth_image || organization.styles.event_image}
           alt={organization.name}
           mb="md"
           radius="sm"

@@ -29,7 +29,12 @@ export default function BrandingForm({ organizationId }: Props) {
   const [title, setTitle] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
-  const [uploading, setUploading] = useState<"banner" | "logo" | null>(null);
+  const [authUrl, setAuthUrl] = useState("");
+  const [uploading, setUploading] = useState<"banner" | "logo" | "auth" | null>(
+    null
+  );
+  // Conservamos el resto de estilos para no perderlos al guardar.
+  const [otherStyles, setOtherStyles] = useState<Record<string, any>>({});
 
   useEffect(() => {
     let mounted = true;
@@ -40,6 +45,14 @@ export default function BrandingForm({ organizationId }: Props) {
         setTitle(org.name || "");
         setBannerUrl(org.styles?.banner_image || "");
         setLogoUrl(org.styles?.event_image || "");
+        setAuthUrl(org.styles?.auth_image || "");
+        const {
+          banner_image: _b,
+          event_image: _e,
+          auth_image: _a,
+          ...rest
+        } = org.styles || {};
+        setOtherStyles(rest);
       })
       .catch(() => setError("No se pudo cargar la organización"))
       .finally(() => setLoading(false));
@@ -50,7 +63,7 @@ export default function BrandingForm({ organizationId }: Props) {
 
   const handleUpload = async (
     file: File | null,
-    target: "banner" | "logo"
+    target: "banner" | "logo" | "auth"
   ) => {
     if (!file) return;
     setUploading(target);
@@ -58,7 +71,8 @@ export default function BrandingForm({ organizationId }: Props) {
     try {
       const url = await uploadImageToFirebase(file, "org_branding");
       if (target === "banner") setBannerUrl(url);
-      else setLogoUrl(url);
+      else if (target === "logo") setLogoUrl(url);
+      else setAuthUrl(url);
     } catch {
       setError("No se pudo subir la imagen");
     } finally {
@@ -78,8 +92,10 @@ export default function BrandingForm({ organizationId }: Props) {
       const payload = {
         name: title,
         styles: {
+          ...otherStyles,
           banner_image: bannerUrl || undefined,
           event_image: logoUrl || undefined,
+          auth_image: authUrl || undefined,
         },
       };
 
@@ -168,6 +184,32 @@ export default function BrandingForm({ organizationId }: Props) {
               fit="contain"
               mah={100}
               w={100}
+            />
+          </Box>
+        )}
+      </Box>
+
+      <Box>
+        <FileInput
+          label="Imagen de inicio de sesión y registro"
+          placeholder="Selecciona una imagen"
+          accept="image/*"
+          onChange={(file) => handleUpload(file, "auth")}
+          disabled={uploading === "auth"}
+          description="Se mostrará en el formulario de inicio de sesión y de registro"
+        />
+        {uploading === "auth" && <Loader size="xs" mt="xs" />}
+        {authUrl && (
+          <Box mt="sm" p="sm" style={{ border: "1px solid #dee2e6" }}>
+            <Text size="xs" c="dimmed" mb={8}>
+              Vista previa:
+            </Text>
+            <Image
+              src={authUrl}
+              alt="Vista previa de la imagen de login/registro"
+              fit="contain"
+              mah={150}
+              w="100%"
             />
           </Box>
         )}
