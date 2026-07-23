@@ -90,7 +90,7 @@ export function CourseMainContent({
         {/* Banner (mismo header que en el listado del curso) */}
         {bannerSrc && (
           <Box style={{ borderRadius: 16, overflow: "hidden" }}>
-            <Image src={bannerSrc} fit="cover" mah={280} w="100%" />
+            <Image src={bannerSrc} fit="contain" w="100%" h="auto" />
           </Box>
         )}
 

@@ -53,7 +53,7 @@ export default function AdminEventEdit({
           <Tabs.Tab value="basicos">Datos Curso</Tabs.Tab>
           <Tabs.Tab value="modulos">Módulos</Tabs.Tab>
           <Tabs.Tab value="actividades">Actividades</Tabs.Tab>
-          <Tabs.Tab value="hosts">Hosts</Tabs.Tab>
+          <Tabs.Tab value="hosts">Conferencistas</Tabs.Tab>
           <Tabs.Tab value="Examen">Examen</Tabs.Tab>
           <Tabs.Tab value="certificado">Certificado</Tabs.Tab>
         </Tabs.List>

@@ -160,7 +160,10 @@ export default function BasicEventData({
         // Mantengo ese contrato:
         const updated = await updateEvent(eventId, payload);
         toastUpdated("Evento actualizado");
-        onSaved(updated._id);
+        // Pasamos el id para que el contenedor permanezca en el editor (no
+        // vuelva a la lista). Respaldo: el eventId actual si el backend no lo
+        // devolviera.
+        onSaved(updated._id || eventId);
       } else {
         const created = await createEvent(organizationId, payload);
         toastSaved("Evento creado");

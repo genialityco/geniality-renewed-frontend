@@ -232,9 +232,18 @@ export default function AdminOrganizationEvents() {
             <AdminEventEdit
               organizationId={orgId}
               eventId={editingEventId}
-              onFinish={() => {
+              onFinish={(newEventId?: string) => {
+                // Refrescamos la lista en segundo plano.
                 loadEvents();
-                setEditingEventId(null);
+                if (newEventId) {
+                  // Guardado (crear o editar): permanecer en el editor con ese
+                  // evento. Al crear, cambia de "new" al id real y habilita las
+                  // demás pestañas; al editar, es el mismo id y no remonta.
+                  setEditingEventId(newEventId);
+                } else {
+                  // Cancelar / cerrar: volver a la lista de eventos.
+                  setEditingEventId(null);
+                }
               }}
             />
           ) : loadingEvents ? (
