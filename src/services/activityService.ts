@@ -117,6 +117,27 @@ export async function generateTranscript(
 }
 
 /**
+ * Importa la transcripción (.vtt) que Vimeo ya tiene para el video de la actividad
+ * POST /activities/import-vimeo-transcript/:activity_id
+ */
+export async function importVimeoTranscript(activityId: string): Promise<{
+  message: string;
+  status: "done" | "no_transcript" | string;
+  segmentCount?: number;
+  language?: string | null;
+  label?: string | null;
+}> {
+  const response = await api.post<{
+    message: string;
+    status: string;
+    segmentCount?: number;
+    language?: string | null;
+    label?: string | null;
+  }>(`${BASE_URL}/import-vimeo-transcript/${activityId}`);
+  return response.data;
+}
+
+/**
  * Consulta el estado de la transcripción
  * GET /activities/transcription-status/:job_id
  */

@@ -29,6 +29,7 @@ import {
   generateTranscript,
   getTranscriptionStatus,
   validateAndUpdateTranscript,
+  importVimeoTranscript,
 } from "../../../services/activityService";
 import { Activity, Host, Module, Organization } from "../../../services/types";
 import { getModulesByEventId } from "../../../services/moduleService";
@@ -39,7 +40,7 @@ import {
   updateHost,
 } from "../../../services/hostsService";
 import { uploadImageToFirebase } from "../../../utils/uploadImageToFirebase";
-import { toastSaved, toastUpdated, toastDeleted, toastError } from "../../../utils/toast";
+import { toastSaved, toastUpdated, toastDeleted, toastError, toastInfo } from "../../../utils/toast";
 import { openCoursePreview } from "../../../utils/previewUrl";
 
 interface Props {
@@ -151,6 +152,40 @@ export default function AdminActivities({
       );
   }, [eventId, active]);
 
+  // Detecta si una URL es de Vimeo
+  const isVimeoUrl = (url?: string) => !!url && url.includes("vimeo");
+
+  // Intenta traer la transcripción (.vtt) que Vimeo ya tiene para el video.
+  // No lanza: solo muestra toasts informativos según el resultado.
+  const tryImportVimeoTranscript = async (activityId: string) => {
+    try {
+      toastInfo(
+        "Buscando transcripción en Vimeo…",
+        "Descargando los subtítulos del video, un momento.",
+      );
+      const result = await importVimeoTranscript(activityId);
+      if (result.status === "done") {
+        toastSaved(
+          "Transcripción importada desde Vimeo",
+          `Se guardaron ${result.segmentCount ?? 0} segmentos${
+            result.language ? ` (${result.language})` : ""
+          }.`,
+        );
+      } else if (result.status === "no_transcript") {
+        toastInfo(
+          "Vimeo no tiene transcripción para este video",
+          'Puedes generarla manualmente con el botón "Generar Transcript".',
+        );
+      }
+    } catch (error) {
+      console.error("Error importando transcripción de Vimeo:", error);
+      toastError(
+        "No se pudo importar la transcripción de Vimeo",
+        "La actividad sí se guardó. Revisa el token de Vimeo o inténtalo de nuevo.",
+      );
+    }
+  };
+
   // --------- Crear ACTIVIDAD (solo selecciona hosts existentes) ---------
   const handleCreateActivity = async () => {
     if (!eventId || !activityName.trim()) return;
@@ -183,11 +218,21 @@ export default function AdminActivities({
       }
 
       // limpiar formulario
+      const createdVideoUrl = videoUrl;
       setActivityName("");
       setSelectedModule(null);
       setVideoUrl("");
       setSelectedHostIdsCreate([]);
       toastSaved("Actividad creada");
+
+      // Si el video es de Vimeo, traer su transcripción (.vtt) automáticamente
+      if (created?._id && isVimeoUrl(createdVideoUrl)) {
+        await tryImportVimeoTranscript(created._id);
+        if (eventId) {
+          const acts = await getActivitiesByEvent(eventId);
+          setActivities(acts);
+        }
+      }
     } catch (error) {
       console.error("Error al crear actividad:", error);
       toastError("No se pudo crear la actividad");
@@ -248,8 +293,19 @@ export default function AdminActivities({
         prevActs.map((a) => (a._id === editActivity._id ? updated : a)),
       );
       setEditModalOpen(false);
-      setEditActivity(null);
       toastUpdated("Actividad actualizada");
+
+      // Si el video de Vimeo cambió, traer su transcripción (.vtt) automáticamente
+      const newVideo = editVideoUrl.trim();
+      const videoChanged = newVideo !== (editActivity.video || "");
+      if (editActivity._id && isVimeoUrl(newVideo) && videoChanged) {
+        await tryImportVimeoTranscript(editActivity._id);
+        if (eventId) {
+          const acts = await getActivitiesByEvent(eventId);
+          setActivities(acts);
+        }
+      }
+      setEditActivity(null);
     } catch (error) {
       console.error("Error al editar actividad:", error);
       toastError("No se pudo actualizar la actividad");
