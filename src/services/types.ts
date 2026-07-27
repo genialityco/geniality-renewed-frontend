@@ -92,6 +92,7 @@ export interface Host {
   description_activity: boolean;
   description: string;
   profession?: string | null;
+  country?: string | null;
   published: boolean;
   order: number;
   index: number;
