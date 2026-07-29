@@ -79,10 +79,11 @@ export function CourseMainContent({
   const [hostModalOpened, setHostModalOpened] = useState(false);
   const [videoStartTime, setVideoStartTime] = useState<number | null>(null);
 
-  const bannerSrc =
-    event?.styles?.banner_image ||
-    event?.picture ||
-    event?.styles?.event_image;
+  // Banner superior del curso. Nota: NO se usa `styles.event_image` como
+  // respaldo, porque ese campo está reservado exclusivamente al logo del header
+  // del curso (CourseHeader). Así el logo del header y el banner son
+  // independientes.
+  const bannerSrc = event?.styles?.banner_image || event?.picture;
 
   if (selectedActivity) {
     return (

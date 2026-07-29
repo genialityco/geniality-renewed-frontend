@@ -341,6 +341,7 @@ export default function BasicEventData({
         <Grid.Col span={{ base: 12, md: 4 }}>
           <FileInput
             label="Logo del curso (cabecera)"
+            description="Imagen pequeña que aparece junto al título en el header del curso. Es independiente del banner superior."
             placeholder="Selecciona una imagen"
             accept="image/*"
             onChange={(file) =>

@@ -95,7 +95,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           setOrganization(orgData);
           setDocumentBranding(
             orgData.name || DEFAULT_TITLE,
-            orgData.image || DEFAULT_FAVICON
+            // Favicon dedicado si existe; si no, se usa el logo como respaldo.
+            org.styles?.favicon || orgData.image || DEFAULT_FAVICON
           );
         })
         .catch(() => {

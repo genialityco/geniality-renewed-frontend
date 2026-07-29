@@ -28,18 +28,20 @@ export function CourseHeader({
       <Stack gap={0} style={{ height: "100%", padding: "8px 12px" }}>
         <Flex align="center" gap="xs">
           <Burger opened={opened} onClick={onToggle} size="sm" />
-          <img
-            src={eventImage}
-            alt="Evento"
-            onClick={onHomeClick}
-            style={{
-              cursor: "pointer",
-              maxHeight: 44,
-              maxWidth: "100%",
-              objectFit: "contain",
-              flex: 1,
-            }}
-          />
+          {eventImage && (
+            <img
+              src={eventImage}
+              alt="Evento"
+              onClick={onHomeClick}
+              style={{
+                cursor: "pointer",
+                maxHeight: 44,
+                maxWidth: "100%",
+                objectFit: "contain",
+                flex: 1,
+              }}
+            />
+          )}
         </Flex>
         <Flex align="center" gap="xs" pt={4}>
           <FaArrowLeft
@@ -76,18 +78,20 @@ export function CourseHeader({
         size="sm"
         onMouseEnter={() => !opened && onToggle()}
       />
-      <img
-        src={eventImage}
-        alt="Evento"
-        onClick={onHomeClick}
-        style={{
-          cursor: "pointer",
-          maxHeight: 44,
-          maxWidth: 130,
-          objectFit: "contain",
-          flexShrink: 0,
-        }}
-      />
+      {eventImage && (
+        <img
+          src={eventImage}
+          alt="Evento"
+          onClick={onHomeClick}
+          style={{
+            cursor: "pointer",
+            maxHeight: 44,
+            maxWidth: 130,
+            objectFit: "contain",
+            flexShrink: 0,
+          }}
+        />
+      )}
       <Divider orientation="vertical" />
       <Flex align="center" gap="sm" style={{ flex: 1, minWidth: 0 }}>
         <FaArrowLeft

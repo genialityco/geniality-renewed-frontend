@@ -30,9 +30,10 @@ export default function BrandingForm({ organizationId }: Props) {
   const [bannerUrl, setBannerUrl] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [authUrl, setAuthUrl] = useState("");
-  const [uploading, setUploading] = useState<"banner" | "logo" | "auth" | null>(
-    null
-  );
+  const [faviconUrl, setFaviconUrl] = useState("");
+  const [uploading, setUploading] = useState<
+    "banner" | "logo" | "auth" | "favicon" | null
+  >(null);
   // Conservamos el resto de estilos para no perderlos al guardar.
   const [otherStyles, setOtherStyles] = useState<Record<string, any>>({});
 
@@ -46,10 +47,12 @@ export default function BrandingForm({ organizationId }: Props) {
         setBannerUrl(org.styles?.banner_image || "");
         setLogoUrl(org.styles?.event_image || "");
         setAuthUrl(org.styles?.auth_image || "");
+        setFaviconUrl(org.styles?.favicon || "");
         const {
           banner_image: _b,
           event_image: _e,
           auth_image: _a,
+          favicon: _f,
           ...rest
         } = org.styles || {};
         setOtherStyles(rest);
@@ -63,7 +66,7 @@ export default function BrandingForm({ organizationId }: Props) {
 
   const handleUpload = async (
     file: File | null,
-    target: "banner" | "logo" | "auth"
+    target: "banner" | "logo" | "auth" | "favicon"
   ) => {
     if (!file) return;
     setUploading(target);
@@ -72,6 +75,7 @@ export default function BrandingForm({ organizationId }: Props) {
       const url = await uploadImageToFirebase(file, "org_branding");
       if (target === "banner") setBannerUrl(url);
       else if (target === "logo") setLogoUrl(url);
+      else if (target === "favicon") setFaviconUrl(url);
       else setAuthUrl(url);
     } catch {
       setError("No se pudo subir la imagen");
@@ -96,6 +100,7 @@ export default function BrandingForm({ organizationId }: Props) {
           banner_image: bannerUrl || undefined,
           event_image: logoUrl || undefined,
           auth_image: authUrl || undefined,
+          favicon: faviconUrl || undefined,
         },
       };
 
@@ -210,6 +215,32 @@ export default function BrandingForm({ organizationId }: Props) {
               fit="contain"
               mah={150}
               w="100%"
+            />
+          </Box>
+        )}
+      </Box>
+
+      <Box>
+        <FileInput
+          label="Favicon"
+          placeholder="Selecciona una imagen"
+          accept="image/png,image/x-icon,image/svg+xml,image/jpeg"
+          onChange={(file) => handleUpload(file, "favicon")}
+          disabled={uploading === "favicon"}
+          description="Ícono que se muestra en la pestaña del navegador. Se recomienda cuadrado (ej. 32x32 o 64x64px)."
+        />
+        {uploading === "favicon" && <Loader size="xs" mt="xs" />}
+        {faviconUrl && (
+          <Box mt="sm" p="sm" style={{ border: "1px solid #dee2e6" }}>
+            <Text size="xs" c="dimmed" mb={8}>
+              Vista previa:
+            </Text>
+            <Image
+              src={faviconUrl}
+              alt="Vista previa del favicon"
+              fit="contain"
+              mah={64}
+              w={64}
             />
           </Box>
         )}
