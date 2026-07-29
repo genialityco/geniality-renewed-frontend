@@ -19,3 +19,23 @@ export function getOrgIdFromHost(
 ): string | null {
   return CUSTOM_DOMAIN_ORG_MAP[hostname.toLowerCase()] ?? null;
 }
+
+// Ruta a la que debe apuntar la raíz "/" de un dominio de marca. Por defecto se
+// abre la landing de la organización (/organization/<orgId>), pero aquí se puede
+// forzar a que "/" abra directamente un curso u otra vista concreta.
+export const CUSTOM_DOMAIN_HOME_MAP: Record<string, string> = {
+  "cursoacehipotiroidismo.com":
+    "/organization/6a4ffd695b809f3cf38d3a64/course/6a500d595b809f3cf38d4e45",
+  "www.cursoacehipotiroidismo.com":
+    "/organization/6a4ffd695b809f3cf38d3a64/course/6a500d595b809f3cf38d4e45",
+};
+
+/**
+ * Ruta de inicio configurada para el host actual (o el que se pase), o null si
+ * el host no tiene una ruta de inicio específica.
+ */
+export function getHomePathFromHost(
+  hostname: string = window.location.hostname
+): string | null {
+  return CUSTOM_DOMAIN_HOME_MAP[hostname.toLowerCase()] ?? null;
+}
