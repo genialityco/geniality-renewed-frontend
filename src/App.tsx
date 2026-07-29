@@ -15,12 +15,14 @@ import AppRoutes from "./routes/AppRoutes";
 import { theme } from "./theme";
 import SessionWatcher from './components/SessionWatcher';
 import ActivityWatcher from './components/ActivityWatcher';
+import CustomDomainRedirect from './components/CustomDomainRedirect';
 
 export default function App() {
   return (
     <MantineProvider theme={theme}>
       <Notifications position="top-center" zIndex={2000} />
       <BrowserRouter>
+        <CustomDomainRedirect />
         <UserProvider>
           <SessionWatcher />
           <ActivityWatcher />
