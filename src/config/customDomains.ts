@@ -6,8 +6,8 @@
 //
 // Para agregar un nuevo dominio de marca basta con añadir una línea aquí.
 export const CUSTOM_DOMAIN_ORG_MAP: Record<string, string> = {
-  "cursohipotiroidismo.com": "6a4ffd695b809f3cf38d3a64",
-  "www.cursohipotiroidismo.com": "6a4ffd695b809f3cf38d3a64",
+  "cursoacehipotiroidismo.com": "6a4ffd695b809f3cf38d3a64",
+  "www.cursoacehipotiroidismo.com": "6a4ffd695b809f3cf38d3a64",
 };
 
 /**
