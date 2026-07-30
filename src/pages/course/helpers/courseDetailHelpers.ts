@@ -137,17 +137,51 @@ export function getLockedActivityIds(
 
 /**
  * Determina si el examen está desbloqueado según la configuración del curso.
- * Por defecto (sin configuración) el examen siempre está disponible.
+ * Por defecto (sin configuración) el examen permanece bloqueado.
  */
 export function isExamUnlocked(
   event: { exam_gating_enabled?: boolean; exam_min_progress?: number } | null,
   courseProgress: number
 ): boolean {
-  if (!event?.exam_gating_enabled) return true;
+  if (!event?.exam_gating_enabled) return false;
   const required = Number.isFinite(event?.exam_min_progress)
     ? Number(event?.exam_min_progress)
     : 100;
   return courseProgress >= required;
+}
+
+/**
+ * Porcentaje de actividades de un módulo que el usuario ha completado (100%).
+ * Se usa para la compuerta del examen de módulo.
+ */
+export function getModuleCompletionPercent(
+  moduleActivities: any[],
+  activityAttendees: any[]
+): number {
+  if (!moduleActivities.length) return 0;
+  const completed = moduleActivities.filter(
+    (a) => getActivityProgress(activityAttendees, a._id) >= 100
+  ).length;
+  return Math.round((completed / moduleActivities.length) * 100);
+}
+
+/**
+ * ¿Está desbloqueado el examen de un módulo?
+ * Por defecto (sin compuerta) permanece bloqueado. Si el admin activó la
+ * compuerta, se exige que el avance de actividades del módulo alcance el mínimo.
+ */
+export function isModuleExamUnlocked(
+  event: {
+    module_exam_gating_enabled?: boolean;
+    module_exam_min_progress?: number;
+  } | null,
+  moduleCompletionPercent: number
+): boolean {
+  if (!event?.module_exam_gating_enabled) return false;
+  const required = Number.isFinite(event?.module_exam_min_progress)
+    ? Number(event?.module_exam_min_progress)
+    : 100;
+  return moduleCompletionPercent >= required;
 }
 
 // ─────────────────────────────────────────────
@@ -210,7 +244,7 @@ export interface CertificateGate {
 
 /**
  * Evalúa las reglas de desbloqueo del certificado configuradas por el admin.
- * Si el gating está desactivado, el certificado queda desbloqueado.
+ * Si el gating está desactivado, el certificado permanece bloqueado.
  */
 export function getCertificateGate(params: {
   event: {
@@ -226,7 +260,12 @@ export function getCertificateGate(params: {
   const { event, quizzes, bestScoreByQuiz, completedActivities } = params;
 
   if (!event?.certificate_gating_enabled) {
-    return { unlocked: true, message: "", pending: [] };
+    return {
+      unlocked: false,
+      message:
+        "El certificado está bloqueado hasta que el administrador configure sus requisitos.",
+      pending: [],
+    };
   }
 
   const pending: string[] = [];

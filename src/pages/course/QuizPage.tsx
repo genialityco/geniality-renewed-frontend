@@ -21,6 +21,7 @@ import {
   FaArrowLeft,
   FaCircleCheck,
   FaClock,
+  FaLock,
   FaTriangleExclamation,
 } from "react-icons/fa6";
 import {
@@ -36,6 +37,14 @@ import {
   submitQuizAttempt,
   getUserAttempts,
 } from "../../services/userQuizAttemptService";
+import { fetchActivityAttendeesByUserAndEvent } from "../../services/activityAttendeeService";
+import { fetchEventById } from "../../services/eventService";
+import { getActivitiesByEvent } from "../../services/activityService";
+import {
+  getModuleCompletionPercent,
+  isExamUnlocked,
+  isModuleExamUnlocked,
+} from "./helpers/courseDetailHelpers";
 import { useUser } from "../../context/UserContext";
 import {
   trackQuizStart,
@@ -931,6 +940,7 @@ export default function QuizPage() {
   const [attemptsBlocked, setAttemptsBlocked] = useState(false);
   const [attemptsUsed, setAttemptsUsed] = useState(0);
   const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
+  const [accessBlockedMessage, setAccessBlockedMessage] = useState<string | null>(null);
   const timerExpiredRef = useRef(false);
   const hasTrackedStartRef = useRef(false);
 
@@ -961,20 +971,86 @@ export default function QuizPage() {
         const data = await getQuizById(quizId);
         setQuiz(data);
 
+        let userAttempts: any[] = [];
+        let attemptsFetchOk = false;
+
+        if (userId) {
+          try {
+            userAttempts = await getUserAttempts(quizId, userId);
+            attemptsFetchOk = true;
+            setAttemptsUsed(userAttempts.length);
+          } catch {
+            setAttemptsUsed(0);
+          }
+        }
+
         // ── Verificar intentos ──
         const cfg = data.config;
         if (cfg?.attempts != null && userId) {
           setMaxAttempts(cfg.attempts);
-          // Cargar intentos del usuario desde la nueva colección (tolerante a errores si el endpoint no existe aún)
+          if (userAttempts.length >= cfg.attempts) {
+            setAttemptsBlocked(true);
+          }
+        }
+
+        // ── Compuertas de acceso (general / módulo) ──
+        // Solo se bloquea el primer intento. Si el usuario ya tiene intentos,
+        // puede volver a entrar según su configuración de intentos.
+        if (eventId && userId && attemptsFetchOk && userAttempts.length === 0) {
           try {
-            const userAttempts = await getUserAttempts(quizId, userId);
-            setAttemptsUsed(userAttempts.length);
-            if (userAttempts.length >= cfg.attempts) {
-              setAttemptsBlocked(true);
+            const eventData = await fetchEventById(eventId);
+
+            if (data.moduleId) {
+              const [activities, attendees] = await Promise.all([
+                getActivitiesByEvent(eventId),
+                fetchActivityAttendeesByUserAndEvent(userId, eventId),
+              ]);
+              const moduleActivities = activities.filter(
+                (a: any) => String(a.module_id) === String(data.moduleId)
+              );
+              const moduleCompletion = getModuleCompletionPercent(
+                moduleActivities,
+                attendees ?? []
+              );
+              const unlocked = isModuleExamUnlocked(eventData, moduleCompletion);
+
+              if (!unlocked) {
+                const required = Number.isFinite(eventData?.module_exam_min_progress)
+                  ? Number(eventData.module_exam_min_progress)
+                  : 100;
+                const msg = !eventData?.module_exam_gating_enabled
+                  ? "El examen del módulo está bloqueado hasta que el administrador configure sus requisitos."
+                  : (eventData?.module_exam_locked_message || "").trim() ||
+                    `Completa al menos el ${required}% de las actividades del módulo para presentar este examen (llevas ${moduleCompletion}%).`;
+                setAccessBlockedMessage(msg);
+              }
+            } else {
+              const [activities, attendees] = await Promise.all([
+                getActivitiesByEvent(eventId),
+                fetchActivityAttendeesByUserAndEvent(userId, eventId),
+              ]);
+              const completedCount = (attendees ?? []).filter(
+                (a: any) => Number(a.progress ?? 0) >= 100
+              ).length;
+              const courseProgress = activities.length
+                ? Math.round((completedCount / activities.length) * 100)
+                : 0;
+              const unlocked = isExamUnlocked(eventData, courseProgress);
+
+              if (!unlocked) {
+                const required = Number.isFinite(eventData?.exam_min_progress)
+                  ? Number(eventData.exam_min_progress)
+                  : 100;
+                const msg = !eventData?.exam_gating_enabled
+                  ? "El examen está bloqueado hasta que el administrador configure sus requisitos."
+                  : (eventData?.exam_locked_message || "").trim() ||
+                    `Debes completar al menos el ${required}% del curso para presentar este examen (vas en ${courseProgress}%).`;
+                setAccessBlockedMessage(msg);
+              }
             }
           } catch {
-            // Si el servicio de intentos no está disponible, asumir 0 intentos
-            setAttemptsUsed(0);
+            // Si no podemos validar compuertas, mantenemos comportamiento previo.
+            setAccessBlockedMessage(null);
           }
         }
 
@@ -1177,6 +1253,27 @@ export default function QuizPage() {
       <Container mt="xl">
         <Text>Examen no encontrado.</Text>
         <Button mt="md" variant="subtle" onClick={handleBack}>
+          Volver al curso
+        </Button>
+      </Container>
+    );
+
+  if (accessBlockedMessage)
+    return (
+      <Container size="sm" mt="xl">
+        <Alert
+          icon={<FaLock size={16} />}
+          color="yellow"
+          title="Examen bloqueado"
+          mb="md"
+        >
+          {accessBlockedMessage}
+        </Alert>
+        <Button
+          variant="subtle"
+          leftSection={<FaArrowLeft size={14} />}
+          onClick={handleBack}
+        >
           Volver al curso
         </Button>
       </Container>

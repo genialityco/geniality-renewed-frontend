@@ -26,9 +26,11 @@ import { Activity, Host, Event } from "../../../services/types";
 import {
   getActivityProgress,
   getModuleAverageProgress,
+  getModuleCompletionPercent,
   getProgressColor,
   isExamUnlocked,
   isExamPassed,
+  isModuleExamUnlocked,
   getModuleQuiz,
   getCertificateGate,
   quizIdOf,
@@ -102,6 +104,7 @@ export function CourseMainContent({
   const [videoStartTime, setVideoStartTime] = useState<number | null>(null);
   const [examLockedOpened, setExamLockedOpened] = useState(false);
   const [certLockedOpened, setCertLockedOpened] = useState(false);
+  const [modExamLockedMsg, setModExamLockedMsg] = useState<string | null>(null);
   const [certificateTemplate, setCertificateTemplate] =
     useState<CertificateTemplate | null>(null);
   const [generatingCert, setGeneratingCert] = useState(false);
@@ -168,9 +171,10 @@ export function CourseMainContent({
   const examRequired = Number.isFinite(event?.exam_min_progress)
     ? Number(event?.exam_min_progress)
     : 100;
-  const examLockedMessage =
-    (event?.exam_locked_message || "").trim() ||
-    `Debes completar al menos el ${examRequired}% del curso para realizar el examen. Vas en ${courseProgress}%.`;
+  const examLockedMessage = !event?.exam_gating_enabled
+    ? "El examen está bloqueado hasta que el administrador configure sus requisitos."
+    : (event?.exam_locked_message || "").trim() ||
+      `Debes completar al menos el ${examRequired}% del curso para realizar el examen. Vas en ${courseProgress}%.`;
 
   const goToQuiz = () => {
     navigate(
@@ -184,7 +188,7 @@ export function CourseMainContent({
   ).length;
 
   // ── Certificado ──────────────────────────────────────────────────────
-  const moduleQuizzesExist = quizzes.some((q: any) => q.moduleId);
+  const quizzesExist = quizzes.length > 0;
   const certGate = getCertificateGate({
     event,
     quizzes,
@@ -198,11 +202,16 @@ export function CourseMainContent({
   const avgApprovalPercentage = numericScores.length
     ? Math.round(numericScores.reduce((a, b) => a + b, 0) / numericScores.length)
     : 100;
-  // Mostrar el CTA de certificado en el curso cuando: solo hay exámenes de
-  // módulo (no hay examen general), o el admin activó reglas de certificado.
-  const showCertificateCTA =
-    !!certificateTemplate &&
-    ((!quiz && moduleQuizzesExist) || !!event?.certificate_gating_enabled);
+  // Mostrar el CTA de certificado cuando existe plantilla y existe al menos
+  // un examen del curso (general o de módulo).
+  const showCertificateCTA = !!certificateTemplate && quizzesExist;
+  // El certificado se desbloquea según las reglas del admin.
+  // Por defecto (sin configuración activa) queda bloqueado.
+  const certUnlocked = certGate.unlocked;
+  const certificateLockedMessage =
+    (event?.certificate_locked_message || "").trim() ||
+    certGate.message ||
+    "El certificado aún no está disponible. El administrador debe configurar los requisitos para desbloquearlo.";
 
   const ensureCertificate = async (): Promise<GeneratedCertificate | null> => {
     if (generatedCert) return generatedCert;
@@ -233,7 +242,7 @@ export function CourseMainContent({
   };
 
   const handleOpenCertificate = async (mode: "view" | "download") => {
-    if (!certGate.unlocked) {
+    if (!certUnlocked) {
       setCertLockedOpened(true);
       return;
     }
@@ -364,7 +373,7 @@ export function CourseMainContent({
 
       {/* Certificado CTA (cursos con exámenes de módulo o con reglas activas) */}
       {showCertificateCTA &&
-        (certGate.unlocked ? (
+        (certUnlocked ? (
           <Group grow>
             <Button
               size="md"
@@ -392,7 +401,7 @@ export function CourseMainContent({
             leftSection={<FaLock size={14} />}
             onClick={() => setCertLockedOpened(true)}
           >
-            Generar certificado (bloqueado)
+            Certificado
           </Button>
         ))}
 
@@ -492,6 +501,26 @@ export function CourseMainContent({
                       const passed = isExamPassed(modQuiz, best);
                       const attemptedMod = best !== false;
                       const quizBase = `/organization/${organizationId}/course/${eventId}/quiz/${mqId}`;
+
+                      // Compuerta: bloqueado hasta ver las actividades del módulo.
+                      const modCompletion = getModuleCompletionPercent(
+                        modActivities,
+                        activityAttendees
+                      );
+                      const modLocked =
+                        !attemptedMod &&
+                        !isModuleExamUnlocked(event, modCompletion);
+                      const modRequired = Number.isFinite(
+                        event?.module_exam_min_progress
+                      )
+                        ? Number(event?.module_exam_min_progress)
+                        : 100;
+                      const modLockedMessage =
+                        !event?.module_exam_gating_enabled
+                          ? "El examen del módulo está bloqueado hasta que el administrador configure sus requisitos."
+                          : (event?.module_exam_locked_message || "").trim() ||
+                            `Completa al menos el ${modRequired}% de las actividades de este módulo para presentar su examen (llevas ${modCompletion}%).`;
+
                       return (
                         <Group
                           justify="space-between"
@@ -520,22 +549,43 @@ export function CourseMainContent({
                               <Badge color="yellow" variant="light">
                                 Intentado
                               </Badge>
+                            ) : modLocked ? (
+                              <Badge
+                                color="gray"
+                                variant="light"
+                                leftSection={<FaLock size={10} />}
+                              >
+                                Bloqueado
+                              </Badge>
                             ) : null}
                           </Group>
-                          <Button
-                            size="xs"
-                            variant={attemptedMod ? "light" : "filled"}
-                            color={passed ? "teal" : "blue"}
-                            onClick={() =>
-                              navigate(
-                                attemptedMod ? `${quizBase}/result` : quizBase
-                              )
-                            }
-                          >
-                            {attemptedMod
-                              ? "Ver resultados"
-                              : "Realizar examen del módulo"}
-                          </Button>
+                          {modLocked ? (
+                            <Button
+                              size="xs"
+                              variant="default"
+                              leftSection={<FaLock size={12} />}
+                              onClick={() =>
+                                setModExamLockedMsg(modLockedMessage)
+                              }
+                            >
+                              Examen del módulo
+                            </Button>
+                          ) : (
+                            <Button
+                              size="xs"
+                              variant={attemptedMod ? "light" : "filled"}
+                              color={passed ? "teal" : "blue"}
+                              onClick={() =>
+                                navigate(
+                                  attemptedMod ? `${quizBase}/result` : quizBase
+                                )
+                              }
+                            >
+                              {attemptedMod
+                                ? "Ver resultados"
+                                : "Realizar examen del módulo"}
+                            </Button>
+                          )}
                         </Group>
                       );
                     })()}
@@ -693,6 +743,30 @@ export function CourseMainContent({
         </Stack>
       </Modal>
 
+      {/* Modal: examen de módulo bloqueado */}
+      <Modal
+        opened={!!modExamLockedMsg}
+        onClose={() => setModExamLockedMsg(null)}
+        title={
+          <Group gap="xs">
+            <FaLock size={16} />
+            <Text fw={700}>Examen de módulo bloqueado</Text>
+          </Group>
+        }
+        centered
+        radius="lg"
+      >
+        <Stack gap="md">
+          <Text style={{ lineHeight: 1.6 }}>
+            {modExamLockedMsg ||
+              "Este examen de módulo está bloqueado por requisitos de avance."}
+          </Text>
+          <Button fullWidth onClick={() => setModExamLockedMsg(null)}>
+            Entendido
+          </Button>
+        </Stack>
+      </Modal>
+
       {/* Modal: certificado bloqueado por reglas */}
       <Modal
         opened={certLockedOpened}
@@ -707,10 +781,7 @@ export function CourseMainContent({
         radius="lg"
       >
         <Stack gap="md">
-          <Text style={{ lineHeight: 1.6 }}>
-            {certGate.message ||
-              "Aún no cumples los requisitos para generar el certificado."}
-          </Text>
+          <Text style={{ lineHeight: 1.6 }}>{certificateLockedMessage}</Text>
           {certGate.pending.length > 0 && (
             <Stack gap={4}>
               {certGate.pending.map((p, i) => (

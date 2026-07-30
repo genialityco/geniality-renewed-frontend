@@ -400,14 +400,14 @@ export default function BasicEventData({
 
         <Divider variant="dashed" />
 
-        {/* Compuerta del examen */}
+        {/* Compuerta del examen general del curso */}
         <Switch
           checked={!!formData.exam_gating_enabled}
           onChange={(e) =>
             setField("exam_gating_enabled", e.currentTarget.checked)
           }
-          label="Requerir avance mínimo para realizar el examen"
-          description="Si se activa, el botón del examen seguirá visible pero el alumno verá un mensaje hasta alcanzar el porcentaje de avance configurado. Por defecto el examen se puede realizar en cualquier momento."
+          label="Configurar requisitos para desbloquear el examen general"
+          description="Mientras esta opción esté desactivada, el examen general permanecerá bloqueado para el alumno. Actívala para definir el avance mínimo requerido."
         />
 
         {formData.exam_gating_enabled && (
@@ -440,6 +440,54 @@ export default function BasicEventData({
                 value={formData.exam_locked_message || ""}
                 onChange={(e) =>
                   setField("exam_locked_message", e.currentTarget.value)
+                }
+              />
+            </Grid.Col>
+          </Grid>
+        )}
+
+        <Divider variant="dashed" />
+
+        {/* Compuerta de exámenes de módulo */}
+        <Switch
+          checked={!!formData.module_exam_gating_enabled}
+          onChange={(e) =>
+            setField("module_exam_gating_enabled", e.currentTarget.checked)
+          }
+          label="Bloquear los exámenes de módulo hasta ver sus actividades"
+          description="Mientras esta opción esté desactivada, los exámenes de módulo permanecerán bloqueados. Actívala para definir el porcentaje de avance requerido en cada módulo."
+        />
+
+        {formData.module_exam_gating_enabled && (
+          <Grid gutter="md">
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <NumberInput
+                label="Avance del módulo para desbloquear su examen (%)"
+                min={0}
+                max={100}
+                clampBehavior="strict"
+                value={
+                  formData.module_exam_min_progress === undefined
+                    ? 100
+                    : formData.module_exam_min_progress
+                }
+                onChange={(v) =>
+                  setField(
+                    "module_exam_min_progress",
+                    typeof v === "number" ? v : Number(v) || 0
+                  )
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 8 }}>
+              <Textarea
+                label="Mensaje cuando el examen del módulo está bloqueado"
+                placeholder="Ej: Completa todas las actividades del módulo para presentar su examen."
+                autosize
+                minRows={2}
+                value={formData.module_exam_locked_message || ""}
+                onChange={(e) =>
+                  setField("module_exam_locked_message", e.currentTarget.value)
                 }
               />
             </Grid.Col>
