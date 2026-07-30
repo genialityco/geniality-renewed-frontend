@@ -211,6 +211,17 @@ export default function BasicEventData({
           required
         />
 
+        <Textarea
+          label="Descripción del curso"
+          description="Texto que se muestra bajo el título en la página del curso. Opcional."
+          placeholder="Escribe una descripción para el curso…"
+          value={formData.description || ""}
+          onChange={(e) => setField("description", e.currentTarget.value)}
+          autosize
+          minRows={3}
+          maxRows={8}
+        />
+
         <Group grow>
           <DateTimePicker
             label="Fecha y hora de inicio"

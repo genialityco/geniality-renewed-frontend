@@ -20,6 +20,7 @@ import ActivityDetailWithTracker from "../../../components/ActivityDetailWithTra
 import CourseProgressCard from "../../../components/CourseProgressCard";
 import ActivityGrid from "../../../components/ActivityGrid";
 import { CourseFooter } from "./CourseFooter";
+import { CourseDescription } from "./CourseDescription";
 import SearchBar, { SearchResult } from "../../organizationLanding/components/SearchBar";
 import { Activity, Host, Event } from "../../../services/types";
 import {
@@ -217,11 +218,7 @@ export function CourseMainContent({
         <Title order={2} size="h2" mb="xs">
           {event?.name}
         </Title>
-        {event?.description && (
-          <Text size="sm" c="dimmed" lineClamp={2}>
-            {event.description}
-          </Text>
-        )}
+        <CourseDescription description={event?.description} />
       </Box>
 
       {/* Progreso */}
