@@ -14,7 +14,7 @@ import {
 } from "@mantine/core";
 import { FaCircleCheck, FaTriangleExclamation } from "react-icons/fa6";
 import {
-  getQuizByEventId,
+  getQuizzesByEventId,
   saveQuizConfig,
   QuizConfig as QuizConfigType,
   DEFAULT_QUIZ_CONFIG,
@@ -26,7 +26,8 @@ interface QuizConfigProps {
 }
 
 export default function QuizConfig({ eventId }: QuizConfigProps) {
-  const [quizId, setQuizId] = useState<string | null>(null);
+  // La configuración es compartida: se aplica a TODOS los exámenes del curso.
+  const [quizIds, setQuizIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -55,17 +56,21 @@ export default function QuizConfig({ eventId }: QuizConfigProps) {
     setFetchError(null);
     (async () => {
       try {
-        const quiz = await getQuizByEventId(eventId);
-        if (!quiz) {
+        const quizzes = await getQuizzesByEventId(eventId);
+        if (!quizzes || quizzes.length === 0) {
           setFetchError(
-            "No existe un examen para este evento. Crea el examen primero.",
+            "No existe ningún examen para este evento. Crea un examen primero.",
           );
           return;
         }
-        const id = quiz._id ?? quiz.id ?? null;
-        setQuizId(id);
+        setQuizIds(
+          quizzes.map((q) => (q._id ?? q.id) as string).filter(Boolean),
+        );
 
-        const cfg = quiz.config;
+        // La config es la misma para todos: tomamos la del examen general o,
+        // en su defecto, la del primero.
+        const source = quizzes.find((q) => !q.moduleId) ?? quizzes[0];
+        const cfg = source.config;
         if (cfg) {
           setHasTime(cfg.time != null);
           if (cfg.time != null) setTime(cfg.time);
@@ -89,7 +94,7 @@ export default function QuizConfig({ eventId }: QuizConfigProps) {
   }, [eventId]);
 
   const handleSave = async () => {
-    if (!quizId) return;
+    if (quizIds.length === 0) return;
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
@@ -100,7 +105,8 @@ export default function QuizConfig({ eventId }: QuizConfigProps) {
         nota: hasNota ? Number(nota) : null,
         questionDisplay,
       };
-      await saveQuizConfig(quizId, config);
+      // Config compartida: se aplica a todos los exámenes del curso.
+      await Promise.all(quizIds.map((id) => saveQuizConfig(id, config)));
       setSaveSuccess(true);
       toastSaved("Configuración del examen guardada");
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -254,11 +260,14 @@ export default function QuizConfig({ eventId }: QuizConfigProps) {
         </Alert>
       )}
 
+      <Text size="xs" c="dimmed" mb="xs">
+        Esta configuración se aplica a todos los exámenes del curso.
+      </Text>
       <Button
         size="sm"
         loading={saving}
         onClick={handleSave}
-        disabled={!quizId}
+        disabled={quizIds.length === 0}
       >
         Guardar configuración
       </Button>

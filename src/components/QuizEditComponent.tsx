@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import TextEditorBlock, { EditorBlock } from "./TextEditorBlock";
 import {
   quizService,
+  getQuizzesByEventId,
   Question,
   QuestionOption,
   MatchingColumn,
@@ -782,9 +783,11 @@ function QuestionCard({
 
 interface QuizEditComponentProps {
   eventId: string;
+  /** Módulo del examen. null/ausente = examen general del curso. */
+  moduleId?: string | null;
 }
 
-export default function QuizEditComponent({ eventId }: QuizEditComponentProps) {
+export default function QuizEditComponent({ eventId, moduleId = null }: QuizEditComponentProps) {
   const [questions, setQuestions] = useState<Question[]>([
     emptyQuestion("single"),
   ]);
@@ -804,9 +807,12 @@ export default function QuizEditComponent({ eventId }: QuizEditComponentProps) {
 
     (async () => {
       try {
-        const quiz = await quizService.getByEventId(eventId);
+        const all = await getQuizzesByEventId(eventId);
+        const quiz = moduleId
+          ? all.find((q) => q.moduleId && String(q.moduleId) === String(moduleId))
+          : all.find((q) => !q.moduleId);
         if (aborted || !isMountedRef.current) return;
-        
+
         if (quiz) {
           setQuizId(quiz._id);
           setQuestions(
@@ -814,6 +820,10 @@ export default function QuizEditComponent({ eventId }: QuizEditComponentProps) {
               ? quiz.questions
               : [emptyQuestion("single")],
           );
+        } else {
+          // No existe examen para este módulo/curso todavía: empezar en blanco.
+          setQuizId(null);
+          setQuestions([emptyQuestion("single")]);
         }
       } catch (e) {
         if (!aborted && isMountedRef.current) {
@@ -829,7 +839,7 @@ export default function QuizEditComponent({ eventId }: QuizEditComponentProps) {
     return () => {
       aborted = true;
     };
-  }, [eventId]);
+  }, [eventId, moduleId]);
 
   // Cleanup al desmontar el componente
   useEffect(() => {
@@ -883,6 +893,8 @@ export default function QuizEditComponent({ eventId }: QuizEditComponentProps) {
         eventId,
         questions,
         quizId ?? undefined,
+        undefined,
+        moduleId ?? null,
       );
       setQuizId(quiz._id);
       setSaved(true);

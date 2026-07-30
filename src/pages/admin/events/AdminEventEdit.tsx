@@ -11,10 +11,10 @@ import BasicEventData from "./BasicEventData";
 import AdminModules from "./AdminModules";
 import AdminActivities from "./AdminActivities";
 import AdminHosts from "./AdminHosts";
-import QuizList from "../../../components/QuizList";
-import QuizEditComponent from "../../../components/QuizEditComponent";
 import QuizConfig from "../../../components/QuizConfig";
+import AdminExamsManager from "./AdminExamsManager";
 import CertificateComponent from "../../../components/CertificateComponent";
+import CertificateRulesConfig from "./CertificateRulesConfig";
 interface Props {
   organizationId: string;
   eventId: string; // puede ser "new" o un id real
@@ -71,17 +71,13 @@ export default function AdminEventEdit({
 
         <Tabs.Panel value="Examen" pt="md">
           {isEditing ? (
-            <Tabs defaultValue="Resultados">
+            <Tabs defaultValue="Examenes">
               <Tabs.List>
-                <Tabs.Tab value="Resultados">Resultados</Tabs.Tab>
-                <Tabs.Tab value="Preguntas">Preguntas</Tabs.Tab>
+                <Tabs.Tab value="Examenes">Exámenes</Tabs.Tab>
                 <Tabs.Tab value="Configuracion">Configuración</Tabs.Tab>
               </Tabs.List>
-              <Tabs.Panel value="Resultados" pt="md">
-                <QuizList eventId={eventId} />
-              </Tabs.Panel>
-              <Tabs.Panel value="Preguntas" pt="md">
-                <QuizEditComponent eventId={eventId} />
+              <Tabs.Panel value="Examenes" pt="md">
+                <AdminExamsManager eventId={eventId} />
               </Tabs.Panel>
               <Tabs.Panel value="Configuracion" pt="md">
                 <QuizConfig eventId={eventId} />
@@ -89,7 +85,7 @@ export default function AdminEventEdit({
             </Tabs>
           ) : (
             <Text mb="md">
-              Guarda primero el evento para gestionar el examen.
+              Guarda primero el evento para gestionar los exámenes.
             </Text>
           )}
         </Tabs.Panel>
@@ -126,7 +122,10 @@ export default function AdminEventEdit({
         </Tabs.Panel>
         <Tabs.Panel value="certificado" pt="md">
           {isEditing ? (
-            <CertificateComponent eventId={eventId} />
+            <>
+              <CertificateComponent eventId={eventId} />
+              <CertificateRulesConfig eventId={eventId} />
+            </>
           ) : (
             <Text mb="md">
               Guarda primero el evento para configurar el certificado.

@@ -27,8 +27,12 @@ import {
   EditorBlock,
 } from "../../services/QuizService";
 import { getBestScore, getUserAttempts, UserAnswerDto, gradeOpenQuestion } from "../../services/userQuizAttemptService";
+import { getQuizzesByEventId } from "../../services/QuizService";
+import { fetchActivityAttendeesByUserAndEvent } from "../../services/activityAttendeeService";
+import { getCertificateGate, quizIdOf } from "./helpers/courseDetailHelpers";
 import { useUser } from "../../context/UserContext";
 import { fetchEventById } from "../../services/eventService";
+import type { Event } from "../../services/types";
 import {
   trackQuizCertificateAction,
   trackQuizResultView,
@@ -451,6 +455,12 @@ export default function QuizResultPage() {
   const [userAttemptsList, setUserAttemptsList] = useState<any[]>([]);
   const [certificateTemplate, setCertificateTemplate] = useState<CertificateTemplate | null>(null);
   const [eventName, setEventName] = useState("");
+  const [eventData, setEventData] = useState<Event | null>(null);
+  const [certGate, setCertGate] = useState<{
+    unlocked: boolean;
+    message: string;
+    pending: string[];
+  } | null>(null);
   const [generatingCertificate, setGeneratingCertificate] = useState(false);
   const [generatedCertificate, setGeneratedCertificate] = useState<GeneratedCertificate | null>(null);
   const [hasTrackedResultView, setHasTrackedResultView] = useState(false);
@@ -483,6 +493,45 @@ export default function QuizResultPage() {
 
         if (eventResult.status === "fulfilled" && eventResult.value) {
           setEventName(eventResult.value.name || "");
+          setEventData(eventResult.value);
+        }
+
+        // Reglas del certificado: solo se evalúan si el admin las activó.
+        const ev =
+          eventResult.status === "fulfilled" ? eventResult.value : null;
+        if (ev?.certificate_gating_enabled && eventId && userId) {
+          try {
+            const [quizzesRaw, attendees] = await Promise.all([
+              getQuizzesByEventId(eventId),
+              fetchActivityAttendeesByUserAndEvent(userId, eventId),
+            ]);
+            const quizzesAll = quizzesRaw.filter((q) => q.enabled !== false);
+            const entries = await Promise.all(
+              quizzesAll.map(async (q) => {
+                const id = quizIdOf(q);
+                try {
+                  return [id, await getBestScore(id, userId)] as const;
+                } catch {
+                  return [id, false as const] as const;
+                }
+              })
+            );
+            const bestMap = Object.fromEntries(entries);
+            const completed = (attendees ?? []).filter(
+              (a: any) => Number(a.progress ?? 0) >= 100
+            ).length;
+            setCertGate(
+              getCertificateGate({
+                event: ev,
+                quizzes: quizzesAll,
+                bestScoreByQuiz: bestMap,
+                completedActivities: completed,
+              })
+            );
+          } catch {
+            // Si falla la evaluación, no bloqueamos (comportamiento previo).
+            setCertGate(null);
+          }
         }
 
         if (certTemplateResult.status === "fulfilled" && certTemplateResult.value) {
@@ -678,30 +727,59 @@ export default function QuizResultPage() {
           )}
 
           {/* ── Botón Generar Certificado (solo si aprobó y el intento está graded) ── */}
-          {passed === true && lastAttempt?.status === "graded" && (
-            <Stack w="100%" align="center" gap="xs">
-              <Group>
-                <Button
-                  variant="light"
-                  color="blue"
-                  loading={generatingCertificate}
-                  disabled={!certificateTemplate}
-                  onClick={() => handleOpenCertificate("view")}
-                >
-                  Ver certificado
-                </Button>
-                <Button
-                  variant="light"
-                  color="grape"
-                  loading={generatingCertificate}
-                  disabled={!certificateTemplate}
-                  onClick={() => handleOpenCertificate("download")}
-                >
-                  Descargar certificado
-                </Button>
-              </Group>
-            </Stack>
-          )}
+          {passed === true && lastAttempt?.status === "graded" && (() => {
+            // Si el admin activó reglas de certificado y aún no se cumplen,
+            // no mostramos el botón: hay que volver al curso a completarlas.
+            const certBlocked =
+              !!eventData?.certificate_gating_enabled &&
+              certGate != null &&
+              !certGate.unlocked;
+
+            if (certBlocked) {
+              return (
+                <Alert color="yellow" variant="light" style={{ width: "100%" }}>
+                  <Stack gap={4}>
+                    <Text size="sm" fw={600}>
+                      Aún no puedes generar el certificado
+                    </Text>
+                    <Text size="sm">
+                      {certGate?.message ||
+                        "Completa los requisitos del curso para generar tu certificado."}
+                    </Text>
+                    <Text size="sm" c="dimmed">
+                      Vuelve al curso para completar los requisitos y generar tu
+                      certificado.
+                    </Text>
+                  </Stack>
+                </Alert>
+              );
+            }
+
+            return (
+              <Stack w="100%" align="center" gap="xs">
+                <Group>
+                  <Button
+                    variant="light"
+                    color="blue"
+                    loading={generatingCertificate}
+                    disabled={!certificateTemplate}
+                    onClick={() => handleOpenCertificate("view")}
+                  >
+                    Ver certificado
+                  </Button>
+                  <Button
+                    variant="light"
+                    color="grape"
+                    loading={generatingCertificate}
+                    disabled={!certificateTemplate}
+                    onClick={() => handleOpenCertificate("download")}
+                  >
+                    Descargar certificado
+                  </Button>
+                </Group>
+              </Stack>
+            );
+          })()}
 
           {passed === true && lastAttempt?.status === "graded" && !certificateTemplate && (
             <Alert color="yellow" variant="light" style={{ width: "100%" }}>

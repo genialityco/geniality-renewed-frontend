@@ -149,3 +149,107 @@ export function isExamUnlocked(
     : 100;
   return courseProgress >= required;
 }
+
+// ─────────────────────────────────────────────
+// Exámenes por módulo y certificado
+// ─────────────────────────────────────────────
+
+/** Nota mínima por defecto cuando el examen no define `config.nota`. */
+const DEFAULT_PASS_MARK = 60;
+
+/** Id string de un quiz (tolera _id o id). */
+export function quizIdOf(quiz: any): string {
+  return String(quiz?._id ?? quiz?.id ?? "");
+}
+
+/**
+ * Un examen está aprobado si el mejor score supera su nota mínima
+ * (o 60 como fallback cuando no hay nota configurada).
+ */
+export function isExamPassed(quiz: any, bestScore: number | false): boolean {
+  if (!quiz || bestScore === false || bestScore == null) return false;
+  const nota = quiz?.config?.nota ?? null;
+  return nota != null ? bestScore >= nota : bestScore >= DEFAULT_PASS_MARK;
+}
+
+/** Examen general del curso (sin módulo asociado). */
+export function getGeneralQuiz<T extends { moduleId?: any }>(
+  quizzes: T[]
+): T | null {
+  return quizzes.find((q) => !q.moduleId) ?? null;
+}
+
+/** Examen asociado a un módulo específico. */
+export function getModuleQuiz<T extends { moduleId?: any }>(
+  quizzes: T[],
+  moduleId: string
+): T | null {
+  return (
+    quizzes.find(
+      (q) => q.moduleId && String(q.moduleId) === String(moduleId)
+    ) ?? null
+  );
+}
+
+/** Cuenta cuántos exámenes están aprobados por el usuario. */
+export function countPassedExams(
+  quizzes: any[],
+  bestScoreByQuiz: Record<string, number | false>
+): number {
+  return quizzes.reduce((acc, q) => {
+    const id = quizIdOf(q);
+    return acc + (isExamPassed(q, bestScoreByQuiz[id] ?? false) ? 1 : 0);
+  }, 0);
+}
+
+export interface CertificateGate {
+  unlocked: boolean;
+  message: string;
+  pending: string[];
+}
+
+/**
+ * Evalúa las reglas de desbloqueo del certificado configuradas por el admin.
+ * Si el gating está desactivado, el certificado queda desbloqueado.
+ */
+export function getCertificateGate(params: {
+  event: {
+    certificate_gating_enabled?: boolean;
+    certificate_required_activities?: number | null;
+    certificate_required_exams?: number | null;
+    certificate_locked_message?: string;
+  } | null;
+  quizzes: any[];
+  bestScoreByQuiz: Record<string, number | false>;
+  completedActivities: number;
+}): CertificateGate {
+  const { event, quizzes, bestScoreByQuiz, completedActivities } = params;
+
+  if (!event?.certificate_gating_enabled) {
+    return { unlocked: true, message: "", pending: [] };
+  }
+
+  const pending: string[] = [];
+
+  const reqActivities = event.certificate_required_activities;
+  if (reqActivities != null && completedActivities < reqActivities) {
+    pending.push(
+      `Completa al menos ${reqActivities} actividad(es) del curso (llevas ${completedActivities}).`
+    );
+  }
+
+  const reqExams = event.certificate_required_exams;
+  if (reqExams != null) {
+    const passed = countPassedExams(quizzes, bestScoreByQuiz);
+    if (passed < reqExams) {
+      pending.push(
+        `Aprueba al menos ${reqExams} examen(es) (llevas ${passed}).`
+      );
+    }
+  }
+
+  const unlocked = pending.length === 0;
+  const custom = (event.certificate_locked_message || "").trim();
+  const message = unlocked ? "" : custom || pending.join(" ");
+  return { unlocked, message, pending };
+}

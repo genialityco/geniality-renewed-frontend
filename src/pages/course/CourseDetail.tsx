@@ -48,6 +48,8 @@ export default function CourseDetail() {
     activities,
     hosts,
     quiz,
+    quizzes,
+    bestScoreByQuiz,
     userAttemptsList,
     loading,
   } = useCourseData(eventId || "", userId || "");
@@ -179,6 +181,8 @@ export default function CourseDetail() {
             courseProgress={courseProgress}
             selectedActivity={selectedActivity}
             quiz={quiz}
+            quizzes={quizzes}
+            bestScoreByQuiz={bestScoreByQuiz}
             userAttempts={userAttemptsList}
             modules={modules}
             lockedActivityIds={lockedActivityIds}

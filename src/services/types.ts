@@ -41,6 +41,12 @@ export interface Event {
   exam_gating_enabled?: boolean;
   exam_min_progress?: number;
   exam_locked_message?: string;
+
+  // Reglas de desbloqueo del certificado (configurables por el administrador)
+  certificate_gating_enabled?: boolean;
+  certificate_required_activities?: number | null;
+  certificate_required_exams?: number | null;
+  certificate_locked_message?: string;
 }
 
 export interface Module {

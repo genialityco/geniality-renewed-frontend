@@ -164,6 +164,10 @@ export interface Quiz {
   _id?: string;
   id?: string;
   eventId: string;
+  /** Módulo al que pertenece el examen. null/ausente = examen general del curso. */
+  moduleId?: string | null;
+  /** Si está deshabilitado, no se muestra al alumno en el curso. */
+  enabled?: boolean;
   questions: Question[];
   createdAt: string;
   updatedAt: string;
@@ -174,13 +178,16 @@ export interface Quiz {
 export interface CreateQuizPayload {
   id?: string;
   eventId: string;
+  moduleId?: string | null;
   questions: Question[];
   // Nota: el backend ignora config en POST /quiz. Usar PATCH /quiz/:id/config.
 }
 
 export interface UpdateQuizPayload {
-  /** Solo questions — el backend ignora config en PUT /quiz/:id. */
+  /** questions — el backend ignora config en PUT /quiz/:id. */
   questions: Question[];
+  /** Reasignar el examen a otro módulo (o null = general). */
+  moduleId?: string | null;
 }
 
 /** Payload para PATCH /quiz/:id/config (todos los campos opcionales). */
@@ -199,6 +206,16 @@ export const getQuizByEventId = async (
 ): Promise<Quiz | null> => {
   const response = await api.get<Quiz | null>(`/quiz/event/${eventId}`);
   return response.data ? restoreQuiz(response.data) : null;
+};
+
+/**
+ * Get ALL quizzes for an event (general + one per module).
+ */
+export const getQuizzesByEventId = async (
+  eventId: string,
+): Promise<Quiz[]> => {
+  const response = await api.get<Quiz[]>(`/quiz/event/${eventId}/list`);
+  return (response.data ?? []).map((q) => restoreQuiz(q));
 };
 
 /**
@@ -273,9 +290,10 @@ export const updateQuiz = async (
   quizId: string,
   payload: UpdateQuizPayload,
 ): Promise<Quiz> => {
-  // PUT solo acepta { questions } — config va por PATCH /:id/config
+  // PUT acepta { questions, moduleId? } — config va por PATCH /:id/config
   const response = await api.put<Quiz>(`/quiz/${quizId}`, {
     questions: normalizeQuestionsForBackend(payload.questions),
+    ...(payload.moduleId !== undefined ? { moduleId: payload.moduleId } : {}),
   });
   return response.data;
 };
@@ -289,17 +307,24 @@ export const saveQuiz = async (
   questions: Question[],
   quizId?: string,
   config?: QuizConfig,
+  moduleId?: string | null,
 ): Promise<Quiz> => {
   let quiz: Quiz;
   if (quizId) {
-    quiz = await updateQuiz(quizId, { questions });
+    // Actualizar preguntas NO debe pisar la config compartida: solo se aplica
+    // config si el llamador la pasa explícitamente.
+    quiz = await updateQuiz(quizId, { questions, moduleId });
+    const resolvedId = quiz._id ?? quiz.id;
+    if (resolvedId && config) {
+      await patchQuizConfig(resolvedId, config);
+    }
   } else {
-    quiz = await createQuiz({ eventId, questions });
-  }
-  // Siempre sincroniza la config por PATCH (defaults incluidos si no se pasa nada).
-  const resolvedId = quiz._id ?? quiz.id;
-  if (resolvedId) {
-    await patchQuizConfig(resolvedId, config ?? DEFAULT_QUIZ_CONFIG);
+    // Al crear se aplica la config indicada (o los defaults) como línea base.
+    quiz = await createQuiz({ eventId, questions, moduleId });
+    const resolvedId = quiz._id ?? quiz.id;
+    if (resolvedId) {
+      await patchQuizConfig(resolvedId, config ?? DEFAULT_QUIZ_CONFIG);
+    }
   }
   return quiz;
 };
@@ -320,6 +345,17 @@ export const saveQuizConfig = async (
  */
 export const deleteQuiz = async (quizId: string): Promise<void> => {
   await api.delete(`/quiz/${quizId}`);
+};
+
+/**
+ * Habilita o deshabilita un examen (visible u oculto para el alumno).
+ */
+export const setQuizEnabled = async (
+  quizId: string,
+  enabled: boolean,
+): Promise<Quiz> => {
+  const response = await api.patch<Quiz>(`/quiz/${quizId}/enabled`, { enabled });
+  return response.data;
 };
 
 /**
@@ -354,4 +390,5 @@ export const quizService = {
   saveConfig: saveQuizConfig,
   patchConfig: patchQuizConfig,
   delete: deleteQuiz,
+  setEnabled: setQuizEnabled,
 };
