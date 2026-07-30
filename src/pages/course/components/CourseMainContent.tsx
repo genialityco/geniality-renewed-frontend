@@ -26,9 +26,11 @@ import {
   getActivityProgress,
   getModuleAverageProgress,
   getProgressColor,
+  isExamUnlocked,
   sortActivitiesByDate,
   sortModulesByOrder,
 } from "../helpers/courseDetailHelpers";
+import { FaLock } from "react-icons/fa6";
 
 interface CourseMainContentProps {
   event: Event | null;
@@ -40,6 +42,7 @@ interface CourseMainContentProps {
   quiz: any;
   userAttempts: any[];
   modules: any[];
+  lockedActivityIds?: Set<string>;
   searchQuery: string;
   searchResults: SearchResult[];
   searchLoading: boolean;
@@ -62,6 +65,7 @@ export function CourseMainContent({
   quiz,
   userAttempts,
   modules,
+  lockedActivityIds,
   searchQuery,
   searchResults,
   searchLoading,
@@ -78,6 +82,7 @@ export function CourseMainContent({
   const [selectedHost, setSelectedHost] = useState<Host | null>(null);
   const [hostModalOpened, setHostModalOpened] = useState(false);
   const [videoStartTime, setVideoStartTime] = useState<number | null>(null);
+  const [examLockedOpened, setExamLockedOpened] = useState(false);
 
   // Banner superior del curso. Nota: NO se usa `styles.event_image` como
   // respaldo, porque ese campo está reservado exclusivamente al logo del header
@@ -104,6 +109,7 @@ export function CourseMainContent({
           courseId={event?._id || ""}
           courseName={event?.name || ""}
           videoTime={videoStartTime}
+          isLinear={!!event?.is_linear}
         />
 
         {/* Footer del curso (imagen configurada en el evento) */}
@@ -114,6 +120,25 @@ export function CourseMainContent({
 
   const qid = quiz?._id || quiz?.id;
   const attempted = userAttempts.some((a) => a.userId);
+
+  // Compuerta del examen: por defecto siempre disponible. Si el admin activó
+  // el requisito de avance mínimo, el botón sigue visible pero muestra el
+  // mensaje configurado hasta alcanzar el porcentaje requerido.
+  const examUnlocked = isExamUnlocked(event, courseProgress);
+  const examRequired = Number.isFinite(event?.exam_min_progress)
+    ? Number(event?.exam_min_progress)
+    : 100;
+  const examLockedMessage =
+    (event?.exam_locked_message || "").trim() ||
+    `Debes completar al menos el ${examRequired}% del curso para realizar el examen. Vas en ${courseProgress}%.`;
+
+  const goToQuiz = () => {
+    navigate(
+      attempted
+        ? `/organization/${organizationId}/course/${eventId}/quiz/${qid}/result`
+        : `/organization/${organizationId}/course/${eventId}/quiz/${qid}`
+    );
+  };
   const completedCount = activities.filter(
     (activity) => getActivityProgress(activityAttendees, activity._id) >= 100
   ).length;
@@ -209,23 +234,33 @@ export function CourseMainContent({
       />
 
       {/* Quiz CTA */}
-      {quiz && qid && (
-        <Button
-          fullWidth
-          size="md"
-          variant={attempted ? "light" : "filled"}
-          color={attempted ? "teal" : "blue"}
-          onClick={() =>
-            navigate(
-              attempted
-                ? `/organization/${organizationId}/course/${eventId}/quiz/${qid}/result`
-                : `/organization/${organizationId}/course/${eventId}/quiz/${qid}`
-            )
-          }
-        >
-          {attempted ? "Ver mis resultados del examen →" : "Realizar examen →"}
-        </Button>
-      )}
+      {quiz && qid && (() => {
+        // El examen queda bloqueado solo si aún no se ha intentado y no se
+        // alcanzó el avance requerido. Ver resultados siempre está disponible.
+        const locked = !attempted && !examUnlocked;
+        return (
+          <Button
+            fullWidth
+            size="md"
+            variant={attempted ? "light" : locked ? "default" : "filled"}
+            color={attempted ? "teal" : "blue"}
+            leftSection={locked ? <FaLock size={14} /> : undefined}
+            onClick={() => {
+              if (locked) {
+                setExamLockedOpened(true);
+                return;
+              }
+              goToQuiz();
+            }}
+          >
+            {attempted
+              ? "Ver mis resultados del examen →"
+              : locked
+                ? "Realizar examen (bloqueado)"
+                : "Realizar examen →"}
+          </Button>
+        );
+      })()}
 
       {/* Búsqueda */}
       <SearchBar
@@ -320,6 +355,7 @@ export function CourseMainContent({
                       selectedActivityId={undefined}
                       onActivitySelect={onActivitySelect}
                       hosts={hosts}
+                      lockedActivityIds={lockedActivityIds}
                     />
                   </Accordion.Panel>
                 </Accordion.Item>
@@ -343,6 +379,7 @@ export function CourseMainContent({
             selectedActivityId={undefined}
             onActivitySelect={onActivitySelect}
             hosts={hosts}
+            lockedActivityIds={lockedActivityIds}
           />
         </>
       )}
@@ -434,6 +471,36 @@ export function CourseMainContent({
 
       {/* Footer del curso (imagen configurada en el evento) */}
       <CourseFooter event={event} />
+
+      {/* Modal: examen bloqueado por avance insuficiente */}
+      <Modal
+        opened={examLockedOpened}
+        onClose={() => setExamLockedOpened(false)}
+        title={
+          <Group gap="xs">
+            <FaLock size={16} />
+            <Text fw={700}>Examen bloqueado</Text>
+          </Group>
+        }
+        centered
+        radius="lg"
+      >
+        <Stack gap="md">
+          <Text style={{ lineHeight: 1.6 }}>{examLockedMessage}</Text>
+          <Progress
+            value={courseProgress}
+            size="lg"
+            radius="xl"
+            color={courseProgress >= examRequired ? "green" : "blue"}
+          />
+          <Text size="sm" c="dimmed">
+            Avance actual: {courseProgress}% · Requerido: {examRequired}%
+          </Text>
+          <Button fullWidth onClick={() => setExamLockedOpened(false)}>
+            Entendido
+          </Button>
+        </Stack>
+      </Modal>
 
       {/* Host Modal */}
       <Modal

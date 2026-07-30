@@ -16,6 +16,9 @@ import {
   Text,
   Select,
   Alert,
+  Switch,
+  NumberInput,
+  Textarea,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { uploadImageToFirebase } from "../../../utils/uploadImageToFirebase";
@@ -96,6 +99,10 @@ export default function BasicEventData({
     } finally {
       setUploading(null);
     }
+  };
+
+  const setField = (name: keyof Event, value: any) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const getImage = (path: string[]) => {
@@ -368,6 +375,66 @@ export default function BasicEventData({
           )}
         </Grid.Col>
       </Grid>
+
+      <Divider my="xl" label="Reglas del curso" labelPosition="center" />
+
+      <Stack gap="lg">
+        {/* Curso lineal */}
+        <Switch
+          checked={!!formData.is_linear}
+          onChange={(e) => setField("is_linear", e.currentTarget.checked)}
+          label="Curso lineal (obligar orden de las actividades)"
+          description="Si se activa, el alumno debe completar cada actividad antes de avanzar a la siguiente. Por defecto el curso se puede ver en cualquier orden."
+        />
+
+        <Divider variant="dashed" />
+
+        {/* Compuerta del examen */}
+        <Switch
+          checked={!!formData.exam_gating_enabled}
+          onChange={(e) =>
+            setField("exam_gating_enabled", e.currentTarget.checked)
+          }
+          label="Requerir avance mínimo para realizar el examen"
+          description="Si se activa, el botón del examen seguirá visible pero el alumno verá un mensaje hasta alcanzar el porcentaje de avance configurado. Por defecto el examen se puede realizar en cualquier momento."
+        />
+
+        {formData.exam_gating_enabled && (
+          <Grid gutter="md">
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <NumberInput
+                label="Avance mínimo para desbloquear el examen (%)"
+                min={0}
+                max={100}
+                clampBehavior="strict"
+                value={
+                  formData.exam_min_progress === undefined
+                    ? 100
+                    : formData.exam_min_progress
+                }
+                onChange={(v) =>
+                  setField(
+                    "exam_min_progress",
+                    typeof v === "number" ? v : Number(v) || 0
+                  )
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 8 }}>
+              <Textarea
+                label="Mensaje cuando el examen está bloqueado"
+                placeholder="Ej: Debes completar el 100% del curso para presentar el examen."
+                autosize
+                minRows={2}
+                value={formData.exam_locked_message || ""}
+                onChange={(e) =>
+                  setField("exam_locked_message", e.currentTarget.value)
+                }
+              />
+            </Grid.Col>
+          </Grid>
+        )}
+      </Stack>
 
       <Divider my="xl" />
 

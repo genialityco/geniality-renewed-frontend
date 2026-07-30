@@ -42,6 +42,11 @@ interface Fragment {
   text: string;
 }
 
+// A partir de este % de reproducción la actividad se cuenta como completada
+// (100%). Los videos suelen tener créditos/silencios al final y casi nadie
+// llega al último frame, así que el 95% ya cuenta como visto completo.
+const COMPLETION_THRESHOLD = 95;
+
 interface ActivityDetailProps {
   activity: Activity | null; // Actividad seleccionada
   eventId: string; // ID del evento (para enlaces, etc.)
@@ -52,6 +57,8 @@ interface ActivityDetailProps {
   videoTime?: number | null;
   fragments?: Fragment[];
   formatTime?: (seconds: number) => string;
+  /** Curso lineal: bloquea avanzar a la siguiente actividad sin completar esta. */
+  isLinear?: boolean;
 }
 
 export default function ActivityDetail({
@@ -64,6 +71,7 @@ export default function ActivityDetail({
   videoTime: _vt = null,
   fragments: _frags = [],
   formatTime,
+  isLinear = false,
 }: ActivityDetailProps) {
   const { userId } = useUser();
   const navigate = useNavigate();
@@ -122,6 +130,7 @@ export default function ActivityDetail({
 
   // STATES
   const [videoProgress, setVideoProgress] = useState<number>(0);
+  const [nextLockedNotice, setNextLockedNotice] = useState(false);
   const [completionMessage, setCompletionMessage] = useState<any>(null);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [hosts, setHosts] = useState<Host[]>([]);
@@ -331,9 +340,10 @@ export default function ActivityDetail({
 
   // ==================================================
   // Helper: Mapear progreso a hitos de negocio (25, 50, 100)
+  // Al alcanzar COMPLETION_THRESHOLD (95%) se guarda como 100% completado.
   // ==================================================
   const getProgressCheckpoint = (progress: number): number => {
-    if (progress >= 100) return 100;
+    if (progress >= COMPLETION_THRESHOLD) return 100;
     if (progress >= 50) return 50;
     if (progress >= 25) return 25;
     return 0;
@@ -545,6 +555,25 @@ export default function ActivityDetail({
     return `${mins}:${secsString}`;
   }
 
+  // ¿La actividad actual ya quedó completada? Se usa progreso en vivo del
+  // video para desbloquear al instante al terminar, sin esperar recarga.
+  const currentCleared =
+    !!activity?.is_info_only ||
+    videoProgress >= COMPLETION_THRESHOLD ||
+    (activity ? getActivityProgress(activityAttendees, activity._id) >= 100 : false);
+
+  // En curso lineal, "Siguiente" queda bloqueado hasta completar esta actividad.
+  const nextLocked = isLinear && !!nextActivity && !currentCleared;
+
+  const handleNextClick = () => {
+    if (!nextActivity) return;
+    if (nextLocked) {
+      setNextLockedNotice(true);
+      return;
+    }
+    handleNavigateActivity(nextActivity._id);
+  };
+
   return (
     <Card shadow="sm" radius="md">
       <Group justify="left">
@@ -668,14 +697,24 @@ export default function ActivityDetail({
         <Button
           variant="outline"
           disabled={!nextActivity}
-          onClick={() =>
-            nextActivity && handleNavigateActivity(nextActivity._id)
-          }
-          rightSection="→"
+          onClick={handleNextClick}
+          rightSection={nextLocked ? "🔒" : "→"}
+          style={nextLocked ? { opacity: 0.7 } : undefined}
         >
           {nextActivity ? nextActivity.name : "Siguiente"}
         </Button>
       </Group>
+
+      {nextLocked && nextLockedNotice && (
+        <Notification
+          color="yellow"
+          title="Actividad bloqueada"
+          onClose={() => setNextLockedNotice(false)}
+          mb="md"
+        >
+          Para desbloquear la siguiente actividad debes completar esta primero.
+        </Notification>
+      )}
 
       <Divider my="sm" />
       <Group>

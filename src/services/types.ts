@@ -35,6 +35,12 @@ export interface Event {
   position_ids?: string[];
   event_platform?: "zoom" | "google_meet" | "microsoft_teams";
   language?: string;
+
+  // Reglas de avance del curso (configurables por el administrador)
+  is_linear?: boolean;
+  exam_gating_enabled?: boolean;
+  exam_min_progress?: number;
+  exam_locked_message?: string;
 }
 
 export interface Module {

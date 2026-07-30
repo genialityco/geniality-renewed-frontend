@@ -67,3 +67,85 @@ export function sortActivitiesByDate(activities: any[]): any[] {
 export function sortModulesByOrder(modules: any[]): any[] {
   return [...modules].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
+
+/**
+ * Devuelve las actividades en el orden de aprendizaje del curso:
+ * primero las actividades agrupadas por módulos (ordenados por `order`),
+ * y al final las actividades sin módulo. Si no hay módulos, se ordenan por fecha.
+ */
+export function getOrderedActivities(modules: any[], activities: any[]): any[] {
+  const orderedModules = sortModulesByOrder(modules);
+  if (orderedModules.length === 0) {
+    return sortActivitiesByDate(activities);
+  }
+
+  const moduleIds = new Set(orderedModules.map((module) => module._id));
+
+  return [
+    ...orderedModules.flatMap((module) =>
+      sortActivitiesByDate(
+        activities.filter((activity) => activity.module_id === module._id)
+      )
+    ),
+    ...sortActivitiesByDate(
+      activities.filter(
+        (activity) => !activity.module_id || !moduleIds.has(activity.module_id)
+      )
+    ),
+  ];
+}
+
+/**
+ * Una actividad se considera "superada" para efectos de avance lineal si su
+ * progreso llega al 100% o si es de solo información (no bloquea el avance).
+ */
+function isActivityCleared(
+  activity: any,
+  activityAttendees: any[]
+): boolean {
+  if (activity?.is_info_only) return true;
+  return getActivityProgress(activityAttendees, activity._id) >= 100;
+}
+
+/**
+ * Calcula qué actividades están bloqueadas cuando el curso es lineal.
+ * En un curso lineal solo se puede acceder a una actividad si todas las
+ * anteriores (en el orden de aprendizaje) están superadas. La primera
+ * actividad pendiente queda desbloqueada; todo lo que va después se bloquea.
+ *
+ * Si `isLinear` es false, no se bloquea nada (Set vacío).
+ */
+export function getLockedActivityIds(
+  orderedActivities: any[],
+  activityAttendees: any[],
+  isLinear: boolean
+): Set<string> {
+  const locked = new Set<string>();
+  if (!isLinear) return locked;
+
+  let previousCleared = true;
+  for (const activity of orderedActivities) {
+    if (!previousCleared) {
+      locked.add(String(activity._id));
+    }
+    // La siguiente actividad solo se desbloquea si esta quedó superada.
+    previousCleared = previousCleared && isActivityCleared(activity, activityAttendees);
+  }
+
+  return locked;
+}
+
+/**
+ * Determina si el examen está desbloqueado según la configuración del curso.
+ * Por defecto (sin configuración) el examen siempre está disponible.
+ */
+export function isExamUnlocked(
+  event: { exam_gating_enabled?: boolean; exam_min_progress?: number } | null,
+  courseProgress: number
+): boolean {
+  if (!event?.exam_gating_enabled) return true;
+  const required = Number.isFinite(event?.exam_min_progress)
+    ? Number(event?.exam_min_progress)
+    : 100;
+  return courseProgress >= required;
+}
