@@ -14,6 +14,7 @@ import {
   Modal,
   Accordion,
   Progress,
+  ThemeIcon,
 } from "@mantine/core";
 import { useNavigate, useParams } from "react-router-dom";
 import ActivityDetailWithTracker from "../../../components/ActivityDetailWithTracker";
@@ -37,7 +38,7 @@ import {
   sortActivitiesByDate,
   sortModulesByOrder,
 } from "../helpers/courseDetailHelpers";
-import { FaLock, FaCircleCheck } from "react-icons/fa6";
+import { FaLock, FaCircleCheck, FaFileLines, FaDownload } from "react-icons/fa6";
 import { useUser } from "../../../context/UserContext";
 import {
   generateCertificate,
@@ -46,6 +47,21 @@ import {
   GeneratedCertificate,
   CertificateTemplate,
 } from "../../../services/certificateService";
+import {
+  DocumentService,
+  Document as CourseDocument,
+} from "../../../services/documentService";
+
+/** Formatea el tamaño de un archivo en una unidad legible. */
+function formatFileSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return "";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.min(
+    units.length - 1,
+    Math.floor(Math.log(bytes) / Math.log(1024))
+  );
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
 
 interface CourseMainContentProps {
   event: Event | null;
@@ -110,6 +126,7 @@ export function CourseMainContent({
   const [generatingCert, setGeneratingCert] = useState(false);
   const [generatedCert, setGeneratedCert] =
     useState<GeneratedCertificate | null>(null);
+  const [documents, setDocuments] = useState<CourseDocument[]>([]);
 
   // Cargar la plantilla del certificado del curso (si existe).
   useEffect(() => {
@@ -121,6 +138,22 @@ export function CourseMainContent({
       })
       .catch(() => {
         if (!cancelled) setCertificateTemplate(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId]);
+
+  // Cargar los documentos (material de apoyo) del curso.
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    DocumentService.getEventDocuments(eventId)
+      .then((docs) => {
+        if (!cancelled) setDocuments((docs || []).filter((d) => d.active));
+      })
+      .catch(() => {
+        if (!cancelled) setDocuments([]);
       });
     return () => {
       cancelled = true;
@@ -706,6 +739,72 @@ export function CourseMainContent({
                 </Box>
               ))}
             </SimpleGrid>
+          </Box>
+        </>
+      )}
+
+      {/* Material de apoyo (documentos del curso) */}
+      {documents.length > 0 && (
+        <>
+          <Divider my="xl" />
+          <Box>
+            <Group justify="space-between" align="center" mb="md">
+              <Text fw={700} size="lg">
+                📎 Material de apoyo
+              </Text>
+              <Text size="xs" c="dimmed">
+                {documents.length}{" "}
+                {documents.length === 1 ? "documento" : "documentos"}
+              </Text>
+            </Group>
+            <Stack gap="xs">
+              {documents.map((doc) => (
+                <Group
+                  key={doc._id}
+                  justify="space-between"
+                  wrap="nowrap"
+                  p="sm"
+                  style={{
+                    border: "1px solid #e9ecef",
+                    borderRadius: 10,
+                    backgroundColor: "#fff",
+                  }}
+                >
+                  <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                    <ThemeIcon
+                      variant="light"
+                      color="blue"
+                      size="lg"
+                      radius="md"
+                    >
+                      <FaFileLines size={16} />
+                    </ThemeIcon>
+                    <div style={{ minWidth: 0 }}>
+                      <Text size="sm" fw={600} lineClamp={1}>
+                        {doc.originalName || doc.name}
+                      </Text>
+                      {formatFileSize(doc.size) && (
+                        <Text size="xs" c="dimmed">
+                          {formatFileSize(doc.size)}
+                        </Text>
+                      )}
+                    </div>
+                  </Group>
+                  <Button
+                    component="a"
+                    href={doc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="xs"
+                    variant="light"
+                    leftSection={<FaDownload size={12} />}
+                    style={{ flexShrink: 0 }}
+                  >
+                    Descargar
+                  </Button>
+                </Group>
+              ))}
+            </Stack>
           </Box>
         </>
       )}
