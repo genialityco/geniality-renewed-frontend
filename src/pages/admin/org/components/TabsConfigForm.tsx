@@ -6,6 +6,9 @@ import {
   Group,
   Alert,
   Loader,
+  Switch,
+  Divider,
+  Text,
 } from "@mantine/core";
 import { IconAlertCircle, IconCheck } from "@tabler/icons-react";
 import {
@@ -21,6 +24,12 @@ interface TabTitles {
   exclusive?: string;
 }
 
+interface TabVisibility {
+  courses: boolean;
+  activities: boolean;
+  exclusive: boolean;
+}
+
 export default function TabsConfigForm({ organizationId }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -31,6 +40,13 @@ export default function TabsConfigForm({ organizationId }: Props) {
     courses: "CURSOS",
     activities: "ACTIVIDADES",
     exclusive: "MIEMBROS ACE",
+  });
+
+  // Por defecto todas las pestañas están habilitadas.
+  const [tabVisibility, setTabVisibility] = useState<TabVisibility>({
+    courses: true,
+    activities: true,
+    exclusive: true,
   });
 
   useEffect(() => {
@@ -44,6 +60,11 @@ export default function TabsConfigForm({ organizationId }: Props) {
           activities: org.tab_titles?.activities || "ACTIVIDADES",
           exclusive: org.tab_titles?.exclusive || "MIEMBROS ACE",
         });
+        setTabVisibility({
+          courses: org.tab_visibility?.courses !== false,
+          activities: org.tab_visibility?.activities !== false,
+          exclusive: org.tab_visibility?.exclusive !== false,
+        });
       })
       .catch(() => setError("No se pudo cargar la organización"))
       .finally(() => setLoading(false));
@@ -56,14 +77,18 @@ export default function TabsConfigForm({ organizationId }: Props) {
     setTabTitles((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handleToggle = (key: keyof TabVisibility, value: boolean) => {
+    setTabVisibility((prev) => ({ ...prev, [key]: value }));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     setOk(null);
     try {
-      const payload = { tab_titles: tabTitles };
+      const payload = { tab_titles: tabTitles, tab_visibility: tabVisibility };
       await updateOrganization(organizationId, payload as any);
-      setOk("Títulos de tabs guardados correctamente");
+      setOk("Configuración de tabs guardada correctamente");
     } catch (e: any) {
       setError(e?.message || "No se pudo guardar los cambios");
     } finally {
@@ -92,6 +117,36 @@ export default function TabsConfigForm({ organizationId }: Props) {
         </Alert>
       )}
 
+      <Text fw={600} size="sm">
+        Pestañas visibles en la landing
+      </Text>
+      <Text size="xs" c="dimmed">
+        Habilita o deshabilita las pestañas que se muestran en la landing
+        principal de la organización. Por defecto están activadas.
+      </Text>
+
+      <Switch
+        label="Mostrar pestaña Cursos"
+        checked={tabVisibility.courses}
+        onChange={(e) => handleToggle("courses", e.currentTarget.checked)}
+      />
+      <Switch
+        label="Mostrar pestaña Actividades"
+        checked={tabVisibility.activities}
+        onChange={(e) => handleToggle("activities", e.currentTarget.checked)}
+      />
+      <Switch
+        label="Mostrar pestaña Exclusivo (miembros)"
+        checked={tabVisibility.exclusive}
+        onChange={(e) => handleToggle("exclusive", e.currentTarget.checked)}
+      />
+
+      <Divider my="xs" />
+
+      <Text fw={600} size="sm">
+        Títulos de las pestañas
+      </Text>
+
       <TextInput
         label="Título - Pestaña Cursos"
         placeholder="CURSOS"
@@ -114,9 +169,6 @@ export default function TabsConfigForm({ organizationId }: Props) {
       />
 
       <Group justify="flex-end">
-        <Button variant="light" onClick={() => setOk(null)}>
-          Cancelar
-        </Button>
         <Button onClick={handleSave} loading={saving}>
           Guardar cambios
         </Button>

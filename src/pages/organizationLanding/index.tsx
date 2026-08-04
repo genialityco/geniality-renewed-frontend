@@ -518,6 +518,7 @@ export default function OrganizationLanding() {
         memberShipStatus={memberShipStatus}
         // courseAttendees prop removed - not used by EventsGrid
         tabTitles={contextOrganization?.tab_titles}
+        tabVisibility={contextOrganization?.tab_visibility}
         activityTabProps={{
           activities: filteredActivities,
           searchResults,

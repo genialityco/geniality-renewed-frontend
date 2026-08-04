@@ -22,6 +22,11 @@ export interface Organization {
   default_position_id?: string;
   author: string;
   tab_titles?: { courses?: string; activities?: string; exclusive?: string };
+  tab_visibility?: {
+    courses?: boolean;
+    activities?: boolean;
+    exclusive?: boolean;
+  };
 }
 
 interface OrganizationContextType {
@@ -90,6 +95,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
             user_properties: org.user_properties || {},
             author: org.author || "",
             tab_titles: org.tab_titles || {},
+            tab_visibility: org.tab_visibility || {},
           };
 
           setOrganization(orgData);
