@@ -47,6 +47,10 @@ interface Fragment {
 // llega al último frame, así que el 95% ya cuenta como visto completo.
 const COMPLETION_THRESHOLD = 95;
 
+// Segundos antes del final del video en los que se muestra el modal de
+// "actividad completada", para que el usuario lo vea aunque no llegue al final.
+const COMPLETION_LEAD_SECONDS = 20;
+
 interface ActivityDetailProps {
   activity: Activity | null; // Actividad seleccionada
   eventId: string; // ID del evento (para enlaces, etc.)
@@ -147,6 +151,43 @@ export default function ActivityDetail({
   const reactPlayerRef = useRef<ReactPlayer | null>(null);
   const lastSavedProgressRef = useRef<{ [key: string]: number }>({});
   const currentProgressRef = useRef<number>(0);
+  // Evita que el modal de "completada" se dispare más de una vez por actividad.
+  const completionShownRef = useRef<boolean>(false);
+  // Duración del video en ReactPlayer (para saber cuántos segundos faltan).
+  const reactPlayerDurationRef = useRef<number>(0);
+
+  // Reinicia el estado del modal al cambiar de actividad.
+  useEffect(() => {
+    completionShownRef.current = false;
+    reactPlayerDurationRef.current = 0;
+    setShowCompletionModal(false);
+  }, [activity?._id]);
+
+  // Muestra el modal de actividad completada. Sale de pantalla completa
+  // (tanto la del navegador como la interna del reproductor de Vimeo) para que
+  // el modal sea visible aunque el usuario esté viendo el video en fullscreen.
+  const triggerCompletionModal = (vimeoPlayer?: Player | null) => {
+    if (completionShownRef.current) return;
+    completionShownRef.current = true;
+
+    try {
+      if (typeof document !== "undefined" && document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    } catch {
+      /* noop */
+    }
+    try {
+      const vp = vimeoPlayer as any;
+      if (vp && typeof vp.exitFullscreen === "function") {
+        vp.exitFullscreen().catch(() => {});
+      }
+    } catch {
+      /* noop */
+    }
+
+    setShowCompletionModal(true);
+  };
 
   // ==================================================
   // 0. Efecto: Sincronizar videoTime desde prop (para búsqueda de segmentos)
@@ -463,13 +504,21 @@ export default function ActivityDetail({
     newPlayer.on("timeupdate", async (data) => {
       const progress = (data.seconds / data.duration) * 100;
       setVideoProgress(progress);
+
+      // Mostrar el modal 20s antes de que termine el video.
+      if (
+        data.duration > 0 &&
+        data.duration - data.seconds <= COMPLETION_LEAD_SECONDS
+      ) {
+        triggerCompletionModal(newPlayer);
+      }
     });
 
-    // Listener para cuando termina el video
+    // Listener para cuando termina el video (respaldo si el video dura <20s).
     newPlayer.on("ended", () => {
       setVideoProgress(100);
       saveActivityProgress(100); // Guardar como completado
-      setShowCompletionModal(true);
+      triggerCompletionModal(newPlayer);
     });
 
     // Al montar, salto a videoTime si viene en URL, sino al progreso ya conocido
@@ -680,11 +729,21 @@ export default function ActivityDetail({
             width="100%"
             style={{ aspectRatio: "16/9" }}
             controls
-            onProgress={({ played }) => setVideoProgress(played * 100)}
+            onDuration={(d) => {
+              reactPlayerDurationRef.current = d;
+            }}
+            onProgress={({ played, playedSeconds }) => {
+              setVideoProgress(played * 100);
+              // Mostrar el modal 20s antes de que termine el video.
+              const dur = reactPlayerDurationRef.current;
+              if (dur > 0 && dur - playedSeconds <= COMPLETION_LEAD_SECONDS) {
+                triggerCompletionModal();
+              }
+            }}
             onEnded={() => {
               setVideoProgress(100);
               saveActivityProgress(100);
-              setShowCompletionModal(true);
+              triggerCompletionModal();
             }}
             onReady={() => {
               if (videoTime !== null) {
