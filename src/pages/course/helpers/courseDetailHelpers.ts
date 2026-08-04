@@ -113,26 +113,112 @@ function isActivityCleared(
  * anteriores (en el orden de aprendizaje) están superadas. La primera
  * actividad pendiente queda desbloqueada; todo lo que va después se bloquea.
  *
+ * Además, si la compuerta de examen de módulo está activa
+ * (`module_exam_gating_enabled`), las actividades de un módulo permanecen
+ * bloqueadas hasta que el usuario APRUEBE el examen del módulo anterior. Así,
+ * al terminar el último tema del módulo 1 el usuario debe aprobar su examen
+ * antes de poder empezar la actividad 1 del módulo 2.
+ *
  * Si `isLinear` es false, no se bloquea nada (Set vacío).
  */
-export function getLockedActivityIds(
-  orderedActivities: any[],
-  activityAttendees: any[],
-  isLinear: boolean
-): Set<string> {
+export function getLockedActivityIds(params: {
+  modules: any[];
+  activities: any[];
+  activityAttendees: any[];
+  isLinear: boolean;
+  event?: { module_exam_gating_enabled?: boolean } | null;
+  quizzes?: any[];
+  bestScoreByQuiz?: Record<string, number | false>;
+}): Set<string> {
+  const { modules, activities, activityAttendees, isLinear } = params;
   const locked = new Set<string>();
   if (!isLinear) return locked;
 
-  let previousCleared = true;
-  for (const activity of orderedActivities) {
-    if (!previousCleared) {
-      locked.add(String(activity._id));
+  const orderedModules = sortModulesByOrder(modules);
+  const moduleIds = new Set(orderedModules.map((m) => m._id));
+  const examGating = !!params.event?.module_exam_gating_enabled;
+  const quizzes = params.quizzes ?? [];
+  const bestScoreByQuiz = params.bestScoreByQuiz ?? {};
+
+  // `blocked` se vuelve true en cuanto una actividad no está superada o un
+  // examen de módulo requerido no está aprobado; a partir de ahí todo lo que
+  // sigue (en orden de aprendizaje) queda bloqueado.
+  let blocked = false;
+
+  const gateThroughActivities = (acts: any[]) => {
+    for (const activity of acts) {
+      if (blocked) {
+        locked.add(String(activity._id));
+      }
+      blocked = blocked || !isActivityCleared(activity, activityAttendees);
     }
-    // La siguiente actividad solo se desbloquea si esta quedó superada.
-    previousCleared = previousCleared && isActivityCleared(activity, activityAttendees);
+  };
+
+  for (const module of orderedModules) {
+    const modActivities = sortActivitiesByDate(
+      activities.filter((a) => a.module_id === module._id)
+    );
+    gateThroughActivities(modActivities);
+
+    // Compuerta de examen de módulo: si está activa y este módulo tiene examen,
+    // las actividades del siguiente módulo se bloquean hasta APROBARLO.
+    if (!blocked && examGating) {
+      const modQuiz = getModuleQuiz(quizzes, module._id);
+      if (modQuiz) {
+        const best = bestScoreByQuiz[quizIdOf(modQuiz)] ?? false;
+        if (!isExamPassed(modQuiz, best)) {
+          blocked = true;
+        }
+      }
+    }
   }
 
+  // Actividades sin módulo (o de módulos inexistentes) van al final.
+  const looseActivities = sortActivitiesByDate(
+    activities.filter((a) => !a.module_id || !moduleIds.has(a.module_id))
+  );
+  gateThroughActivities(looseActivities);
+
   return locked;
+}
+
+/**
+ * Cuando el usuario está viendo la ÚLTIMA actividad de un módulo y la compuerta
+ * de examen de módulo está activa, la navegación "Siguiente" debe llevarlo al
+ * examen del módulo (no a la actividad del siguiente módulo) hasta que lo
+ * apruebe. Devuelve el id del examen a presentar, o `null` si no aplica.
+ */
+export function getModuleExamNavQuizId(params: {
+  activity: any;
+  modules: any[];
+  activities: any[];
+  event?: { module_exam_gating_enabled?: boolean } | null;
+  quizzes?: any[];
+  bestScoreByQuiz?: Record<string, number | false>;
+}): string | null {
+  const { activity, modules, activities, event } = params;
+  if (!event?.module_exam_gating_enabled) return null;
+  const moduleId = activity?.module_id;
+  if (!moduleId) return null;
+
+  const orderedModules = sortModulesByOrder(modules);
+  const module = orderedModules.find((m) => m._id === moduleId);
+  if (!module) return null;
+
+  const modActivities = sortActivitiesByDate(
+    activities.filter((a) => a.module_id === moduleId)
+  );
+  const last = modActivities[modActivities.length - 1];
+  if (!last || String(last._id) !== String(activity._id)) return null;
+
+  const modQuiz = getModuleQuiz(params.quizzes ?? [], moduleId);
+  if (!modQuiz) return null;
+
+  // Si ya lo aprobó, la navegación sigue normal hacia el próximo módulo.
+  const best = (params.bestScoreByQuiz ?? {})[quizIdOf(modQuiz)] ?? false;
+  if (isExamPassed(modQuiz, best)) return null;
+
+  return quizIdOf(modQuiz);
 }
 
 /**

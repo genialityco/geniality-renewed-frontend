@@ -16,14 +16,11 @@ import { useCourseSearch } from "./hooks/useCourseSearch";
 import { CourseHeader } from "./components/CourseHeader";
 import { CourseNavbar } from "./components/CourseNavbar";
 import { CourseMainContent } from "./components/CourseMainContent";
-import {
-  getOrderedActivities,
-  getLockedActivityIds,
-} from "./helpers/courseDetailHelpers";
+import { getLockedActivityIds } from "./helpers/courseDetailHelpers";
 import { toastInfo } from "../../utils/toast";
 
 const DEFAULT_LOCKED_MESSAGE =
-  "Completa la actividad anterior para desbloquear esta.";
+  "Completa las actividades anteriores (y aprueba el examen del módulo previo, si aplica) para desbloquear esta.";
 
 /**
  * Componente principal para la página de detalle del curso
@@ -65,12 +62,28 @@ export default function CourseDetail() {
     selectedActivity?._id || ""
   );
 
-  // Actividades bloqueadas por avance lineal del curso
+  // Actividades bloqueadas por avance lineal del curso y por la compuerta de
+  // examen de módulo (si está activa, exige aprobar el examen del módulo previo
+  // antes de habilitar las actividades del siguiente módulo).
   const lockedActivityIds = useMemo(() => {
     if (!event?.is_linear) return new Set<string>();
-    const ordered = getOrderedActivities(modules, activities);
-    return getLockedActivityIds(ordered, activityAttendees, true);
-  }, [event?.is_linear, modules, activities, activityAttendees]);
+    return getLockedActivityIds({
+      modules,
+      activities,
+      activityAttendees,
+      isLinear: true,
+      event,
+      quizzes,
+      bestScoreByQuiz,
+    });
+  }, [
+    event,
+    modules,
+    activities,
+    activityAttendees,
+    quizzes,
+    bestScoreByQuiz,
+  ]);
 
   // Handlers
   const handleActivitySelect = useCallback((activity: any) => {

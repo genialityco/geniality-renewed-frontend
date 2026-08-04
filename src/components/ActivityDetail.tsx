@@ -59,6 +59,11 @@ interface ActivityDetailProps {
   formatTime?: (seconds: number) => string;
   /** Curso lineal: bloquea avanzar a la siguiente actividad sin completar esta. */
   isLinear?: boolean;
+  /**
+   * Ruta del examen del módulo a la que debe llevar "Siguiente" cuando esta es
+   * la última actividad del módulo y su examen aún no está aprobado.
+   */
+  moduleExamNextRoute?: string | null;
 }
 
 export default function ActivityDetail({
@@ -72,6 +77,7 @@ export default function ActivityDetail({
   fragments: _frags = [],
   formatTime,
   isLinear = false,
+  moduleExamNextRoute = null,
 }: ActivityDetailProps) {
   const { userId } = useUser();
   const navigate = useNavigate();
@@ -562,15 +568,26 @@ export default function ActivityDetail({
     videoProgress >= COMPLETION_THRESHOLD ||
     (activity ? getActivityProgress(activityAttendees, activity._id) >= 100 : false);
 
+  // Cuando esta es la última actividad del módulo y su examen aún no está
+  // aprobado, "Siguiente" lleva al examen del módulo (una vez completada esta
+  // actividad), en vez de a la actividad del siguiente módulo.
+  const goToModuleExam = !!moduleExamNextRoute && currentCleared;
+
   // En curso lineal, "Siguiente" queda bloqueado hasta completar esta actividad.
-  const nextLocked = isLinear && !!nextActivity && !currentCleared;
+  // Si hay examen de módulo pendiente, también se considera "siguiente".
+  const hasNext = !!nextActivity || !!moduleExamNextRoute;
+  const nextLocked = isLinear && hasNext && !currentCleared;
 
   const handleNextClick = () => {
-    if (!nextActivity) return;
     if (nextLocked) {
       setNextLockedNotice(true);
       return;
     }
+    if (goToModuleExam && moduleExamNextRoute) {
+      navigate(moduleExamNextRoute);
+      return;
+    }
+    if (!nextActivity) return;
     handleNavigateActivity(nextActivity._id);
   };
 
@@ -695,13 +712,18 @@ export default function ActivityDetail({
         </Button>
 
         <Button
-          variant="outline"
-          disabled={!nextActivity}
+          variant={goToModuleExam ? "filled" : "outline"}
+          color={goToModuleExam ? "blue" : undefined}
+          disabled={!hasNext}
           onClick={handleNextClick}
-          rightSection={nextLocked ? "🔒" : "→"}
+          rightSection={nextLocked ? "🔒" : goToModuleExam ? "📝" : "→"}
           style={nextLocked ? { opacity: 0.7 } : undefined}
         >
-          {nextActivity ? nextActivity.name : "Siguiente"}
+          {goToModuleExam
+            ? "Examen del módulo"
+            : nextActivity
+              ? nextActivity.name
+              : "Siguiente"}
         </Button>
       </Group>
 

@@ -33,6 +33,7 @@ import {
   isExamPassed,
   isModuleExamUnlocked,
   getModuleQuiz,
+  getModuleExamNavQuizId,
   getCertificateGate,
   quizIdOf,
   sortActivitiesByDate,
@@ -167,6 +168,21 @@ export function CourseMainContent({
   const bannerSrc = event?.styles?.banner_image || event?.picture;
 
   if (selectedActivity) {
+    // Si esta es la última actividad de su módulo y la compuerta de examen de
+    // módulo está activa, la flecha "Siguiente" debe llevar al examen del
+    // módulo (no a la actividad del siguiente módulo) hasta que lo apruebe.
+    const moduleExamQuizId = getModuleExamNavQuizId({
+      activity: selectedActivity,
+      modules,
+      activities,
+      event,
+      quizzes,
+      bestScoreByQuiz,
+    });
+    const moduleExamNextRoute = moduleExamQuizId
+      ? `/organization/${organizationId}/course/${eventId}/quiz/${moduleExamQuizId}`
+      : null;
+
     return (
       <Stack gap="lg">
         {/* Banner (mismo header que en el listado del curso) */}
@@ -186,6 +202,7 @@ export function CourseMainContent({
           courseName={event?.name || ""}
           videoTime={videoStartTime}
           isLinear={!!event?.is_linear}
+          moduleExamNextRoute={moduleExamNextRoute}
         />
 
         {/* Footer del curso (imagen configurada en el evento) */}
@@ -793,8 +810,7 @@ export function CourseMainContent({
                   <Button
                     component="a"
                     href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    download={doc.originalName || doc.name}
                     size="xs"
                     variant="light"
                     leftSection={<FaDownload size={12} />}
