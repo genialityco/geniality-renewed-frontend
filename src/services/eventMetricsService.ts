@@ -64,3 +64,41 @@ export const fetchEventMetrics = async (
   );
   return response.data;
 };
+
+export interface EventMemberActivityProgress {
+  activityId: string;
+  progress: number;
+  completed: boolean;
+  timeSpentMs: number;
+}
+
+export interface EventMember {
+  userId: string;
+  name: string;
+  email: string;
+  courseProgress: number;
+  status: "completed" | "in_progress" | "not_started";
+  enrolledAt: string | null;
+  activities: EventMemberActivityProgress[];
+}
+
+export interface EventMembersMetrics {
+  activities: {
+    activityId: string;
+    name: string;
+    moduleName: string | null;
+    moduleOrder: number | null;
+  }[];
+  members: EventMember[];
+}
+
+/** Avance de cada miembro inscrito, actividad por actividad */
+export const fetchEventMembers = async (
+  organizationId: string,
+  eventId: string
+): Promise<EventMembersMetrics> => {
+  const response = await api.get<EventMembersMetrics>(
+    `/event-metrics/organization/${organizationId}/event/${eventId}/members`
+  );
+  return response.data;
+};

@@ -28,6 +28,7 @@ import {
   ActivityMetrics,
 } from "../../../services/eventMetricsService";
 import { buildSampleMetrics } from "./eventMetricsSample";
+import EventMembersPanel from "./EventMembersPanel";
 
 interface Props {
   organizationId: string;
@@ -259,6 +260,7 @@ export default function EventMetricsTab({ organizationId, eventId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [demoMode, setDemoMode] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -374,6 +376,34 @@ export default function EventMetricsTab({ organizationId, eventId }: Props) {
           Pasa el cursor para ver progreso y tiempo.
         </Text>
         <ActivityFunnel activities={activities} />
+      </Paper>
+
+      {/* Avance por miembro */}
+      <Paper withBorder p="md" radius="md">
+        <Group justify="space-between" align="flex-start" wrap="nowrap">
+          <Box>
+            <Title order={5} mb={2}>
+              Avance por miembro
+            </Title>
+            <Text size="xs" c="dimmed">
+              Progreso individual de cada inscrito, actividad por actividad.
+            </Text>
+          </Box>
+          {!showMembers && (
+            <Button
+              size="xs"
+              variant="light"
+              onClick={() => setShowMembers(true)}
+            >
+              Ver avance por miembro
+            </Button>
+          )}
+        </Group>
+        {showMembers && (
+          <Box mt="sm">
+            <EventMembersPanel organizationId={organizationId} eventId={eventId} />
+          </Box>
+        )}
       </Paper>
 
       {/* Examen y certificados */}
