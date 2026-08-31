@@ -2,6 +2,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   getQuizByEventId,
+  getQuizzesByEventId,
   Quiz,
   Question,
   UserAnswer,
@@ -30,6 +31,8 @@ interface AttemptRow {
 
 interface QuizListProps {
   eventId: string;
+  /** Módulo del examen. null/ausente = examen general del curso. */
+  moduleId?: string | null;
 }
 
 // ─────────────────────────────────────────────
@@ -574,7 +577,7 @@ function OpenQuestionReviewComponent({
 // Componente principal
 // ─────────────────────────────────────────────
 
-export default function QuizList({ eventId }: QuizListProps) {
+export default function QuizList({ eventId, moduleId = null }: QuizListProps) {
   const [rows, setRows] = useState<AttemptRow[]>([]);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [loading, setLoading] = useState(true);
@@ -589,7 +592,12 @@ export default function QuizList({ eventId }: QuizListProps) {
       setLoading(true);
       setError(null);
       try {
-        const quizData = await getQuizByEventId(eventId);
+        const allQuizzes = await getQuizzesByEventId(eventId);
+        const quizData = moduleId
+          ? allQuizzes.find(
+              (q) => q.moduleId && String(q.moduleId) === String(moduleId),
+            )
+          : allQuizzes.find((q) => !q.moduleId);
 
         if (!quizData) {
           setRows([]);
@@ -664,7 +672,7 @@ export default function QuizList({ eventId }: QuizListProps) {
         setLoading(false);
       }
     })();
-  }, [eventId]);
+  }, [eventId, moduleId]);
 
   const toggleExpand = (userId: string) => {
     setExpandedUserId((prev) => (prev === userId ? null : userId));

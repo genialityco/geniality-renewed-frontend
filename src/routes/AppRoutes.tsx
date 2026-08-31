@@ -11,6 +11,7 @@ import ActivityDetailContainer from "../pages/activity/ActivityDetailContainer";
 import Profile from "../pages/profile";
 
 import AdminOrganizationEvents from "../pages/admin/index";
+import CoursePreview from "../pages/course/CoursePreview";
 import PaymentStatus from "../pages/payment/PaymentStatus";
 import OrganizationLanding from "../pages/organizationLanding";
 import SuperAdmin from "../pages/superadmin";
@@ -76,6 +77,9 @@ export default function AppRoutes() {
         <Route element={<RequireAdmin />}>
           <Route path="admin">
             <Route index element={<AdminOrganizationEvents />} />
+            {/* Vista previa del curso/actividad tal como la ve el usuario final,
+                sin exigir membresía ni pago (solo admins). */}
+            <Route path="preview/:eventId" element={<CoursePreview />} />
           </Route>
         </Route>
         {/* <Route path="documents" element={<DocumentsAdminPage />} /> */}

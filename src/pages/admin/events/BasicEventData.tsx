@@ -16,6 +16,9 @@ import {
   Text,
   Select,
   Alert,
+  Switch,
+  NumberInput,
+  Textarea,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { uploadImageToFirebase } from "../../../utils/uploadImageToFirebase";
@@ -23,6 +26,7 @@ import { createEvent, updateEvent } from "../../../services/eventService";
 import type { Event } from "../../../services/types";
 import { useUser } from "../../../context/UserContext";
 import { useOrganization } from "../../../context/OrganizationContext";
+import { toastSaved, toastUpdated, toastError } from "../../../utils/toast";
 
 interface Props {
   formData: Partial<Event>;
@@ -97,6 +101,10 @@ export default function BasicEventData({
     }
   };
 
+  const setField = (name: keyof Event, value: any) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
   const getImage = (path: string[]) => {
     let v: any = formData;
     for (const key of path) {
@@ -158,18 +166,24 @@ export default function BasicEventData({
         // y en tu código original llamabas updateEvent(organizationId, eventId, formData)
         // Mantengo ese contrato:
         const updated = await updateEvent(eventId, payload);
-        onSaved(updated._id);
+        toastUpdated("Evento actualizado");
+        // Pasamos el id para que el contenedor permanezca en el editor (no
+        // vuelva a la lista). Respaldo: el eventId actual si el backend no lo
+        // devolviera.
+        onSaved(updated._id || eventId);
       } else {
         const created = await createEvent(organizationId, payload);
+        toastSaved("Evento creado");
         onSaved(created._id);
       }
     } catch (error: any) {
       console.error("Error saving event:", error);
-      setErrorMsg(
+      const msg =
         error?.response?.data?.message ||
-          error?.message ||
-          "No se pudo guardar el evento"
-      );
+        error?.message ||
+        "No se pudo guardar el evento";
+      setErrorMsg(msg);
+      toastError("No se pudo guardar el evento", msg);
     } finally {
       setSaving(false);
     }
@@ -195,6 +209,17 @@ export default function BasicEventData({
           value={formData.name || ""}
           onChange={handleChange}
           required
+        />
+
+        <Textarea
+          label="Descripción del curso"
+          description="Texto que se muestra bajo el título en la página del curso. Opcional."
+          placeholder="Escribe una descripción para el curso…"
+          value={formData.description || ""}
+          onChange={(e) => setField("description", e.currentTarget.value)}
+          autosize
+          minRows={3}
+          maxRows={8}
         />
 
         <Group grow>
@@ -247,7 +272,7 @@ export default function BasicEventData({
         {/* Miniatura */}
         <Grid.Col span={{ base: 12, md: 4 }}>
           <FileInput
-            label="Imagen miniatura"
+            label="Imagen miniatura (catálogo)"
             placeholder="Selecciona una imagen"
             accept="image/*"
             onChange={(file) => handleFileUpload(file, ["picture"])}
@@ -273,7 +298,7 @@ export default function BasicEventData({
         {/* Banner superior */}
         <Grid.Col span={{ base: 12, md: 4 }}>
           <FileInput
-            label="Banner superior"
+            label="Banner superior (header del curso)"
             placeholder="Selecciona una imagen"
             accept="image/*"
             onChange={(file) =>
@@ -300,100 +325,10 @@ export default function BasicEventData({
           )}
         </Grid.Col>
 
-        {/* Banner de correo electrónico */}
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <FileInput
-            label="Banner Email"
-            placeholder="Selecciona una imagen"
-            accept="image/*"
-            onChange={(file) =>
-              handleFileUpload(file, ["styles", "banner_image_email"])
-            }
-            disabled={!!uploading}
-          />
-          {getImage(["styles", "banner_image_email"]) && (
-            <Image
-              key={getImage(["styles", "banner_image_email"])}
-              src={getImage(["styles", "banner_image_email"])}
-              alt="Banner Email"
-              height={120}
-              mt="xs"
-              radius="md"
-              fit="cover"
-              style={{
-                border:
-                  uploading === "styles.banner_image_email"
-                    ? "2px dashed #228be6"
-                    : undefined,
-              }}
-            />
-          )}
-        </Grid.Col>
-
-        {/* Fondo */}
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <FileInput
-            label="Fondo del evento"
-            placeholder="Selecciona una imagen"
-            accept="image/*"
-            onChange={(file) =>
-              handleFileUpload(file, ["styles", "BackgroundImage"])
-            }
-            disabled={!!uploading}
-          />
-          {getImage(["styles", "BackgroundImage"]) && (
-            <Image
-              key={getImage(["styles", "BackgroundImage"])}
-              src={getImage(["styles", "BackgroundImage"])}
-              alt="Fondo"
-              height={120}
-              mt="xs"
-              radius="md"
-              fit="cover"
-              style={{
-                border:
-                  uploading === "styles.BackgroundImage"
-                    ? "2px dashed #228be6"
-                    : undefined,
-              }}
-            />
-          )}
-        </Grid.Col>
-
-        {/* Logo */}
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <FileInput
-            label="Logo"
-            placeholder="Selecciona una imagen"
-            accept="image/*"
-            onChange={(file) =>
-              handleFileUpload(file, ["styles", "menu_image"])
-            }
-            disabled={!!uploading}
-          />
-          {getImage(["styles", "menu_image"]) && (
-            <Image
-              key={getImage(["styles", "menu_image"])}
-              src={getImage(["styles", "menu_image"])}
-              alt="Logo"
-              height={120}
-              mt="xs"
-              radius="md"
-              fit="cover"
-              style={{
-                border:
-                  uploading === "styles.menu_image"
-                    ? "2px dashed #228be6"
-                    : undefined,
-              }}
-            />
-          )}
-        </Grid.Col>
-
         {/* Footer */}
         <Grid.Col span={{ base: 12, md: 4 }}>
           <FileInput
-            label="Imagen Footer"
+            label="Imagen Footer (pie del curso)"
             placeholder="Selecciona una imagen"
             accept="image/*"
             onChange={(file) =>
@@ -420,40 +355,11 @@ export default function BasicEventData({
           )}
         </Grid.Col>
 
-        {/* Footer Email */}
+          {/* Logo del curso (cabecera) */}
         <Grid.Col span={{ base: 12, md: 4 }}>
           <FileInput
-            label="Footer para Email"
-            placeholder="Selecciona una imagen"
-            accept="image/*"
-            onChange={(file) =>
-              handleFileUpload(file, ["styles", "banner_footer_email"])
-            }
-            disabled={!!uploading}
-          />
-          {getImage(["styles", "banner_footer_email"]) && (
-            <Image
-              key={getImage(["styles", "banner_footer_email"])}
-              src={getImage(["styles", "banner_footer_email"])}
-              alt="Footer Email"
-              height={120}
-              mt="xs"
-              radius="md"
-              fit="cover"
-              style={{
-                border:
-                  uploading === "styles.banner_footer_email"
-                    ? "2px dashed #228be6"
-                    : undefined,
-              }}
-            />
-          )}
-        </Grid.Col>
-
-          {/*Imagen evento*/}
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <FileInput
-            label="Imagen Evento"
+            label="Logo del curso (cabecera)"
+            description="Imagen pequeña que aparece junto al título en el header del curso. Es independiente del banner superior."
             placeholder="Selecciona una imagen"
             accept="image/*"
             onChange={(file) =>
@@ -480,6 +386,114 @@ export default function BasicEventData({
           )}
         </Grid.Col>
       </Grid>
+
+      <Divider my="xl" label="Reglas del curso" labelPosition="center" />
+
+      <Stack gap="lg">
+        {/* Curso lineal */}
+        <Switch
+          checked={!!formData.is_linear}
+          onChange={(e) => setField("is_linear", e.currentTarget.checked)}
+          label="Curso lineal (obligar orden de las actividades)"
+          description="Si se activa, el alumno debe completar cada actividad antes de avanzar a la siguiente. Por defecto el curso se puede ver en cualquier orden."
+        />
+
+        <Divider variant="dashed" />
+
+        {/* Compuerta del examen general del curso */}
+        <Switch
+          checked={!!formData.exam_gating_enabled}
+          onChange={(e) =>
+            setField("exam_gating_enabled", e.currentTarget.checked)
+          }
+          label="Configurar requisitos para desbloquear el examen general"
+          description="Mientras esta opción esté desactivada, el examen general permanecerá bloqueado para el alumno. Actívala para definir el avance mínimo requerido."
+        />
+
+        {formData.exam_gating_enabled && (
+          <Grid gutter="md">
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <NumberInput
+                label="Avance mínimo para desbloquear el examen (%)"
+                min={0}
+                max={100}
+                clampBehavior="strict"
+                value={
+                  formData.exam_min_progress === undefined
+                    ? 100
+                    : formData.exam_min_progress
+                }
+                onChange={(v) =>
+                  setField(
+                    "exam_min_progress",
+                    typeof v === "number" ? v : Number(v) || 0
+                  )
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 8 }}>
+              <Textarea
+                label="Mensaje cuando el examen está bloqueado"
+                placeholder="Ej: Debes completar el 100% del curso para presentar el examen."
+                autosize
+                minRows={2}
+                value={formData.exam_locked_message || ""}
+                onChange={(e) =>
+                  setField("exam_locked_message", e.currentTarget.value)
+                }
+              />
+            </Grid.Col>
+          </Grid>
+        )}
+
+        <Divider variant="dashed" />
+
+        {/* Compuerta de exámenes de módulo */}
+        <Switch
+          checked={!!formData.module_exam_gating_enabled}
+          onChange={(e) =>
+            setField("module_exam_gating_enabled", e.currentTarget.checked)
+          }
+          label="Bloquear los exámenes de módulo hasta ver sus actividades"
+          description="Mientras esta opción esté desactivada, los exámenes de módulo permanecerán bloqueados. Actívala para definir el porcentaje de avance requerido en cada módulo."
+        />
+
+        {formData.module_exam_gating_enabled && (
+          <Grid gutter="md">
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <NumberInput
+                label="Avance del módulo para desbloquear su examen (%)"
+                min={0}
+                max={100}
+                clampBehavior="strict"
+                value={
+                  formData.module_exam_min_progress === undefined
+                    ? 100
+                    : formData.module_exam_min_progress
+                }
+                onChange={(v) =>
+                  setField(
+                    "module_exam_min_progress",
+                    typeof v === "number" ? v : Number(v) || 0
+                  )
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 8 }}>
+              <Textarea
+                label="Mensaje cuando el examen del módulo está bloqueado"
+                placeholder="Ej: Completa todas las actividades del módulo para presentar su examen."
+                autosize
+                minRows={2}
+                value={formData.module_exam_locked_message || ""}
+                onChange={(e) =>
+                  setField("module_exam_locked_message", e.currentTarget.value)
+                }
+              />
+            </Grid.Col>
+          </Grid>
+        )}
+      </Stack>
 
       <Divider my="xl" />
 

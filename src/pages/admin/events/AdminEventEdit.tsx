@@ -1,19 +1,21 @@
 // src/pages/admin/AdminEventEdit.tsx
 import { useEffect, useState } from "react";
 import { Container, Tabs, Loader, Text, Button, Group } from "@mantine/core";
+import { FaEye } from "react-icons/fa6";
 
 import { Event } from "../../../services/types";
 import { fetchEventById } from "../../../services/eventService";
+import { openCoursePreview } from "../../../utils/previewUrl";
 
 import BasicEventData from "./BasicEventData";
 import AdminModules from "./AdminModules";
 import AdminActivities from "./AdminActivities";
 import AdminHosts from "./AdminHosts";
-import QuizList from "../../../components/QuizList";
-import QuizEditComponent from "../../../components/QuizEditComponent";
 import QuizConfig from "../../../components/QuizConfig";
+import AdminExamsManager from "./AdminExamsManager";
 import CertificateComponent from "../../../components/CertificateComponent";
 import EventMetricsTab from "./EventMetricsTab";
+import CertificateRulesConfig from "./CertificateRulesConfig";
 interface Props {
   organizationId: string;
   eventId: string; // puede ser "new" o un id real
@@ -27,6 +29,7 @@ export default function AdminEventEdit({
 }: Props) {
   const [formData, setFormData] = useState<Partial<Event>>({});
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<string | null>("basicos");
 
   const isEditing = eventId !== "new";
 
@@ -46,12 +49,12 @@ export default function AdminEventEdit({
 
   return (
     <Container fluid>
-      <Tabs defaultValue="basicos">
+      <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>
           <Tabs.Tab value="basicos">Datos Curso</Tabs.Tab>
           <Tabs.Tab value="modulos">Módulos</Tabs.Tab>
           <Tabs.Tab value="actividades">Actividades</Tabs.Tab>
-          <Tabs.Tab value="hosts">Hosts</Tabs.Tab>
+          <Tabs.Tab value="hosts">Conferencistas</Tabs.Tab>
           <Tabs.Tab value="Examen">Examen</Tabs.Tab>
           <Tabs.Tab value="certificado">Certificado</Tabs.Tab>
           <Tabs.Tab value="metricas">Métricas</Tabs.Tab>
@@ -70,17 +73,13 @@ export default function AdminEventEdit({
 
         <Tabs.Panel value="Examen" pt="md">
           {isEditing ? (
-            <Tabs defaultValue="Resultados">
+            <Tabs defaultValue="Examenes">
               <Tabs.List>
-                <Tabs.Tab value="Resultados">Resultados</Tabs.Tab>
-                <Tabs.Tab value="Preguntas">Preguntas</Tabs.Tab>
+                <Tabs.Tab value="Examenes">Exámenes</Tabs.Tab>
                 <Tabs.Tab value="Configuracion">Configuración</Tabs.Tab>
               </Tabs.List>
-              <Tabs.Panel value="Resultados" pt="md">
-                <QuizList eventId={eventId} />
-              </Tabs.Panel>
-              <Tabs.Panel value="Preguntas" pt="md">
-                <QuizEditComponent eventId={eventId} />
+              <Tabs.Panel value="Examenes" pt="md">
+                <AdminExamsManager eventId={eventId} />
               </Tabs.Panel>
               <Tabs.Panel value="Configuracion" pt="md">
                 <QuizConfig eventId={eventId} />
@@ -88,7 +87,7 @@ export default function AdminEventEdit({
             </Tabs>
           ) : (
             <Text mb="md">
-              Guarda primero el evento para gestionar el examen.
+              Guarda primero el evento para gestionar los exámenes.
             </Text>
           )}
         </Tabs.Panel>
@@ -108,6 +107,7 @@ export default function AdminEventEdit({
             <AdminActivities
               organizationId={organizationId}
               eventId={eventId}
+              active={activeTab === "actividades"}
             />
           ) : (
             <Text mb="md">
@@ -124,7 +124,10 @@ export default function AdminEventEdit({
         </Tabs.Panel>
         <Tabs.Panel value="certificado" pt="md">
           {isEditing ? (
-            <CertificateComponent eventId={eventId} />
+            <>
+              <CertificateComponent eventId={eventId} />
+              <CertificateRulesConfig eventId={eventId} />
+            </>
           ) : (
             <Text mb="md">
               Guarda primero el evento para configurar el certificado.
@@ -149,6 +152,16 @@ export default function AdminEventEdit({
         <Button variant="default" onClick={() => onFinish()}>
           Cancelar
         </Button>
+        {isEditing && (
+          <Button
+            variant="light"
+            color="teal"
+            leftSection={<FaEye size={16} />}
+            onClick={() => openCoursePreview(organizationId, eventId)}
+          >
+            Vista previa del curso
+          </Button>
+        )}
       </Group>
     </Container>
   );

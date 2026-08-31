@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Stack,
   Box,
@@ -14,21 +14,55 @@ import {
   Modal,
   Accordion,
   Progress,
+  ThemeIcon,
 } from "@mantine/core";
 import { useNavigate, useParams } from "react-router-dom";
 import ActivityDetailWithTracker from "../../../components/ActivityDetailWithTracker";
 import CourseProgressCard from "../../../components/CourseProgressCard";
 import ActivityGrid from "../../../components/ActivityGrid";
 import { CourseFooter } from "./CourseFooter";
+import { CourseDescription } from "./CourseDescription";
 import SearchBar, { SearchResult } from "../../organizationLanding/components/SearchBar";
 import { Activity, Host, Event } from "../../../services/types";
 import {
   getActivityProgress,
   getModuleAverageProgress,
+  getModuleCompletionPercent,
   getProgressColor,
+  isExamUnlocked,
+  isExamPassed,
+  isModuleExamUnlocked,
+  getModuleQuiz,
+  getModuleExamNavQuizId,
+  getCertificateGate,
+  quizIdOf,
   sortActivitiesByDate,
   sortModulesByOrder,
 } from "../helpers/courseDetailHelpers";
+import { FaLock, FaCircleCheck, FaFileLines, FaDownload } from "react-icons/fa6";
+import { useUser } from "../../../context/UserContext";
+import {
+  generateCertificate,
+  getCertificateDeliveryUrls,
+  getCertificateTemplateByEvent,
+  GeneratedCertificate,
+  CertificateTemplate,
+} from "../../../services/certificateService";
+import {
+  DocumentService,
+  Document as CourseDocument,
+} from "../../../services/documentService";
+
+/** Formatea el tamaño de un archivo en una unidad legible. */
+function formatFileSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return "";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.min(
+    units.length - 1,
+    Math.floor(Math.log(bytes) / Math.log(1024))
+  );
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
 
 interface CourseMainContentProps {
   event: Event | null;
@@ -38,8 +72,11 @@ interface CourseMainContentProps {
   courseProgress: number;
   selectedActivity: Activity | null;
   quiz: any;
+  quizzes: any[];
+  bestScoreByQuiz: Record<string, number | false>;
   userAttempts: any[];
   modules: any[];
+  lockedActivityIds?: Set<string>;
   searchQuery: string;
   searchResults: SearchResult[];
   searchLoading: boolean;
@@ -60,8 +97,11 @@ export function CourseMainContent({
   courseProgress,
   selectedActivity,
   quiz,
+  quizzes,
+  bestScoreByQuiz,
   userAttempts,
   modules,
+  lockedActivityIds,
   searchQuery,
   searchResults,
   searchLoading,
@@ -75,22 +115,80 @@ export function CourseMainContent({
 }: CourseMainContentProps) {
   const navigate = useNavigate();
   const { organizationId, eventId } = useParams();
+  const { userId, name } = useUser();
   const [selectedHost, setSelectedHost] = useState<Host | null>(null);
   const [hostModalOpened, setHostModalOpened] = useState(false);
   const [videoStartTime, setVideoStartTime] = useState<number | null>(null);
+  const [examLockedOpened, setExamLockedOpened] = useState(false);
+  const [certLockedOpened, setCertLockedOpened] = useState(false);
+  const [modExamLockedMsg, setModExamLockedMsg] = useState<string | null>(null);
+  const [certificateTemplate, setCertificateTemplate] =
+    useState<CertificateTemplate | null>(null);
+  const [generatingCert, setGeneratingCert] = useState(false);
+  const [generatedCert, setGeneratedCert] =
+    useState<GeneratedCertificate | null>(null);
+  const [documents, setDocuments] = useState<CourseDocument[]>([]);
 
-  const bannerSrc =
-    event?.styles?.banner_image ||
-    event?.picture ||
-    event?.styles?.event_image;
+  // Cargar la plantilla del certificado del curso (si existe).
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    getCertificateTemplateByEvent(eventId)
+      .then((tpl) => {
+        if (!cancelled) setCertificateTemplate(tpl);
+      })
+      .catch(() => {
+        if (!cancelled) setCertificateTemplate(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId]);
+
+  // Cargar los documentos (material de apoyo) del curso.
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    DocumentService.getEventDocuments(eventId)
+      .then((docs) => {
+        if (!cancelled) setDocuments((docs || []).filter((d) => d.active));
+      })
+      .catch(() => {
+        if (!cancelled) setDocuments([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId]);
+
+  // Banner superior del curso. Nota: NO se usa `styles.event_image` como
+  // respaldo, porque ese campo está reservado exclusivamente al logo del header
+  // del curso (CourseHeader). Así el logo del header y el banner son
+  // independientes.
+  const bannerSrc = event?.styles?.banner_image || event?.picture;
 
   if (selectedActivity) {
+    // Si esta es la última actividad de su módulo y la compuerta de examen de
+    // módulo está activa, la flecha "Siguiente" debe llevar al examen del
+    // módulo (no a la actividad del siguiente módulo) hasta que lo apruebe.
+    const moduleExamQuizId = getModuleExamNavQuizId({
+      activity: selectedActivity,
+      modules,
+      activities,
+      event,
+      quizzes,
+      bestScoreByQuiz,
+    });
+    const moduleExamNextRoute = moduleExamQuizId
+      ? `/organization/${organizationId}/course/${eventId}/quiz/${moduleExamQuizId}`
+      : null;
+
     return (
       <Stack gap="lg">
         {/* Banner (mismo header que en el listado del curso) */}
         {bannerSrc && (
           <Box style={{ borderRadius: 16, overflow: "hidden" }}>
-            <Image src={bannerSrc} fit="cover" mah={280} w="100%" />
+            <Image src={bannerSrc} fit="contain" w="100%" h="auto" />
           </Box>
         )}
 
@@ -103,6 +201,8 @@ export function CourseMainContent({
           courseId={event?._id || ""}
           courseName={event?.name || ""}
           videoTime={videoStartTime}
+          isLinear={!!event?.is_linear}
+          moduleExamNextRoute={moduleExamNextRoute}
         />
 
         {/* Footer del curso (imagen configurada en el evento) */}
@@ -113,9 +213,98 @@ export function CourseMainContent({
 
   const qid = quiz?._id || quiz?.id;
   const attempted = userAttempts.some((a) => a.userId);
+
+  // Compuerta del examen: por defecto siempre disponible. Si el admin activó
+  // el requisito de avance mínimo, el botón sigue visible pero muestra el
+  // mensaje configurado hasta alcanzar el porcentaje requerido.
+  const examUnlocked = isExamUnlocked(event, courseProgress);
+  const examRequired = Number.isFinite(event?.exam_min_progress)
+    ? Number(event?.exam_min_progress)
+    : 100;
+  const examLockedMessage = !event?.exam_gating_enabled
+    ? "El examen está bloqueado hasta que el administrador configure sus requisitos."
+    : (event?.exam_locked_message || "").trim() ||
+      `Debes completar al menos el ${examRequired}% del curso para realizar el examen. Vas en ${courseProgress}%.`;
+
+  const goToQuiz = () => {
+    navigate(
+      attempted
+        ? `/organization/${organizationId}/course/${eventId}/quiz/${qid}/result`
+        : `/organization/${organizationId}/course/${eventId}/quiz/${qid}`
+    );
+  };
   const completedCount = activities.filter(
     (activity) => getActivityProgress(activityAttendees, activity._id) >= 100
   ).length;
+
+  // ── Certificado ──────────────────────────────────────────────────────
+  const quizzesExist = quizzes.length > 0;
+  const certGate = getCertificateGate({
+    event,
+    quizzes,
+    bestScoreByQuiz,
+    completedActivities: completedCount,
+  });
+  // % promedio de aprobación para el campo del certificado.
+  const numericScores = quizzes
+    .map((q: any) => bestScoreByQuiz[quizIdOf(q)])
+    .filter((s): s is number => typeof s === "number");
+  const avgApprovalPercentage = numericScores.length
+    ? Math.round(numericScores.reduce((a, b) => a + b, 0) / numericScores.length)
+    : 100;
+  // Mostrar el CTA de certificado cuando existe plantilla y existe al menos
+  // un examen del curso (general o de módulo).
+  const showCertificateCTA = !!certificateTemplate && quizzesExist;
+  // El certificado se desbloquea según las reglas del admin.
+  // Por defecto (sin configuración activa) queda bloqueado.
+  const certUnlocked = certGate.unlocked;
+  const certificateLockedMessage =
+    (event?.certificate_locked_message || "").trim() ||
+    certGate.message ||
+    "El certificado aún no está disponible. El administrador debe configurar los requisitos para desbloquearlo.";
+
+  const ensureCertificate = async (): Promise<GeneratedCertificate | null> => {
+    if (generatedCert) return generatedCert;
+    if (!certificateTemplate || !eventId) return null;
+    try {
+      setGeneratingCert(true);
+      const data: Record<string, string | number> = {};
+      certificateTemplate.fields.forEach((field) => {
+        if (field.dataSource === "userName") data[field.name] = name || "Participante";
+        else if (field.dataSource === "eventName") data[field.name] = event?.name || "Evento";
+        else if (field.dataSource === "approvalPercentage")
+          data[field.name] = `${avgApprovalPercentage}%`;
+        else if (field.defaultValue) data[field.name] = field.defaultValue;
+      });
+      const generated = await generateCertificate({
+        eventId,
+        format: certificateTemplate.format,
+        data,
+        userId: userId || undefined,
+      });
+      setGeneratedCert(generated);
+      return generated;
+    } catch {
+      return null;
+    } finally {
+      setGeneratingCert(false);
+    }
+  };
+
+  const handleOpenCertificate = async (mode: "view" | "download") => {
+    if (!certUnlocked) {
+      setCertLockedOpened(true);
+      return;
+    }
+    const cert = await ensureCertificate();
+    if (!cert) return;
+    const { viewUrl, downloadUrl } = getCertificateDeliveryUrls(cert);
+    window.open(
+      mode === "view" ? viewUrl : downloadUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  };
 
   const orderedModules = sortModulesByOrder(modules);
   const moduleIds = new Set(orderedModules.map((module) => module._id));
@@ -191,11 +380,7 @@ export function CourseMainContent({
         <Title order={2} size="h2" mb="xs">
           {event?.name}
         </Title>
-        {event?.description && (
-          <Text size="sm" c="dimmed" lineClamp={2}>
-            {event.description}
-          </Text>
-        )}
+        <CourseDescription description={event?.description} />
       </Box>
 
       {/* Progreso */}
@@ -208,23 +393,67 @@ export function CourseMainContent({
       />
 
       {/* Quiz CTA */}
-      {quiz && qid && (
-        <Button
-          fullWidth
-          size="md"
-          variant={attempted ? "light" : "filled"}
-          color={attempted ? "teal" : "blue"}
-          onClick={() =>
-            navigate(
-              attempted
-                ? `/organization/${organizationId}/course/${eventId}/quiz/${qid}/result`
-                : `/organization/${organizationId}/course/${eventId}/quiz/${qid}`
-            )
-          }
-        >
-          {attempted ? "Ver mis resultados del examen →" : "Realizar examen →"}
-        </Button>
-      )}
+      {quiz && qid && (() => {
+        // El examen queda bloqueado solo si aún no se ha intentado y no se
+        // alcanzó el avance requerido. Ver resultados siempre está disponible.
+        const locked = !attempted && !examUnlocked;
+        return (
+          <Button
+            fullWidth
+            size="md"
+            variant={attempted ? "light" : locked ? "default" : "filled"}
+            color={attempted ? "teal" : "blue"}
+            leftSection={locked ? <FaLock size={14} /> : undefined}
+            onClick={() => {
+              if (locked) {
+                setExamLockedOpened(true);
+                return;
+              }
+              goToQuiz();
+            }}
+          >
+            {attempted
+              ? "Ver mis resultados del examen →"
+              : locked
+                ? "Realizar examen (bloqueado)"
+                : "Realizar examen →"}
+          </Button>
+        );
+      })()}
+
+      {/* Certificado CTA (cursos con exámenes de módulo o con reglas activas) */}
+      {showCertificateCTA &&
+        (certUnlocked ? (
+          <Group grow>
+            <Button
+              size="md"
+              variant="light"
+              color="grape"
+              loading={generatingCert}
+              onClick={() => handleOpenCertificate("view")}
+            >
+              Ver certificado
+            </Button>
+            <Button
+              size="md"
+              color="grape"
+              loading={generatingCert}
+              onClick={() => handleOpenCertificate("download")}
+            >
+              Descargar certificado
+            </Button>
+          </Group>
+        ) : (
+          <Button
+            fullWidth
+            size="md"
+            variant="default"
+            leftSection={<FaLock size={14} />}
+            onClick={() => setCertLockedOpened(true)}
+          >
+            Certificado
+          </Button>
+        ))}
 
       {/* Búsqueda */}
       <SearchBar
@@ -313,12 +542,111 @@ export function CourseMainContent({
                     />
                   </Accordion.Control>
                   <Accordion.Panel pt="md">
+                    {/* Examen del módulo (si existe) */}
+                    {(() => {
+                      const modQuiz = getModuleQuiz(quizzes, module._id);
+                      if (!modQuiz) return null;
+                      const mqId = quizIdOf(modQuiz);
+                      const best = bestScoreByQuiz[mqId] ?? false;
+                      const passed = isExamPassed(modQuiz, best);
+                      const attemptedMod = best !== false;
+                      const quizBase = `/organization/${organizationId}/course/${eventId}/quiz/${mqId}`;
+
+                      // Compuerta: bloqueado hasta ver las actividades del módulo.
+                      const modCompletion = getModuleCompletionPercent(
+                        modActivities,
+                        activityAttendees
+                      );
+                      const modLocked =
+                        !attemptedMod &&
+                        !isModuleExamUnlocked(event, modCompletion);
+                      const modRequired = Number.isFinite(
+                        event?.module_exam_min_progress
+                      )
+                        ? Number(event?.module_exam_min_progress)
+                        : 100;
+                      const modLockedMessage =
+                        !event?.module_exam_gating_enabled
+                          ? "El examen del módulo está bloqueado hasta que el administrador configure sus requisitos."
+                          : (event?.module_exam_locked_message || "").trim() ||
+                            `Completa al menos el ${modRequired}% de las actividades de este módulo para presentar su examen (llevas ${modCompletion}%).`;
+
+                      return (
+                        <Group
+                          justify="space-between"
+                          wrap="nowrap"
+                          mb="md"
+                          p="sm"
+                          style={{
+                            border: "1px solid #e9ecef",
+                            borderRadius: 10,
+                            backgroundColor: passed ? "#f0fdf4" : "#f8f9fa",
+                          }}
+                        >
+                          <Group gap="xs" wrap="nowrap">
+                            <Text fw={600} size="sm">
+                              📝 Examen del módulo
+                            </Text>
+                            {passed ? (
+                              <Badge
+                                color="teal"
+                                variant="light"
+                                leftSection={<FaCircleCheck size={11} />}
+                              >
+                                Aprobado
+                              </Badge>
+                            ) : attemptedMod ? (
+                              <Badge color="yellow" variant="light">
+                                Intentado
+                              </Badge>
+                            ) : modLocked ? (
+                              <Badge
+                                color="gray"
+                                variant="light"
+                                leftSection={<FaLock size={10} />}
+                              >
+                                Bloqueado
+                              </Badge>
+                            ) : null}
+                          </Group>
+                          {modLocked ? (
+                            <Button
+                              size="xs"
+                              variant="default"
+                              leftSection={<FaLock size={12} />}
+                              onClick={() =>
+                                setModExamLockedMsg(modLockedMessage)
+                              }
+                            >
+                              Examen del módulo
+                            </Button>
+                          ) : (
+                            <Button
+                              size="xs"
+                              variant={attemptedMod ? "light" : "filled"}
+                              color={passed ? "teal" : "blue"}
+                              onClick={() =>
+                                navigate(
+                                  attemptedMod ? `${quizBase}/result` : quizBase
+                                )
+                              }
+                            >
+                              {attemptedMod
+                                ? "Ver resultados"
+                                : "Realizar examen del módulo"}
+                            </Button>
+                          )}
+                        </Group>
+                      );
+                    })()}
+
                     <ActivityGrid
                       activities={modActivities}
                       activityAttendees={activityAttendees}
                       selectedActivityId={undefined}
                       onActivitySelect={onActivitySelect}
                       hosts={hosts}
+                      lockedActivityIds={lockedActivityIds}
                     />
                   </Accordion.Panel>
                 </Accordion.Item>
@@ -342,6 +670,7 @@ export function CourseMainContent({
             selectedActivityId={undefined}
             onActivitySelect={onActivitySelect}
             hosts={hosts}
+            lockedActivityIds={lockedActivityIds}
           />
         </>
       )}
@@ -431,8 +760,157 @@ export function CourseMainContent({
         </>
       )}
 
+      {/* Material de apoyo (documentos del curso) */}
+      {documents.length > 0 && (
+        <>
+          <Divider my="xl" />
+          <Box>
+            <Group justify="space-between" align="center" mb="md">
+              <Text fw={700} size="lg">
+                📎 Material de apoyo
+              </Text>
+              <Text size="xs" c="dimmed">
+                {documents.length}{" "}
+                {documents.length === 1 ? "documento" : "documentos"}
+              </Text>
+            </Group>
+            <Stack gap="xs">
+              {documents.map((doc) => (
+                <Group
+                  key={doc._id}
+                  justify="space-between"
+                  wrap="nowrap"
+                  p="sm"
+                  style={{
+                    border: "1px solid #e9ecef",
+                    borderRadius: 10,
+                    backgroundColor: "#fff",
+                  }}
+                >
+                  <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                    <ThemeIcon
+                      variant="light"
+                      color="blue"
+                      size="lg"
+                      radius="md"
+                    >
+                      <FaFileLines size={16} />
+                    </ThemeIcon>
+                    <div style={{ minWidth: 0 }}>
+                      <Text size="sm" fw={600} lineClamp={1}>
+                        {doc.originalName || doc.name}
+                      </Text>
+                      {formatFileSize(doc.size) && (
+                        <Text size="xs" c="dimmed">
+                          {formatFileSize(doc.size)}
+                        </Text>
+                      )}
+                    </div>
+                  </Group>
+                  <Button
+                    component="a"
+                    href={doc.url}
+                    download={doc.originalName || doc.name}
+                    size="xs"
+                    variant="light"
+                    leftSection={<FaDownload size={12} />}
+                    style={{ flexShrink: 0 }}
+                  >
+                    Descargar
+                  </Button>
+                </Group>
+              ))}
+            </Stack>
+          </Box>
+        </>
+      )}
+
       {/* Footer del curso (imagen configurada en el evento) */}
       <CourseFooter event={event} />
+
+      {/* Modal: examen bloqueado por avance insuficiente */}
+      <Modal
+        opened={examLockedOpened}
+        onClose={() => setExamLockedOpened(false)}
+        title={
+          <Group gap="xs">
+            <FaLock size={16} />
+            <Text fw={700}>Examen bloqueado</Text>
+          </Group>
+        }
+        centered
+        radius="lg"
+      >
+        <Stack gap="md">
+          <Text style={{ lineHeight: 1.6 }}>{examLockedMessage}</Text>
+          <Progress
+            value={courseProgress}
+            size="lg"
+            radius="xl"
+            color={courseProgress >= examRequired ? "green" : "blue"}
+          />
+          <Text size="sm" c="dimmed">
+            Avance actual: {courseProgress}% · Requerido: {examRequired}%
+          </Text>
+          <Button fullWidth onClick={() => setExamLockedOpened(false)}>
+            Entendido
+          </Button>
+        </Stack>
+      </Modal>
+
+      {/* Modal: examen de módulo bloqueado */}
+      <Modal
+        opened={!!modExamLockedMsg}
+        onClose={() => setModExamLockedMsg(null)}
+        title={
+          <Group gap="xs">
+            <FaLock size={16} />
+            <Text fw={700}>Examen de módulo bloqueado</Text>
+          </Group>
+        }
+        centered
+        radius="lg"
+      >
+        <Stack gap="md">
+          <Text style={{ lineHeight: 1.6 }}>
+            {modExamLockedMsg ||
+              "Este examen de módulo está bloqueado por requisitos de avance."}
+          </Text>
+          <Button fullWidth onClick={() => setModExamLockedMsg(null)}>
+            Entendido
+          </Button>
+        </Stack>
+      </Modal>
+
+      {/* Modal: certificado bloqueado por reglas */}
+      <Modal
+        opened={certLockedOpened}
+        onClose={() => setCertLockedOpened(false)}
+        title={
+          <Group gap="xs">
+            <FaLock size={16} />
+            <Text fw={700}>Certificado bloqueado</Text>
+          </Group>
+        }
+        centered
+        radius="lg"
+      >
+        <Stack gap="md">
+          <Text style={{ lineHeight: 1.6 }}>{certificateLockedMessage}</Text>
+          {certGate.pending.length > 0 && (
+            <Stack gap={4}>
+              {certGate.pending.map((p, i) => (
+                <Text key={i} size="sm" c="dimmed">
+                  • {p}
+                </Text>
+              ))}
+            </Stack>
+          )}
+          <Button fullWidth onClick={() => setCertLockedOpened(false)}>
+            Entendido
+          </Button>
+        </Stack>
+      </Modal>
 
       {/* Host Modal */}
       <Modal

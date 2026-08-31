@@ -11,7 +11,7 @@ import {
   Avatar,
   Group,
 } from "@mantine/core";
-import { FaCircleCheck, FaPause, FaPlay } from "react-icons/fa6";
+import { FaCircleCheck, FaLock, FaPause, FaPlay } from "react-icons/fa6";
 import { Activity, Host } from "../services/types";
 import { getActivityProgress } from "../services/activityAttendeeService";
 import { useState, useEffect } from "react";
@@ -100,6 +100,10 @@ interface ActivityGridProps {
   onActivitySelect: (activity: Activity) => void;
   loading?: boolean;
   hosts?: Host[];
+  /** IDs de actividades bloqueadas por avance lineal del curso. */
+  lockedActivityIds?: Set<string>;
+  /** Mensaje mostrado en el tooltip de una actividad bloqueada. */
+  lockedMessage?: string;
 }
 
 export default function ActivityGrid({
@@ -109,6 +113,8 @@ export default function ActivityGrid({
   onActivitySelect,
   loading = false,
   hosts = [],
+  lockedActivityIds,
+  lockedMessage = "Completa la actividad anterior para desbloquear esta.",
 }: ActivityGridProps) {
   if (loading) {
     return (
@@ -130,6 +136,7 @@ export default function ActivityGrid({
         const isDone = progress === 100;
         const inProgress = progress > 0 && progress < 100;
         const isSelected = selectedActivityId === activity._id;
+        const isLocked = lockedActivityIds?.has(String(activity._id)) ?? false;
 
         // Get hosts for this activity
         const activityHosts = hosts.filter((h) =>
@@ -139,28 +146,32 @@ export default function ActivityGrid({
         return (
           <Tooltip
             key={activity._id}
-            label={activity.name}
+            label={isLocked ? lockedMessage : activity.name}
             multiline
             w={200}
             position="bottom"
           >
             <Card
-              onClick={() => onActivitySelect(activity)}
+              onClick={() => {
+                if (isLocked) return;
+                onActivitySelect(activity);
+              }}
               style={{
-                cursor: "pointer",
+                cursor: isLocked ? "not-allowed" : "pointer",
                 border: isSelected ? "3px solid #667eea" : "1px solid #e0e0e0",
                 transform: isSelected ? "scale(1.02)" : "scale(1)",
                 transition: "all 0.2s ease",
                 display: "flex",
                 flexDirection: "column",
                 height: "100%",
+                opacity: isLocked ? 0.6 : 1,
               }}
               withBorder
               radius="lg"
               shadow={isSelected ? "lg" : "sm"}
               p={0}
               mih={360}
-              className="hover-lift"
+              className={isLocked ? undefined : "hover-lift"}
             >
               {/* Thumbnail con video o color de fondo */}
               <Box
@@ -192,7 +203,7 @@ export default function ActivityGrid({
                   ) : null
                 ) : null}
 
-                {/* Botón play siempre al centro */}
+                {/* Botón play (o candado si está bloqueada) siempre al centro */}
                 <ThemeIcon
                   size="xl"
                   radius="xl"
@@ -207,7 +218,11 @@ export default function ActivityGrid({
                     border: "2px solid rgba(255,255,255,0.35)",
                   }}
                 >
-                  <FaPlay size={16} style={{ marginLeft: 2 }} />
+                  {isLocked ? (
+                    <FaLock size={15} />
+                  ) : (
+                    <FaPlay size={16} style={{ marginLeft: 2 }} />
+                  )}
                 </ThemeIcon>
 
                 {/* Check abajo izquierda cuando ya está completada */}
@@ -341,7 +356,19 @@ export default function ActivityGrid({
 
                 {/* Status badge */}
                 <Box style={{ marginTop: "auto" }}>
-                  {isDone && (
+                  {isLocked && (
+                    <Badge
+                      size="sm"
+                      color="gray"
+                      variant="light"
+                      w="fit-content"
+                      radius="md"
+                      leftSection={<FaLock size={9} />}
+                    >
+                      Bloqueada
+                    </Badge>
+                  )}
+                  {!isLocked && isDone && (
                     <Badge
                       size="sm"
                       color="green"
@@ -352,7 +379,7 @@ export default function ActivityGrid({
                       ✓ Completada
                     </Badge>
                   )}
-                  {inProgress && (
+                  {!isLocked && inProgress && (
                     <Badge
                       size="sm"
                       color="yellow"
@@ -363,7 +390,7 @@ export default function ActivityGrid({
                       ⏳ En progreso
                     </Badge>
                   )}
-                  {!isDone && !inProgress && (
+                  {!isLocked && !isDone && !inProgress && (
                     <Badge
                       size="sm"
                       color="gray"

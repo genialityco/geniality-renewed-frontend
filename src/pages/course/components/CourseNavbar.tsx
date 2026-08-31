@@ -16,6 +16,7 @@ interface CourseNavbarProps {
   activityAttendees: any[];
   onActivitySelect: (activity: Activity) => void;
   onClose: () => void;
+  lockedActivityIds?: Set<string>;
 }
 
 export function CourseNavbar({
@@ -25,6 +26,7 @@ export function CourseNavbar({
   activityAttendees,
   onActivitySelect,
   onClose,
+  lockedActivityIds,
 }: CourseNavbarProps) {
   const orderedModules = sortModulesByOrder(modules);
 
@@ -75,6 +77,7 @@ export function CourseNavbar({
                             key={act._id}
                             activity={act}
                             organizationId=""
+                            locked={lockedActivityIds?.has(String(act._id))}
                             onCardClick={() => {
                               onActivitySelect(act);
                               onClose();
@@ -103,6 +106,7 @@ export function CourseNavbar({
               key={act._id}
               activity={act}
               organizationId=""
+              locked={lockedActivityIds?.has(String(act._id))}
               onCardClick={() => {
                 onActivitySelect(act);
                 onClose();

@@ -7,7 +7,7 @@ import {
   Highlight,
   UnstyledButton,
 } from "@mantine/core";
-import { IconClock } from "@tabler/icons-react";
+import { IconClock, IconLock } from "@tabler/icons-react";
 import { Activity } from "../services/types";
 import { useEffect, useState } from "react";
 
@@ -30,6 +30,8 @@ interface ActivityCardProps {
   onCardClick?: (activityId: string) => void;
   onFragmentClick?: (seg: MatchedSegment) => void;
   onEventClick?: (eventId: string) => void;
+  /** Actividad bloqueada por avance lineal: no navegable. */
+  locked?: boolean;
 }
 
 function formatTime(seconds: number): string {
@@ -46,6 +48,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   onCardClick,
   onFragmentClick,
   onEventClick,
+  locked = false,
 }) => {
   const navigate = useNavigate();
 
@@ -75,6 +78,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
       : null;
 
   const goToActivity = () => {
+    if (locked) return;
     if (onCardClick) onCardClick(activity._id);
     else {
       navigate(
@@ -93,25 +97,29 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   return (
     <Box
       onClick={goToActivity}
+      title={locked ? "Completa la actividad anterior para desbloquear esta." : undefined}
       style={{
         display: "flex",
         gap: 12,
         alignItems: "flex-start",
         padding: "10px 12px",
         borderRadius: 8,
-        cursor: "pointer",
+        cursor: locked ? "not-allowed" : "pointer",
         border: "1px solid #e9ecef",
         backgroundColor: "#fff",
         transition: "background 0.15s, box-shadow 0.15s",
         height: 230, // altura fija para todas
         overflow: "hidden",
+        opacity: locked ? 0.55 : 1,
       }}
       onMouseEnter={(e) => {
+        if (locked) return;
         (e.currentTarget as HTMLDivElement).style.backgroundColor = "#f8f9fa";
         (e.currentTarget as HTMLDivElement).style.boxShadow =
           "0 2px 8px rgba(0,0,0,0.08)";
       }}
       onMouseLeave={(e) => {
+        if (locked) return;
         (e.currentTarget as HTMLDivElement).style.backgroundColor = "#fff";
         (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
       }}
@@ -136,9 +144,14 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
         }}
       >
         <Box>
-          <Text fw={600} size="sm" lineClamp={2} style={{ lineHeight: 1.35 }}>
-            {activity.name}
-          </Text>
+          <Group gap={6} wrap="nowrap" align="flex-start">
+            {locked && (
+              <IconLock size={14} style={{ flexShrink: 0, marginTop: 2 }} color="#adb5bd" />
+            )}
+            <Text fw={600} size="sm" lineClamp={2} style={{ lineHeight: 1.35 }}>
+              {activity.name}
+            </Text>
+          </Group>
 
           {eventName && (
             <Text

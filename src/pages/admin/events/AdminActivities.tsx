@@ -32,20 +32,29 @@ import {
 } from "../../../services/activityService";
 import { Activity, Host, Module, Organization } from "../../../services/types";
 import { getModulesByEventId } from "../../../services/moduleService";
-import { FaCheck, FaPencil, FaTrash, FaYoutube, FaCircleCheck } from "react-icons/fa6";
+import { FaCheck, FaPencil, FaTrash, FaYoutube, FaCircleCheck, FaEye } from "react-icons/fa6";
 import {
   createHost,
   fetchHostsByEventId,
   updateHost,
 } from "../../../services/hostsService";
 import { uploadImageToFirebase } from "../../../utils/uploadImageToFirebase";
+import { toastSaved, toastUpdated, toastDeleted, toastError } from "../../../utils/toast";
+import { openCoursePreview } from "../../../utils/previewUrl";
 
 interface Props {
   organizationId?: string;
   eventId?: string;
+  /** Indica si la pestaña de actividades está visible/activa. Al pasar a true
+   *  se recargan módulos y hosts para reflejar los creados en otras pestañas. */
+  active?: boolean;
 }
 
-export default function AdminActivities({ organizationId, eventId }: Props) {
+export default function AdminActivities({
+  organizationId,
+  eventId,
+  active = true,
+}: Props) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,6 +130,27 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
       .finally(() => setLoading(false));
   }, [eventId]);
 
+  // Recargar módulos y hosts cada vez que la pestaña se vuelve activa, para
+  // reflejar los que se hayan creado en las pestañas de Módulos / Hosts sin
+  // tener que refrescar toda la plataforma.
+  useEffect(() => {
+    if (!eventId || !active) return;
+    Promise.all([
+      getModulesByEventId(eventId),
+      fetchHostsByEventId(eventId).catch((error) => {
+        console.warn("No se pudieron recargar los hosts:", error);
+        return [];
+      }),
+    ])
+      .then(([mods, hs]) => {
+        setModules(mods);
+        setHosts(hs);
+      })
+      .catch((error) =>
+        console.error("Error al recargar módulos/hosts:", error),
+      );
+  }, [eventId, active]);
+
   // --------- Crear ACTIVIDAD (solo selecciona hosts existentes) ---------
   const handleCreateActivity = async () => {
     if (!eventId || !activityName.trim()) return;
@@ -157,8 +187,10 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
       setSelectedModule(null);
       setVideoUrl("");
       setSelectedHostIdsCreate([]);
+      toastSaved("Actividad creada");
     } catch (error) {
       console.error("Error al crear actividad:", error);
+      toastError("No se pudo crear la actividad");
     }
   };
 
@@ -217,8 +249,10 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
       );
       setEditModalOpen(false);
       setEditActivity(null);
+      toastUpdated("Actividad actualizada");
     } catch (error) {
       console.error("Error al editar actividad:", error);
+      toastError("No se pudo actualizar la actividad");
     }
   };
 
@@ -232,8 +266,10 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
       );
       setDeleteModalOpen(false);
       setActivityToDelete(null);
+      toastDeleted("Actividad eliminada");
     } catch (error) {
       console.error("Error al eliminar actividad:", error);
+      toastError("No se pudo eliminar la actividad");
     }
   };
 
@@ -451,6 +487,19 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
             </Stack>
 
             <Group mt="md" gap="xs" justify="flex-end">
+              <ActionIcon
+                color="teal"
+                variant="subtle"
+                onClick={() =>
+                  organizationId &&
+                  eventId &&
+                  openCoursePreview(organizationId, eventId, act._id)
+                }
+                title="Vista previa"
+                disabled={!organizationId || !eventId}
+              >
+                <FaEye size={18} />
+              </ActionIcon>
               {act.transcript_available ? (
                 <Group gap="xs">
                   <Badge
@@ -674,9 +723,10 @@ export default function AdminActivities({ organizationId, eventId }: Props) {
                       setNewHostFile(null);
                       setNewHostPreview(null);
                       setNewHostOpen(false);
+                      toastSaved("Host creado");
                     } catch (err) {
                       console.error("Error creando host:", err);
-                      alert("No se pudo crear el host. Revisa la consola.");
+                      toastError("No se pudo crear el host");
                     } finally {
                       setCreatingHostInline(false);
                     }

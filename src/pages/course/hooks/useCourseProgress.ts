@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   fetchActivityAttendeesByUserAndEvent,
 } from "../../../services/activityAttendeeService";
@@ -12,6 +12,7 @@ interface UseCourseProgressReturn {
   courseProgress: number;
   activityAttendees: ActivityAttendee[];
   completedCount: number;
+  reloadProgress: () => Promise<void>;
 }
 
 function normalizeProgress(progress: unknown): number {
@@ -50,65 +51,49 @@ export function useCourseProgress(
     enroll();
   }, [event, userId]);
 
-  // Cargar progreso inicial
-  useEffect(() => {
+  // Cargar el progreso desde la BD y recalcular contadores
+  const reloadProgress = useCallback(async () => {
     if (!eventId || !userId || activities.length === 0) return;
 
-    const loadProgress = async () => {
-      try {
-        const attendees = await fetchActivityAttendeesByUserAndEvent(
-          userId,
-          eventId
-        );
-        setActivityAttendees(attendees);
+    try {
+      const attendees = await fetchActivityAttendeesByUserAndEvent(
+        userId,
+        eventId
+      );
+      setActivityAttendees(attendees);
 
-        const completed = attendees.filter(
-          (a: ActivityAttendee) => normalizeProgress(a.progress) >= 100
-        ).length;
-        setCompletedCount(completed);
-        setCourseProgress(
-          Math.round((completed / activities.length) * 100)
-        );
-      } catch (error) {
-        console.error("Error loading progress:", error);
-      }
-    };
-
-    loadProgress();
+      const completed = attendees.filter(
+        (a: ActivityAttendee) => normalizeProgress(a.progress) >= 100
+      ).length;
+      setCompletedCount(completed);
+      setCourseProgress(Math.round((completed / activities.length) * 100));
+    } catch (error) {
+      console.error("Error loading progress:", error);
+    }
   }, [eventId, userId, activities.length]);
 
-  // Recargar progreso cuando cambia actividad seleccionada
+  // Carga inicial
   useEffect(() => {
-    if (
-      !eventId ||
-      !userId ||
-      activities.length === 0 ||
-      !selectedActivityId
-    )
+    reloadProgress();
+  }, [reloadProgress]);
+
+  // Recargar progreso cada vez que se entra o se sale de una actividad.
+  // Al salir (selectedActivityId vacío) también recargamos, porque la
+  // actividad guarda su progreso al desmontarse; usamos un pequeño retraso
+  // para que ese guardado alcance a persistirse antes de volver a leer.
+  const isFirstSelectionRun = useRef(true);
+  useEffect(() => {
+    if (isFirstSelectionRun.current) {
+      isFirstSelectionRun.current = false;
       return;
+    }
 
-    const timeout = setTimeout(async () => {
-      try {
-        const attendees = await fetchActivityAttendeesByUserAndEvent(
-          userId,
-          eventId
-        );
-        setActivityAttendees(attendees);
-
-        const completed = attendees.filter(
-          (a: ActivityAttendee) => normalizeProgress(a.progress) >= 100
-        ).length;
-        setCompletedCount(completed);
-        setCourseProgress(
-          Math.round((completed / activities.length) * 100)
-        );
-      } catch (error) {
-        console.error("Error reloading progress:", error);
-      }
-    }, 500);
+    const timeout = setTimeout(() => {
+      reloadProgress();
+    }, 800);
 
     return () => clearTimeout(timeout);
-  }, [selectedActivityId, eventId, userId, activities.length]);
+  }, [selectedActivityId, reloadProgress]);
 
-  return { courseProgress, activityAttendees, completedCount };
+  return { courseProgress, activityAttendees, completedCount, reloadProgress };
 }

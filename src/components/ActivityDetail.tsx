@@ -42,6 +42,15 @@ interface Fragment {
   text: string;
 }
 
+// A partir de este % de reproducción la actividad se cuenta como completada
+// (100%). Los videos suelen tener créditos/silencios al final y casi nadie
+// llega al último frame, así que el 95% ya cuenta como visto completo.
+const COMPLETION_THRESHOLD = 95;
+
+// Segundos antes del final del video en los que se muestra el modal de
+// "actividad completada", para que el usuario lo vea aunque no llegue al final.
+const COMPLETION_LEAD_SECONDS = 20;
+
 interface ActivityDetailProps {
   activity: Activity | null; // Actividad seleccionada
   eventId: string; // ID del evento (para enlaces, etc.)
@@ -52,6 +61,13 @@ interface ActivityDetailProps {
   videoTime?: number | null;
   fragments?: Fragment[];
   formatTime?: (seconds: number) => string;
+  /** Curso lineal: bloquea avanzar a la siguiente actividad sin completar esta. */
+  isLinear?: boolean;
+  /**
+   * Ruta del examen del módulo a la que debe llevar "Siguiente" cuando esta es
+   * la última actividad del módulo y su examen aún no está aprobado.
+   */
+  moduleExamNextRoute?: string | null;
 }
 
 export default function ActivityDetail({
@@ -64,6 +80,8 @@ export default function ActivityDetail({
   videoTime: _vt = null,
   fragments: _frags = [],
   formatTime,
+  isLinear = false,
+  moduleExamNextRoute = null,
 }: ActivityDetailProps) {
   const { userId } = useUser();
   const navigate = useNavigate();
@@ -122,6 +140,7 @@ export default function ActivityDetail({
 
   // STATES
   const [videoProgress, setVideoProgress] = useState<number>(0);
+  const [nextLockedNotice, setNextLockedNotice] = useState(false);
   const [completionMessage, setCompletionMessage] = useState<any>(null);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [hosts, setHosts] = useState<Host[]>([]);
@@ -132,6 +151,43 @@ export default function ActivityDetail({
   const reactPlayerRef = useRef<ReactPlayer | null>(null);
   const lastSavedProgressRef = useRef<{ [key: string]: number }>({});
   const currentProgressRef = useRef<number>(0);
+  // Evita que el modal de "completada" se dispare más de una vez por actividad.
+  const completionShownRef = useRef<boolean>(false);
+  // Duración del video en ReactPlayer (para saber cuántos segundos faltan).
+  const reactPlayerDurationRef = useRef<number>(0);
+
+  // Reinicia el estado del modal al cambiar de actividad.
+  useEffect(() => {
+    completionShownRef.current = false;
+    reactPlayerDurationRef.current = 0;
+    setShowCompletionModal(false);
+  }, [activity?._id]);
+
+  // Muestra el modal de actividad completada. Sale de pantalla completa
+  // (tanto la del navegador como la interna del reproductor de Vimeo) para que
+  // el modal sea visible aunque el usuario esté viendo el video en fullscreen.
+  const triggerCompletionModal = (vimeoPlayer?: Player | null) => {
+    if (completionShownRef.current) return;
+    completionShownRef.current = true;
+
+    try {
+      if (typeof document !== "undefined" && document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    } catch {
+      /* noop */
+    }
+    try {
+      const vp = vimeoPlayer as any;
+      if (vp && typeof vp.exitFullscreen === "function") {
+        vp.exitFullscreen().catch(() => {});
+      }
+    } catch {
+      /* noop */
+    }
+
+    setShowCompletionModal(true);
+  };
 
   // ==================================================
   // 0. Efecto: Sincronizar videoTime desde prop (para búsqueda de segmentos)
@@ -331,9 +387,10 @@ export default function ActivityDetail({
 
   // ==================================================
   // Helper: Mapear progreso a hitos de negocio (25, 50, 100)
+  // Al alcanzar COMPLETION_THRESHOLD (95%) se guarda como 100% completado.
   // ==================================================
   const getProgressCheckpoint = (progress: number): number => {
-    if (progress >= 100) return 100;
+    if (progress >= COMPLETION_THRESHOLD) return 100;
     if (progress >= 50) return 50;
     if (progress >= 25) return 25;
     return 0;
@@ -447,13 +504,21 @@ export default function ActivityDetail({
     newPlayer.on("timeupdate", async (data) => {
       const progress = (data.seconds / data.duration) * 100;
       setVideoProgress(progress);
+
+      // Mostrar el modal 20s antes de que termine el video.
+      if (
+        data.duration > 0 &&
+        data.duration - data.seconds <= COMPLETION_LEAD_SECONDS
+      ) {
+        triggerCompletionModal(newPlayer);
+      }
     });
 
-    // Listener para cuando termina el video
+    // Listener para cuando termina el video (respaldo si el video dura <20s).
     newPlayer.on("ended", () => {
       setVideoProgress(100);
       saveActivityProgress(100); // Guardar como completado
-      setShowCompletionModal(true);
+      triggerCompletionModal(newPlayer);
     });
 
     // Al montar, salto a videoTime si viene en URL, sino al progreso ya conocido
@@ -545,6 +610,36 @@ export default function ActivityDetail({
     return `${mins}:${secsString}`;
   }
 
+  // ¿La actividad actual ya quedó completada? Se usa progreso en vivo del
+  // video para desbloquear al instante al terminar, sin esperar recarga.
+  const currentCleared =
+    !!activity?.is_info_only ||
+    videoProgress >= COMPLETION_THRESHOLD ||
+    (activity ? getActivityProgress(activityAttendees, activity._id) >= 100 : false);
+
+  // Cuando esta es la última actividad del módulo y su examen aún no está
+  // aprobado, "Siguiente" lleva al examen del módulo (una vez completada esta
+  // actividad), en vez de a la actividad del siguiente módulo.
+  const goToModuleExam = !!moduleExamNextRoute && currentCleared;
+
+  // En curso lineal, "Siguiente" queda bloqueado hasta completar esta actividad.
+  // Si hay examen de módulo pendiente, también se considera "siguiente".
+  const hasNext = !!nextActivity || !!moduleExamNextRoute;
+  const nextLocked = isLinear && hasNext && !currentCleared;
+
+  const handleNextClick = () => {
+    if (nextLocked) {
+      setNextLockedNotice(true);
+      return;
+    }
+    if (goToModuleExam && moduleExamNextRoute) {
+      navigate(moduleExamNextRoute);
+      return;
+    }
+    if (!nextActivity) return;
+    handleNavigateActivity(nextActivity._id);
+  };
+
   return (
     <Card shadow="sm" radius="md">
       <Group justify="left">
@@ -634,11 +729,21 @@ export default function ActivityDetail({
             width="100%"
             style={{ aspectRatio: "16/9" }}
             controls
-            onProgress={({ played }) => setVideoProgress(played * 100)}
+            onDuration={(d) => {
+              reactPlayerDurationRef.current = d;
+            }}
+            onProgress={({ played, playedSeconds }) => {
+              setVideoProgress(played * 100);
+              // Mostrar el modal 20s antes de que termine el video.
+              const dur = reactPlayerDurationRef.current;
+              if (dur > 0 && dur - playedSeconds <= COMPLETION_LEAD_SECONDS) {
+                triggerCompletionModal();
+              }
+            }}
             onEnded={() => {
               setVideoProgress(100);
               saveActivityProgress(100);
-              setShowCompletionModal(true);
+              triggerCompletionModal();
             }}
             onReady={() => {
               if (videoTime !== null) {
@@ -666,16 +771,31 @@ export default function ActivityDetail({
         </Button>
 
         <Button
-          variant="outline"
-          disabled={!nextActivity}
-          onClick={() =>
-            nextActivity && handleNavigateActivity(nextActivity._id)
-          }
-          rightSection="→"
+          variant={goToModuleExam ? "filled" : "outline"}
+          color={goToModuleExam ? "blue" : undefined}
+          disabled={!hasNext}
+          onClick={handleNextClick}
+          rightSection={nextLocked ? "🔒" : goToModuleExam ? "📝" : "→"}
+          style={nextLocked ? { opacity: 0.7 } : undefined}
         >
-          {nextActivity ? nextActivity.name : "Siguiente"}
+          {goToModuleExam
+            ? "Examen del módulo"
+            : nextActivity
+              ? nextActivity.name
+              : "Siguiente"}
         </Button>
       </Group>
+
+      {nextLocked && nextLockedNotice && (
+        <Notification
+          color="yellow"
+          title="Actividad bloqueada"
+          onClose={() => setNextLockedNotice(false)}
+          mb="md"
+        >
+          Para desbloquear la siguiente actividad debes completar esta primero.
+        </Notification>
+      )}
 
       <Divider my="sm" />
       <Group>

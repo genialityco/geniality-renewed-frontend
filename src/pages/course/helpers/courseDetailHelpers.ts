@@ -67,3 +67,314 @@ export function sortActivitiesByDate(activities: any[]): any[] {
 export function sortModulesByOrder(modules: any[]): any[] {
   return [...modules].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
+
+/**
+ * Devuelve las actividades en el orden de aprendizaje del curso:
+ * primero las actividades agrupadas por módulos (ordenados por `order`),
+ * y al final las actividades sin módulo. Si no hay módulos, se ordenan por fecha.
+ */
+export function getOrderedActivities(modules: any[], activities: any[]): any[] {
+  const orderedModules = sortModulesByOrder(modules);
+  if (orderedModules.length === 0) {
+    return sortActivitiesByDate(activities);
+  }
+
+  const moduleIds = new Set(orderedModules.map((module) => module._id));
+
+  return [
+    ...orderedModules.flatMap((module) =>
+      sortActivitiesByDate(
+        activities.filter((activity) => activity.module_id === module._id)
+      )
+    ),
+    ...sortActivitiesByDate(
+      activities.filter(
+        (activity) => !activity.module_id || !moduleIds.has(activity.module_id)
+      )
+    ),
+  ];
+}
+
+/**
+ * Una actividad se considera "superada" para efectos de avance lineal si su
+ * progreso llega al 100% o si es de solo información (no bloquea el avance).
+ */
+function isActivityCleared(
+  activity: any,
+  activityAttendees: any[]
+): boolean {
+  if (activity?.is_info_only) return true;
+  return getActivityProgress(activityAttendees, activity._id) >= 100;
+}
+
+/**
+ * Calcula qué actividades están bloqueadas cuando el curso es lineal.
+ * En un curso lineal solo se puede acceder a una actividad si todas las
+ * anteriores (en el orden de aprendizaje) están superadas. La primera
+ * actividad pendiente queda desbloqueada; todo lo que va después se bloquea.
+ *
+ * Además, si la compuerta de examen de módulo está activa
+ * (`module_exam_gating_enabled`), las actividades de un módulo permanecen
+ * bloqueadas hasta que el usuario APRUEBE el examen del módulo anterior. Así,
+ * al terminar el último tema del módulo 1 el usuario debe aprobar su examen
+ * antes de poder empezar la actividad 1 del módulo 2.
+ *
+ * Si `isLinear` es false, no se bloquea nada (Set vacío).
+ */
+export function getLockedActivityIds(params: {
+  modules: any[];
+  activities: any[];
+  activityAttendees: any[];
+  isLinear: boolean;
+  event?: { module_exam_gating_enabled?: boolean } | null;
+  quizzes?: any[];
+  bestScoreByQuiz?: Record<string, number | false>;
+}): Set<string> {
+  const { modules, activities, activityAttendees, isLinear } = params;
+  const locked = new Set<string>();
+  if (!isLinear) return locked;
+
+  const orderedModules = sortModulesByOrder(modules);
+  const moduleIds = new Set(orderedModules.map((m) => m._id));
+  const examGating = !!params.event?.module_exam_gating_enabled;
+  const quizzes = params.quizzes ?? [];
+  const bestScoreByQuiz = params.bestScoreByQuiz ?? {};
+
+  // `blocked` se vuelve true en cuanto una actividad no está superada o un
+  // examen de módulo requerido no está aprobado; a partir de ahí todo lo que
+  // sigue (en orden de aprendizaje) queda bloqueado.
+  let blocked = false;
+
+  const gateThroughActivities = (acts: any[]) => {
+    for (const activity of acts) {
+      if (blocked) {
+        locked.add(String(activity._id));
+      }
+      blocked = blocked || !isActivityCleared(activity, activityAttendees);
+    }
+  };
+
+  for (const module of orderedModules) {
+    const modActivities = sortActivitiesByDate(
+      activities.filter((a) => a.module_id === module._id)
+    );
+    gateThroughActivities(modActivities);
+
+    // Compuerta de examen de módulo: si está activa y este módulo tiene examen,
+    // las actividades del siguiente módulo se bloquean hasta APROBARLO.
+    if (!blocked && examGating) {
+      const modQuiz = getModuleQuiz(quizzes, module._id);
+      if (modQuiz) {
+        const best = bestScoreByQuiz[quizIdOf(modQuiz)] ?? false;
+        if (!isExamPassed(modQuiz, best)) {
+          blocked = true;
+        }
+      }
+    }
+  }
+
+  // Actividades sin módulo (o de módulos inexistentes) van al final.
+  const looseActivities = sortActivitiesByDate(
+    activities.filter((a) => !a.module_id || !moduleIds.has(a.module_id))
+  );
+  gateThroughActivities(looseActivities);
+
+  return locked;
+}
+
+/**
+ * Cuando el usuario está viendo la ÚLTIMA actividad de un módulo y la compuerta
+ * de examen de módulo está activa, la navegación "Siguiente" debe llevarlo al
+ * examen del módulo (no a la actividad del siguiente módulo) hasta que lo
+ * apruebe. Devuelve el id del examen a presentar, o `null` si no aplica.
+ */
+export function getModuleExamNavQuizId(params: {
+  activity: any;
+  modules: any[];
+  activities: any[];
+  event?: { module_exam_gating_enabled?: boolean } | null;
+  quizzes?: any[];
+  bestScoreByQuiz?: Record<string, number | false>;
+}): string | null {
+  const { activity, modules, activities, event } = params;
+  if (!event?.module_exam_gating_enabled) return null;
+  const moduleId = activity?.module_id;
+  if (!moduleId) return null;
+
+  const orderedModules = sortModulesByOrder(modules);
+  const module = orderedModules.find((m) => m._id === moduleId);
+  if (!module) return null;
+
+  const modActivities = sortActivitiesByDate(
+    activities.filter((a) => a.module_id === moduleId)
+  );
+  const last = modActivities[modActivities.length - 1];
+  if (!last || String(last._id) !== String(activity._id)) return null;
+
+  const modQuiz = getModuleQuiz(params.quizzes ?? [], moduleId);
+  if (!modQuiz) return null;
+
+  // Si ya lo aprobó, la navegación sigue normal hacia el próximo módulo.
+  const best = (params.bestScoreByQuiz ?? {})[quizIdOf(modQuiz)] ?? false;
+  if (isExamPassed(modQuiz, best)) return null;
+
+  return quizIdOf(modQuiz);
+}
+
+/**
+ * Determina si el examen está desbloqueado según la configuración del curso.
+ * Por defecto (sin configuración) el examen permanece bloqueado.
+ */
+export function isExamUnlocked(
+  event: { exam_gating_enabled?: boolean; exam_min_progress?: number } | null,
+  courseProgress: number
+): boolean {
+  if (!event?.exam_gating_enabled) return false;
+  const required = Number.isFinite(event?.exam_min_progress)
+    ? Number(event?.exam_min_progress)
+    : 100;
+  return courseProgress >= required;
+}
+
+/**
+ * Porcentaje de actividades de un módulo que el usuario ha completado (100%).
+ * Se usa para la compuerta del examen de módulo.
+ */
+export function getModuleCompletionPercent(
+  moduleActivities: any[],
+  activityAttendees: any[]
+): number {
+  if (!moduleActivities.length) return 0;
+  const completed = moduleActivities.filter(
+    (a) => getActivityProgress(activityAttendees, a._id) >= 100
+  ).length;
+  return Math.round((completed / moduleActivities.length) * 100);
+}
+
+/**
+ * ¿Está desbloqueado el examen de un módulo?
+ * Por defecto (sin compuerta) permanece bloqueado. Si el admin activó la
+ * compuerta, se exige que el avance de actividades del módulo alcance el mínimo.
+ */
+export function isModuleExamUnlocked(
+  event: {
+    module_exam_gating_enabled?: boolean;
+    module_exam_min_progress?: number;
+  } | null,
+  moduleCompletionPercent: number
+): boolean {
+  if (!event?.module_exam_gating_enabled) return false;
+  const required = Number.isFinite(event?.module_exam_min_progress)
+    ? Number(event?.module_exam_min_progress)
+    : 100;
+  return moduleCompletionPercent >= required;
+}
+
+// ─────────────────────────────────────────────
+// Exámenes por módulo y certificado
+// ─────────────────────────────────────────────
+
+/** Nota mínima por defecto cuando el examen no define `config.nota`. */
+const DEFAULT_PASS_MARK = 60;
+
+/** Id string de un quiz (tolera _id o id). */
+export function quizIdOf(quiz: any): string {
+  return String(quiz?._id ?? quiz?.id ?? "");
+}
+
+/**
+ * Un examen está aprobado si el mejor score supera su nota mínima
+ * (o 60 como fallback cuando no hay nota configurada).
+ */
+export function isExamPassed(quiz: any, bestScore: number | false): boolean {
+  if (!quiz || bestScore === false || bestScore == null) return false;
+  const nota = quiz?.config?.nota ?? null;
+  return nota != null ? bestScore >= nota : bestScore >= DEFAULT_PASS_MARK;
+}
+
+/** Examen general del curso (sin módulo asociado). */
+export function getGeneralQuiz<T extends { moduleId?: any }>(
+  quizzes: T[]
+): T | null {
+  return quizzes.find((q) => !q.moduleId) ?? null;
+}
+
+/** Examen asociado a un módulo específico. */
+export function getModuleQuiz<T extends { moduleId?: any }>(
+  quizzes: T[],
+  moduleId: string
+): T | null {
+  return (
+    quizzes.find(
+      (q) => q.moduleId && String(q.moduleId) === String(moduleId)
+    ) ?? null
+  );
+}
+
+/** Cuenta cuántos exámenes están aprobados por el usuario. */
+export function countPassedExams(
+  quizzes: any[],
+  bestScoreByQuiz: Record<string, number | false>
+): number {
+  return quizzes.reduce((acc, q) => {
+    const id = quizIdOf(q);
+    return acc + (isExamPassed(q, bestScoreByQuiz[id] ?? false) ? 1 : 0);
+  }, 0);
+}
+
+export interface CertificateGate {
+  unlocked: boolean;
+  message: string;
+  pending: string[];
+}
+
+/**
+ * Evalúa las reglas de desbloqueo del certificado configuradas por el admin.
+ * Si el gating está desactivado, el certificado permanece bloqueado.
+ */
+export function getCertificateGate(params: {
+  event: {
+    certificate_gating_enabled?: boolean;
+    certificate_required_activities?: number | null;
+    certificate_required_exams?: number | null;
+    certificate_locked_message?: string;
+  } | null;
+  quizzes: any[];
+  bestScoreByQuiz: Record<string, number | false>;
+  completedActivities: number;
+}): CertificateGate {
+  const { event, quizzes, bestScoreByQuiz, completedActivities } = params;
+
+  if (!event?.certificate_gating_enabled) {
+    return {
+      unlocked: false,
+      message:
+        "El certificado está bloqueado hasta que el administrador configure sus requisitos.",
+      pending: [],
+    };
+  }
+
+  const pending: string[] = [];
+
+  const reqActivities = event.certificate_required_activities;
+  if (reqActivities != null && completedActivities < reqActivities) {
+    pending.push(
+      `Completa al menos ${reqActivities} actividad(es) del curso (llevas ${completedActivities}).`
+    );
+  }
+
+  const reqExams = event.certificate_required_exams;
+  if (reqExams != null) {
+    const passed = countPassedExams(quizzes, bestScoreByQuiz);
+    if (passed < reqExams) {
+      pending.push(
+        `Aprueba al menos ${reqExams} examen(es) (llevas ${passed}).`
+      );
+    }
+  }
+
+  const unlocked = pending.length === 0;
+  const custom = (event.certificate_locked_message || "").trim();
+  const message = unlocked ? "" : custom || pending.join(" ");
+  return { unlocked, message, pending };
+}

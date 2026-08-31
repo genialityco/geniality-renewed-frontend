@@ -17,6 +17,13 @@ interface ActivityDetailWithTrackerProps {
   formatTime?: (seconds: number) => string;
   courseId?: string; // ID del curso al que pertenece la actividad
   courseName?: string; // Nombre del curso
+  isLinear?: boolean; // Curso lineal: bloquea avanzar sin completar
+  /**
+   * Ruta del examen del módulo al que debe llevar la flecha "Siguiente" cuando
+   * esta es la última actividad del módulo y su examen aún no está aprobado.
+   * `null` cuando la navegación debe seguir normal hacia la siguiente actividad.
+   */
+  moduleExamNextRoute?: string | null;
 }
 
 /**
@@ -34,6 +41,8 @@ export default function ActivityDetailWithTracker({
   formatTime,
   courseId,
   courseName,
+  isLinear,
+  moduleExamNextRoute,
 }: ActivityDetailWithTrackerProps) {
   const { userId } = useUser();
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -86,6 +95,8 @@ export default function ActivityDetailWithTracker({
       videoTime={videoTime}
       fragments={fragments}
       formatTime={formatTime}
+      isLinear={isLinear}
+      moduleExamNextRoute={moduleExamNextRoute}
     />
   );
 }

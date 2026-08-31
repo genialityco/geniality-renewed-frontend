@@ -35,6 +35,23 @@ export interface Event {
   position_ids?: string[];
   event_platform?: "zoom" | "google_meet" | "microsoft_teams";
   language?: string;
+
+  // Reglas de avance del curso (configurables por el administrador)
+  is_linear?: boolean;
+  exam_gating_enabled?: boolean;
+  exam_min_progress?: number;
+  exam_locked_message?: string;
+
+  // Compuerta de exámenes de módulo (configurable por el administrador)
+  module_exam_gating_enabled?: boolean;
+  module_exam_min_progress?: number;
+  module_exam_locked_message?: string;
+
+  // Reglas de desbloqueo del certificado (configurables por el administrador)
+  certificate_gating_enabled?: boolean;
+  certificate_required_activities?: number | null;
+  certificate_required_exams?: number | null;
+  certificate_locked_message?: string;
 }
 
 export interface Module {
@@ -92,6 +109,7 @@ export interface Host {
   description_activity: boolean;
   description: string;
   profession?: string | null;
+  country?: string | null;
   published: boolean;
   order: number;
   index: number;

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   AppShell,
@@ -16,6 +16,11 @@ import { useCourseSearch } from "./hooks/useCourseSearch";
 import { CourseHeader } from "./components/CourseHeader";
 import { CourseNavbar } from "./components/CourseNavbar";
 import { CourseMainContent } from "./components/CourseMainContent";
+import { getLockedActivityIds } from "./helpers/courseDetailHelpers";
+import { toastInfo } from "../../utils/toast";
+
+const DEFAULT_LOCKED_MESSAGE =
+  "Completa las actividades anteriores (y aprueba el examen del módulo previo, si aplica) para desbloquear esta.";
 
 /**
  * Componente principal para la página de detalle del curso
@@ -40,6 +45,8 @@ export default function CourseDetail() {
     activities,
     hosts,
     quiz,
+    quizzes,
+    bestScoreByQuiz,
     userAttemptsList,
     loading,
   } = useCourseData(eventId || "", userId || "");
@@ -55,12 +62,39 @@ export default function CourseDetail() {
     selectedActivity?._id || ""
   );
 
+  // Actividades bloqueadas por avance lineal del curso y por la compuerta de
+  // examen de módulo (si está activa, exige aprobar el examen del módulo previo
+  // antes de habilitar las actividades del siguiente módulo).
+  const lockedActivityIds = useMemo(() => {
+    if (!event?.is_linear) return new Set<string>();
+    return getLockedActivityIds({
+      modules,
+      activities,
+      activityAttendees,
+      isLinear: true,
+      event,
+      quizzes,
+      bestScoreByQuiz,
+    });
+  }, [
+    event,
+    modules,
+    activities,
+    activityAttendees,
+    quizzes,
+    bestScoreByQuiz,
+  ]);
+
   // Handlers
   const handleActivitySelect = useCallback((activity: any) => {
+    if (activity?._id && lockedActivityIds.has(String(activity._id))) {
+      toastInfo("Actividad bloqueada", DEFAULT_LOCKED_MESSAGE);
+      return;
+    }
     setSelectedActivity(activity);
     if (activity._id) setSearchParams({ activity: activity._id });
     if (isMobile) close();
-  }, [isMobile, close, setSearchParams]);
+  }, [isMobile, close, setSearchParams, lockedActivityIds]);
 
   const {
     searchQuery,
@@ -140,6 +174,7 @@ export default function CourseDetail() {
           activityAttendees={activityAttendees}
           onActivitySelect={handleActivitySelect}
           onClose={close}
+          lockedActivityIds={lockedActivityIds}
         />
       </AppShell.Navbar>
 
@@ -159,8 +194,11 @@ export default function CourseDetail() {
             courseProgress={courseProgress}
             selectedActivity={selectedActivity}
             quiz={quiz}
+            quizzes={quizzes}
+            bestScoreByQuiz={bestScoreByQuiz}
             userAttempts={userAttemptsList}
             modules={modules}
+            lockedActivityIds={lockedActivityIds}
             searchQuery={searchQuery}
             searchResults={searchResults}
             searchLoading={searchLoading}

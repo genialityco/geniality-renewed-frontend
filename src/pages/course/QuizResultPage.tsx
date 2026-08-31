@@ -27,6 +27,9 @@ import {
   EditorBlock,
 } from "../../services/QuizService";
 import { getBestScore, getUserAttempts, UserAnswerDto, gradeOpenQuestion } from "../../services/userQuizAttemptService";
+import { getQuizzesByEventId } from "../../services/QuizService";
+import { fetchActivityAttendeesByUserAndEvent } from "../../services/activityAttendeeService";
+import { getCertificateGate, quizIdOf } from "./helpers/courseDetailHelpers";
 import { useUser } from "../../context/UserContext";
 import { fetchEventById } from "../../services/eventService";
 import {
@@ -451,6 +454,11 @@ export default function QuizResultPage() {
   const [userAttemptsList, setUserAttemptsList] = useState<any[]>([]);
   const [certificateTemplate, setCertificateTemplate] = useState<CertificateTemplate | null>(null);
   const [eventName, setEventName] = useState("");
+  const [certGate, setCertGate] = useState<{
+    unlocked: boolean;
+    message: string;
+    pending: string[];
+  } | null>(null);
   const [generatingCertificate, setGeneratingCertificate] = useState(false);
   const [generatedCertificate, setGeneratedCertificate] = useState<GeneratedCertificate | null>(null);
   const [hasTrackedResultView, setHasTrackedResultView] = useState(false);
@@ -483,6 +491,61 @@ export default function QuizResultPage() {
 
         if (eventResult.status === "fulfilled" && eventResult.value) {
           setEventName(eventResult.value.name || "");
+        }
+
+        // Reglas del certificado: por defecto queda bloqueado hasta que el
+        // admin configure y habilite los requisitos.
+        const ev =
+          eventResult.status === "fulfilled" ? eventResult.value : null;
+        if (ev && eventId && userId) {
+          if (!ev.certificate_gating_enabled) {
+            setCertGate(
+              getCertificateGate({
+                event: ev,
+                quizzes: [],
+                bestScoreByQuiz: {},
+                completedActivities: 0,
+              })
+            );
+          } else {
+            try {
+              const [quizzesRaw, attendees] = await Promise.all([
+                getQuizzesByEventId(eventId),
+                fetchActivityAttendeesByUserAndEvent(userId, eventId),
+              ]);
+              const quizzesAll = quizzesRaw.filter((q) => q.enabled !== false);
+              const entries = await Promise.all(
+                quizzesAll.map(async (q) => {
+                  const id = quizIdOf(q);
+                  try {
+                    return [id, await getBestScore(id, userId)] as const;
+                  } catch {
+                    return [id, false as const] as const;
+                  }
+                })
+              );
+              const bestMap = Object.fromEntries(entries);
+              const completed = (attendees ?? []).filter(
+                (a: any) => Number(a.progress ?? 0) >= 100
+              ).length;
+              setCertGate(
+                getCertificateGate({
+                  event: ev,
+                  quizzes: quizzesAll,
+                  bestScoreByQuiz: bestMap,
+                  completedActivities: completed,
+                })
+              );
+            } catch {
+              // Si falla la evaluación, mantenemos el bloqueo por seguridad.
+              setCertGate({
+                unlocked: false,
+                message:
+                  "No se pudieron validar los requisitos del certificado. Intenta nuevamente.",
+                pending: [],
+              });
+            }
+          }
         }
 
         if (certTemplateResult.status === "fulfilled" && certTemplateResult.value) {
@@ -562,6 +625,7 @@ export default function QuizResultPage() {
   const attemptsLeft = maxAttempts != null ? maxAttempts - attemptsUsed : null;
   // Puede reintentar si: ilimitado (null) O le quedan intentos (> 0), Y no sacó 100%
   const canRetry = (attemptsLeft === null || attemptsLeft > 0) && numScore < 100;
+  const certBlocked = !!certGate && !certGate.unlocked;
 
   // ── Último intento: se muestra el desglose cuando se agotan los intentos y no hay 100% ──
   const showReview = attemptsLeft !== null && attemptsLeft <= 0 && numScore < 100;
@@ -611,6 +675,7 @@ export default function QuizResultPage() {
   };
 
   const handleOpenCertificate = async (mode: "view" | "download") => {
+    if (certBlocked) return;
     trackQuizCertificateAction(organizationId, eventId, quizId, mode);
     const certificate = await ensureCertificate();
     if (!certificate) return;
@@ -678,30 +743,57 @@ export default function QuizResultPage() {
           )}
 
           {/* ── Botón Generar Certificado (solo si aprobó y el intento está graded) ── */}
-          {passed === true && lastAttempt?.status === "graded" && (
-            <Stack w="100%" align="center" gap="xs">
-              <Group>
-                <Button
-                  variant="light"
-                  color="blue"
-                  loading={generatingCertificate}
-                  disabled={!certificateTemplate}
-                  onClick={() => handleOpenCertificate("view")}
-                >
-                  Ver certificado
-                </Button>
-                <Button
-                  variant="light"
-                  color="grape"
-                  loading={generatingCertificate}
-                  disabled={!certificateTemplate}
-                  onClick={() => handleOpenCertificate("download")}
-                >
-                  Descargar certificado
-                </Button>
-              </Group>
-            </Stack>
-          )}
+          {passed === true && lastAttempt?.status === "graded" && (() => {
+            if (certBlocked) {
+              return (
+                <Stack w="100%" align="stretch" gap="xs">
+                  <Button
+                    variant="default"
+                    leftSection={<FaLock size={12} />}
+                    disabled
+                  >
+                    Certificado
+                  </Button>
+                  <Alert color="yellow" variant="light" style={{ width: "100%" }}>
+                    <Stack gap={4}>
+                      <Text size="sm" fw={600}>
+                        Certificado bloqueado
+                      </Text>
+                      <Text size="sm">
+                        {certGate?.message ||
+                          "Completa los requisitos del curso para generar tu certificado."}
+                      </Text>
+                    </Stack>
+                  </Alert>
+                </Stack>
+              );
+            }
+
+            return (
+              <Stack w="100%" align="center" gap="xs">
+                <Group>
+                  <Button
+                    variant="light"
+                    color="blue"
+                    loading={generatingCertificate}
+                    disabled={!certificateTemplate}
+                    onClick={() => handleOpenCertificate("view")}
+                  >
+                    Ver certificado
+                  </Button>
+                  <Button
+                    variant="light"
+                    color="grape"
+                    loading={generatingCertificate}
+                    disabled={!certificateTemplate}
+                    onClick={() => handleOpenCertificate("download")}
+                  >
+                    Descargar certificado
+                  </Button>
+                </Group>
+              </Stack>
+            );
+          })()}
 
           {passed === true && lastAttempt?.status === "graded" && !certificateTemplate && (
             <Alert color="yellow" variant="light" style={{ width: "100%" }}>

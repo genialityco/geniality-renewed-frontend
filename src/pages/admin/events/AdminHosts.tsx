@@ -11,6 +11,7 @@ import {
   Loader,
   Modal,
   Paper,
+  Select,
   SimpleGrid,
   Stack,
   Switch,
@@ -28,6 +29,8 @@ import {
   deleteHost,
 } from "../../../services/hostsService";
 import { uploadImageToFirebase } from "../../../utils/uploadImageToFirebase";
+import { toastSaved, toastUpdated, toastDeleted, toastError } from "../../../utils/toast";
+import { COUNTRY_SELECT_DATA, flagForCountryName } from "../../../utils/countries";
 
 interface Props {
   organizationId?: string;
@@ -45,6 +48,7 @@ export default function AdminHosts({ eventId }: Props) {
   const [createOpen, setCreateOpen] = useState(false);
   const [cName, setCName] = useState("");
   const [cProfession, setCProfession] = useState("");
+  const [cCountry, setCCountry] = useState<string | null>(null);
   const [cDesc, setCDesc] = useState("");
   const [cPublished, setCPublished] = useState(true);
   const [cOrder, setCOrder] = useState<number | "">("");
@@ -58,6 +62,7 @@ export default function AdminHosts({ eventId }: Props) {
   const [current, setCurrent] = useState<Host | null>(null);
   const [eName, setEName] = useState("");
   const [eProfession, setEProfession] = useState("");
+  const [eCountry, setECountry] = useState<string | null>(null);
   const [eDesc, setEDesc] = useState("");
   const [ePublished, setEPublished] = useState(true);
   const [eOrder, setEOrder] = useState<number | "">("");
@@ -119,6 +124,7 @@ export default function AdminHosts({ eventId }: Props) {
         description_activity: false,
         description: cDesc.trim(),
         profession: cProfession.trim(),
+        country: cCountry || null,
         published: cPublished,
         order: Number.isFinite(cOrder) ? (cOrder as number) : 0,
         index: Number.isFinite(cIndex) ? (cIndex as number) : 0,
@@ -131,6 +137,7 @@ export default function AdminHosts({ eventId }: Props) {
       // reset
       setCName("");
       setCProfession("");
+      setCCountry(null);
       setCDesc("");
       setCPublished(true);
       setCOrder("");
@@ -138,9 +145,10 @@ export default function AdminHosts({ eventId }: Props) {
       setCFile(null);
       setCPreview(null);
       setCreateOpen(false);
+      toastSaved("Host creado");
     } catch (err) {
       console.error(err);
-      alert("No se pudo crear el host.");
+      toastError("No se pudo crear el host");
     } finally {
       setCreating(false);
     }
@@ -151,6 +159,7 @@ export default function AdminHosts({ eventId }: Props) {
     setCurrent(h);
     setEName(h.name || "");
     setEProfession(h.profession || "");
+    setECountry(h.country || null);
     setEDesc(h.description || "");
     setEPublished(!!h.published);
     setEOrder(typeof h.order === "number" ? h.order : "");
@@ -187,6 +196,7 @@ export default function AdminHosts({ eventId }: Props) {
         image: imageUrl,
         description: eDesc.trim(),
         profession: eProfession.trim(),
+        country: eCountry || null,
         published: ePublished,
         order: Number.isFinite(eOrder) ? (eOrder as number) : 0,
         index: Number.isFinite(eIndex) ? (eIndex as number) : 0,
@@ -196,9 +206,10 @@ export default function AdminHosts({ eventId }: Props) {
       setHosts((prev) => prev.map((x) => (x._id === updated._id ? updated : x)));
       setEditOpen(false);
       setCurrent(null);
+      toastUpdated("Host actualizado");
     } catch (err) {
       console.error(err);
-      alert("No se pudo actualizar el host.");
+      toastError("No se pudo actualizar el host");
     } finally {
       setUpdating(false);
     }
@@ -213,9 +224,10 @@ export default function AdminHosts({ eventId }: Props) {
       setHosts((prev) => prev.filter((x) => x._id !== toDelete._id));
       setDelOpen(false);
       setToDelete(null);
+      toastDeleted("Host eliminado");
     } catch (err) {
       console.error(err);
-      alert("No se pudo eliminar el host.");
+      toastError("No se pudo eliminar el host");
     } finally {
       setDeleting(false);
     }
@@ -260,6 +272,11 @@ export default function AdminHosts({ eventId }: Props) {
               <Text size="sm" c="dimmed">
                 {h.profession || "—"}
               </Text>
+              {h.country && (
+                <Text size="sm" c="dimmed">
+                  {flagForCountryName(h.country)} {h.country}
+                </Text>
+              )}
               <Text size="sm" lineClamp={2}>
                 {h.description || "Sin descripción"}
               </Text>
@@ -312,6 +329,16 @@ export default function AdminHosts({ eventId }: Props) {
             value={cProfession}
             onChange={(e) => setCProfession(e.currentTarget.value)}
             placeholder="Ej: Data Scientist"
+          />
+          <Select
+            label="País (opcional)"
+            placeholder="Selecciona un país"
+            data={COUNTRY_SELECT_DATA}
+            value={cCountry}
+            onChange={setCCountry}
+            searchable
+            clearable
+            nothingFoundMessage="Sin resultados"
           />
           <TextInput
             label="Descripción"
@@ -386,6 +413,16 @@ export default function AdminHosts({ eventId }: Props) {
             label="Profesión / Rol"
             value={eProfession}
             onChange={(e) => setEProfession(e.currentTarget.value)}
+          />
+          <Select
+            label="País (opcional)"
+            placeholder="Selecciona un país"
+            data={COUNTRY_SELECT_DATA}
+            value={eCountry}
+            onChange={setECountry}
+            searchable
+            clearable
+            nothingFoundMessage="Sin resultados"
           />
           <TextInput
             label="Descripción"
