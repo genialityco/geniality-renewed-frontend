@@ -1,11 +1,12 @@
 // src/pages/admin/events/EventMembersPanel.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Badge,
   Group,
   Loader,
   Modal,
+  Pagination,
   Progress,
   ScrollArea,
   Stack,
@@ -18,6 +19,7 @@ import {
   fetchEventMembers,
   EventMember,
   EventMembersMetrics,
+  EventMembersSortKey,
 } from "../../../services/eventMetricsService";
 
 interface Props {
@@ -25,7 +27,10 @@ interface Props {
   eventId: string;
 }
 
-type SortKey = "name" | "courseProgress" | "enrolledAt";
+type SortKey = EventMembersSortKey;
+
+const PAGE_SIZE = 50;
+const SEARCH_DEBOUNCE_MS = 300;
 
 const STATUS_META: Record<
   EventMember["status"],
@@ -73,16 +78,33 @@ export default function EventMembersPanel({ organizationId, eventId }: Props) {
   const [data, setData] = useState<EventMembersMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("enrolledAt");
   const [sortAsc, setSortAsc] = useState(true);
+  const [page, setPage] = useState(1);
   const [selectedMember, setSelectedMember] = useState<EventMember | null>(null);
+
+  // Búsqueda con debounce: evita disparar un fetch al backend en cada tecla.
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetchEventMembers(organizationId, eventId)
+    fetchEventMembers(organizationId, eventId, {
+      page,
+      pageSize: PAGE_SIZE,
+      search: search || undefined,
+      sortKey,
+      sortDir: sortAsc ? "asc" : "desc",
+    })
       .then((res) => {
         if (!cancelled) setData(res);
       })
@@ -96,29 +118,7 @@ export default function EventMembersPanel({ organizationId, eventId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, eventId]);
-
-  const filteredSorted = useMemo(() => {
-    if (!data) return [];
-    const term = search.trim().toLowerCase();
-    const list = term
-      ? data.members.filter(
-          (m) =>
-            m.name.toLowerCase().includes(term) ||
-            m.email.toLowerCase().includes(term)
-        )
-      : data.members;
-
-    const sorted = [...list].sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "name") cmp = a.name.localeCompare(b.name);
-      else if (sortKey === "courseProgress")
-        cmp = a.courseProgress - b.courseProgress;
-      else cmp = (a.enrolledAt ?? "").localeCompare(b.enrolledAt ?? "");
-      return sortAsc ? cmp : -cmp;
-    });
-    return sorted;
-  }, [data, search, sortKey, sortAsc]);
+  }, [organizationId, eventId, page, search, sortKey, sortAsc]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -127,6 +127,7 @@ export default function EventMembersPanel({ organizationId, eventId }: Props) {
       setSortKey(key);
       setSortAsc(true);
     }
+    setPage(1);
   }
 
   function sortArrow(key: SortKey): string {
@@ -150,7 +151,7 @@ export default function EventMembersPanel({ organizationId, eventId }: Props) {
     );
   }
 
-  if (data.members.length === 0) {
+  if (data.total === 0 && !search) {
     return (
       <Text size="sm" c="dimmed">
         Aún no hay miembros inscritos en este curso.
@@ -158,13 +159,15 @@ export default function EventMembersPanel({ organizationId, eventId }: Props) {
     );
   }
 
+  const totalPages = Math.max(1, Math.ceil(data.total / data.pageSize));
+
   return (
     <Stack gap="sm">
       <TextInput
         placeholder="Buscar por nombre o email"
         leftSection={<FaMagnifyingGlass size={12} />}
-        value={search}
-        onChange={(e) => setSearch(e.currentTarget.value)}
+        value={searchInput}
+        onChange={(e) => setSearchInput(e.currentTarget.value)}
         maw={320}
       />
 
@@ -195,7 +198,7 @@ export default function EventMembersPanel({ organizationId, eventId }: Props) {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {filteredSorted.map((member) => {
+            {data.members.map((member) => {
               const status = STATUS_META[member.status];
               return (
                 <Table.Tr
@@ -233,10 +236,16 @@ export default function EventMembersPanel({ organizationId, eventId }: Props) {
         </Table>
       </ScrollArea>
 
-      {filteredSorted.length === 0 && (
+      {data.members.length === 0 && (
         <Text size="sm" c="dimmed">
           Ningún miembro coincide con “{search}”.
         </Text>
+      )}
+
+      {totalPages > 1 && (
+        <Group justify="center">
+          <Pagination total={totalPages} value={page} onChange={setPage} size="sm" />
+        </Group>
       )}
 
       <Modal

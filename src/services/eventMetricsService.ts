@@ -90,15 +90,30 @@ export interface EventMembersMetrics {
     moduleOrder: number | null;
   }[];
   members: EventMember[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
-/** Avance de cada miembro inscrito, actividad por actividad */
+export type EventMembersSortKey = "name" | "courseProgress" | "enrolledAt";
+
+export interface FetchEventMembersParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  sortKey?: EventMembersSortKey;
+  sortDir?: "asc" | "desc";
+}
+
+/** Avance de cada miembro inscrito, actividad por actividad (paginado) */
 export const fetchEventMembers = async (
   organizationId: string,
-  eventId: string
+  eventId: string,
+  params: FetchEventMembersParams = {}
 ): Promise<EventMembersMetrics> => {
   const response = await api.get<EventMembersMetrics>(
-    `/event-metrics/organization/${organizationId}/event/${eventId}/members`
+    `/event-metrics/organization/${organizationId}/event/${eventId}/members`,
+    { params }
   );
   return response.data;
 };
