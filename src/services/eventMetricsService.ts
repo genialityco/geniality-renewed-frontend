@@ -72,6 +72,12 @@ export interface EventMemberActivityProgress {
   timeSpentMs: number;
 }
 
+export type EventMemberCertificateStatus =
+  | "COMPLETED"
+  | "PENDING"
+  | "FAILED"
+  | "NOT_GENERATED";
+
 export interface EventMember {
   userId: string;
   name: string;
@@ -79,6 +85,7 @@ export interface EventMember {
   courseProgress: number;
   status: "completed" | "in_progress" | "not_started";
   enrolledAt: string | null;
+  certificateStatus: EventMemberCertificateStatus;
   activities: EventMemberActivityProgress[];
 }
 

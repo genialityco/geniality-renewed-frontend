@@ -18,6 +18,7 @@ import { FaMagnifyingGlass } from "react-icons/fa6";
 import {
   fetchEventMembers,
   EventMember,
+  EventMemberCertificateStatus,
   EventMembersMetrics,
   EventMembersSortKey,
 } from "../../../services/eventMetricsService";
@@ -39,6 +40,16 @@ const STATUS_META: Record<
   completed: { label: "Completado", color: "teal" },
   in_progress: { label: "En progreso", color: "blue" },
   not_started: { label: "Sin empezar", color: "gray" },
+};
+
+const CERTIFICATE_STATUS_META: Record<
+  EventMemberCertificateStatus,
+  { label: string; color: string }
+> = {
+  COMPLETED: { label: "Generado", color: "teal" },
+  PENDING: { label: "En proceso", color: "yellow" },
+  FAILED: { label: "Falló", color: "red" },
+  NOT_GENERATED: { label: "No generado", color: "gray" },
 };
 
 function formatDate(iso: string | null): string {
@@ -189,6 +200,7 @@ export default function EventMembersPanel({ organizationId, eventId }: Props) {
                 Progreso{sortArrow("courseProgress")}
               </Table.Th>
               <Table.Th>Estado</Table.Th>
+              <Table.Th>Certificado</Table.Th>
               <Table.Th
                 onClick={() => toggleSort("enrolledAt")}
                 style={{ cursor: "pointer", whiteSpace: "nowrap" }}
@@ -200,6 +212,8 @@ export default function EventMembersPanel({ organizationId, eventId }: Props) {
           <Table.Tbody>
             {data.members.map((member) => {
               const status = STATUS_META[member.status];
+              const certificateStatus =
+                CERTIFICATE_STATUS_META[member.certificateStatus];
               return (
                 <Table.Tr
                   key={member.userId}
@@ -226,6 +240,11 @@ export default function EventMembersPanel({ organizationId, eventId }: Props) {
                   <Table.Td>
                     <Badge color={status.color} variant="light">
                       {status.label}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge color={certificateStatus.color} variant="light">
+                      {certificateStatus.label}
                     </Badge>
                   </Table.Td>
                   <Table.Td>{formatDate(member.enrolledAt)}</Table.Td>
@@ -259,6 +278,15 @@ export default function EventMembersPanel({ organizationId, eventId }: Props) {
             <Text size="sm" c="dimmed">
               {selectedMember.email}
             </Text>
+            <Group gap="xs">
+              <Text size="sm">Certificado:</Text>
+              <Badge
+                color={CERTIFICATE_STATUS_META[selectedMember.certificateStatus].color}
+                variant="light"
+              >
+                {CERTIFICATE_STATUS_META[selectedMember.certificateStatus].label}
+              </Badge>
+            </Group>
             {data.activities.length === 0 ? (
               <Text size="sm" c="dimmed">
                 Este curso aún no tiene actividades.
