@@ -16,6 +16,7 @@ import { theme } from "./theme";
 import SessionWatcher from './components/SessionWatcher';
 import ActivityWatcher from './components/ActivityWatcher';
 import CustomDomainRedirect from './components/CustomDomainRedirect';
+import WhatsAppSupportButton from './components/WhatsAppSupportButton';
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
           <PaymentModalProvider>
             <OrganizationProvider>
               <AppRoutes />
+              <WhatsAppSupportButton />
             </OrganizationProvider>
           </PaymentModalProvider>
         </UserProvider>

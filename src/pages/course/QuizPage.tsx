@@ -16,10 +16,13 @@ import {
   Divider,
   Alert,
   Progress,
+  ActionIcon,
 } from "@mantine/core";
 import {
   FaArrowLeft,
   FaCircleCheck,
+  FaChevronUp,
+  FaChevronDown,
   FaClock,
   FaLock,
   FaTriangleExclamation,
@@ -643,10 +646,21 @@ function SortingQuestion({
     setOverIndex(null);
   };
 
+  /** Mueve el elemento en la posición i una casilla arriba/abajo. Único
+   * mecanismo de reordenar que funciona en pantallas táctiles, ya que el
+   * drag & drop nativo (arriba) no dispara eventos en móvil/tablet. */
+  const moveItem = (i: number, direction: -1 | 1) => {
+    const target = i + direction;
+    if (target < 0 || target >= currentOrder.length) return;
+    const newOrd = [...currentOrder];
+    [newOrd[i], newOrd[target]] = [newOrd[target], newOrd[i]];
+    onChange(newOrd);
+  };
+
   return (
     <Stack gap="xs" mt="sm">
       <Text size="xs" c="dimmed" mb={4}>
-        Arrastra los elementos para ordenarlos.
+        Arrastra los elementos o usa las flechas para ordenarlos.
       </Text>
       {currentOrder.map((id, i) => {
         const isDragging = draggingIndex === i;
@@ -726,6 +740,28 @@ function SortingQuestion({
                 blocks={optionsById[id]?.blocks ?? []}
                 fallback="(sin texto)"
               />
+            </div>
+
+            {/* Flechas: alternativa al drag & drop para móvil/tablet */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <ActionIcon
+                variant="subtle"
+                size="sm"
+                aria-label="Mover arriba"
+                disabled={i === 0}
+                onClick={() => moveItem(i, -1)}
+              >
+                <FaChevronUp size={12} />
+              </ActionIcon>
+              <ActionIcon
+                variant="subtle"
+                size="sm"
+                aria-label="Mover abajo"
+                disabled={i === currentOrder.length - 1}
+                onClick={() => moveItem(i, 1)}
+              >
+                <FaChevronDown size={12} />
+              </ActionIcon>
             </div>
           </div>
         );
@@ -1108,7 +1144,7 @@ export default function QuizPage() {
           ),
         );
       }
-      if (q.type === "sorting") return (sortingOrders[q.id]?.length ?? 0) > 0;
+      if (q.type === "sorting") return true;
       if (q.type === "open") return !!openAnswers[q.id]?.trim();
       return false;
     }).length;
@@ -1315,7 +1351,7 @@ export default function QuizPage() {
     if (q.type === "single") return !!singleAnswers[q.id];
     if (q.type === "script-concordance") return !!singleAnswers[q.id];
     if (q.type === "multiple") return (multipleAnswers[q.id]?.length ?? 0) > 0;
-    if (q.type === "sorting") return (sortingOrders[q.id]?.length ?? 0) > 0;
+    if (q.type === "sorting") return true;
     if (q.type === "open") return !!openAnswers[q.id]?.trim();
     if (q.type === "matching") {
       const colA = q.columns?.find((c) => c.label === "A");
