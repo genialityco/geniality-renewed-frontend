@@ -13,6 +13,31 @@ export interface ActivityMetrics {
   usersWithTime: number;
 }
 
+/** Métricas de UN examen del curso: el general o el de un módulo. */
+export interface QuizMetrics {
+  quizId: string;
+  /** null = examen general del curso */
+  moduleId: string | null;
+  moduleName: string | null;
+  moduleOrder: number | null;
+  enabled: boolean;
+  passingScore: number | null;
+  totalAttempts: number;
+  uniqueUsers: number;
+  graded: number;
+  pending: number;
+  review: number;
+  avgBestScore: number | null;
+  passedUsers: number | null;
+  gradedUsers: number;
+  /**
+   * true cuando el dato viene de un backend anterior a `quizzes`, que
+   * devolvía un examen del curso sin decir cuál. No se puede afirmar que sea
+   * el general ni que sea el único: la UI debe advertirlo.
+   */
+  legacy?: boolean;
+}
+
 export interface EventMetrics {
   event: {
     id: string;
@@ -34,18 +59,11 @@ export interface EventMetrics {
     avgPerUserMs: number;
   };
   activities: ActivityMetrics[];
-  quiz: {
-    exists: boolean;
-    passingScore: number | null;
-    totalAttempts: number;
-    uniqueUsers: number;
-    graded: number;
-    pending: number;
-    review: number;
-    avgBestScore: number | null;
-    passedUsers: number | null;
-    gradedUsers: number;
-  };
+  /**
+   * Todos los exámenes del curso: el general (moduleId null) primero y luego
+   * los de cada módulo. Vacío si el curso no tiene exámenes.
+   */
+  quizzes: QuizMetrics[];
   certificates: {
     total: number;
     completed: number;
@@ -54,15 +72,65 @@ export interface EventMetrics {
   };
 }
 
+/** Forma antigua de la respuesta: un único examen sin identificar. */
+interface LegacyQuizMetrics {
+  exists: boolean;
+  passingScore: number | null;
+  totalAttempts: number;
+  uniqueUsers: number;
+  graded: number;
+  pending: number;
+  review: number;
+  avgBestScore: number | null;
+  passedUsers: number | null;
+  gradedUsers: number;
+}
+
+/**
+ * Normaliza respuestas de un backend anterior a `quizzes`, donde el curso
+ * exponía un solo examen sin decir cuál era.
+ */
+const normalizeQuizzes = (
+  data: EventMetrics & { quiz?: LegacyQuizMetrics }
+): EventMetrics => {
+  if (Array.isArray(data.quizzes)) return data;
+  const legacy = data.quiz;
+  return {
+    ...data,
+    quizzes:
+      legacy && legacy.exists
+        ? [
+            {
+              quizId: "legacy",
+              moduleId: null,
+              moduleName: null,
+              moduleOrder: null,
+              enabled: true,
+              passingScore: legacy.passingScore,
+              totalAttempts: legacy.totalAttempts,
+              uniqueUsers: legacy.uniqueUsers,
+              graded: legacy.graded,
+              pending: legacy.pending,
+              review: legacy.review,
+              avgBestScore: legacy.avgBestScore,
+              passedUsers: legacy.passedUsers,
+              gradedUsers: legacy.gradedUsers,
+              legacy: true,
+            },
+          ]
+        : [],
+  };
+};
+
 /** Métricas agregadas de un curso/evento (dashboard de admin) */
 export const fetchEventMetrics = async (
   organizationId: string,
   eventId: string
 ): Promise<EventMetrics> => {
-  const response = await api.get<EventMetrics>(
+  const response = await api.get<EventMetrics & { quiz?: LegacyQuizMetrics }>(
     `/event-metrics/organization/${organizationId}/event/${eventId}`
   );
-  return response.data;
+  return normalizeQuizzes(response.data);
 };
 
 export interface EventMemberActivityProgress {

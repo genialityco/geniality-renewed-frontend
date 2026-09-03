@@ -7,6 +7,7 @@
 import {
   ActivityMetrics,
   EventMetrics,
+  QuizMetrics,
 } from "../../../services/eventMetricsService";
 
 const TOTAL_ENROLLED = 128;
@@ -103,6 +104,57 @@ function buildActivityFunnel(real: ActivityMetrics[]): ActivityMetrics[] {
   });
 }
 
+/**
+ * Exámenes de ejemplo. Respeta los exámenes reales del curso (para que se vea
+ * cuáles son y cuántos hay) y solo inventa los números; si el curso todavía no
+ * tiene ninguno, muestra un examen general de muestra.
+ */
+function buildQuizzes(real: QuizMetrics[]): QuizMetrics[] {
+  const skeleton: QuizMetrics[] = real.length
+    ? real
+    : [
+        {
+          quizId: "sample-general",
+          moduleId: null,
+          moduleName: null,
+          moduleOrder: null,
+          enabled: true,
+          passingScore: 70,
+          totalAttempts: 0,
+          uniqueUsers: 0,
+          graded: 0,
+          pending: 0,
+          review: 0,
+          avgBestScore: null,
+          passedUsers: null,
+          gradedUsers: 0,
+        },
+      ];
+
+  return skeleton.map((quiz, i) => {
+    const uniqueUsers = Math.round(70 + jitter(i) * 28);
+    const totalAttempts = Math.round(uniqueUsers * (1.3 + jitter(i + 5) * 0.4));
+    const gradedUsers = Math.round(uniqueUsers * 0.96);
+    const passingScore = quiz.passingScore ?? 70;
+    const avgBestScore =
+      Math.round((passingScore + 6 + jitter(i + 9) * 10) * 10) / 10;
+
+    return {
+      ...quiz,
+      passingScore,
+      totalAttempts,
+      uniqueUsers,
+      graded: Math.round(totalAttempts * 0.92),
+      pending: Math.round(totalAttempts * 0.05),
+      review: totalAttempts - Math.round(totalAttempts * 0.92) -
+        Math.round(totalAttempts * 0.05),
+      avgBestScore,
+      passedUsers: Math.round(gradedUsers * (0.78 + jitter(i + 13) * 0.15)),
+      gradedUsers,
+    };
+  });
+}
+
 /** Construye un EventMetrics ficticio a partir de la respuesta real del curso. */
 export function buildSampleMetrics(real: EventMetrics): EventMetrics {
   const completed = 74;
@@ -126,18 +178,7 @@ export function buildSampleMetrics(real: EventMetrics): EventMetrics {
       totalMs: usersWithTime * avgPerUserMs,
     },
     activities: buildActivityFunnel(real.activities),
-    quiz: {
-      exists: true,
-      passingScore: real.quiz.passingScore ?? 70,
-      totalAttempts: 143,
-      uniqueUsers: 98,
-      graded: 131,
-      pending: 8,
-      review: 4,
-      avgBestScore: 78.4,
-      passedUsers: 81,
-      gradedUsers: 96,
-    },
+    quizzes: buildQuizzes(real.quizzes),
     certificates: {
       total: 74,
       completed: 69,

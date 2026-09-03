@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import {
   Alert,
+  Badge,
   Box,
   Button,
   Group,
@@ -9,6 +10,7 @@ import {
   Paper,
   SimpleGrid,
   Stack,
+  Table,
   Text,
   Title,
   Tooltip as MantineTooltip,
@@ -22,13 +24,24 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { pdf } from "@react-pdf/renderer";
 import {
   fetchEventMetrics,
   EventMetrics,
   ActivityMetrics,
+  QuizMetrics,
 } from "../../../services/eventMetricsService";
 import { buildSampleMetrics } from "./eventMetricsSample";
 import EventMembersPanel from "./EventMembersPanel";
+import { EventMetricsPDF } from "./EventMetricsPDF";
+import {
+  formatDuration,
+  formatMonth,
+  formatNumber,
+  hiddenQuizzesNote,
+  splitEnabledQuizzes,
+} from "./eventMetricsFormat";
+import { useOrganization } from "../../../context/OrganizationContext";
 
 interface Props {
   organizationId: string;
@@ -47,41 +60,17 @@ const viz = {
   surface: "#fcfcfb",
 };
 
-const MONTHS_ES = [
-  "ene",
-  "feb",
-  "mar",
-  "abr",
-  "may",
-  "jun",
-  "jul",
-  "ago",
-  "sep",
-  "oct",
-  "nov",
-  "dic",
-];
-
-function formatMonth(yyyyMm: string): string {
-  const [year, month] = yyyyMm.split("-");
-  const idx = Number(month) - 1;
-  const name = MONTHS_ES[idx] ?? month;
-  return `${name} ${year}`;
-}
-
-function formatDuration(ms: number): string {
-  if (!ms || ms <= 0) return "0 min";
-  const totalMinutes = Math.round(ms / 60000);
-  if (totalMinutes < 1) return "< 1 min";
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours === 0) return `${minutes} min`;
-  if (minutes === 0) return `${hours} h`;
-  return `${hours} h ${minutes} min`;
-}
-
-function formatNumber(n: number): string {
-  return n.toLocaleString("es-CO");
+/** Nombre de archivo seguro a partir del nombre del curso */
+function slugify(text: string): string {
+  return (
+    text
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-zA-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase()
+      .slice(0, 60) || "curso"
+  );
 }
 
 function StatTile({
@@ -255,12 +244,132 @@ function ActivityFunnel({ activities }: { activities: ActivityMetrics[] }) {
   );
 }
 
+/**
+ * Nombre legible de un examen, con la misma terminología del gestor de
+ * exámenes. Se decide por `moduleId`: un examen de un módulo ya borrado llega
+ * sin `moduleName` y no debe confundirse con el examen general.
+ */
+function quizLabel(quiz: QuizMetrics): string {
+  if (quiz.legacy) return "Examen sin identificar";
+  if (quiz.moduleId === null) return "General del curso";
+  return quiz.moduleName
+    ? `Módulo: ${quiz.moduleName}`
+    : "Módulo eliminado";
+}
+
+function QuizzesTable({ quizzes }: { quizzes: QuizMetrics[] }) {
+  if (quizzes.length === 0) {
+    return (
+      <Text size="sm" c="dimmed">
+        Este curso no tiene exámenes configurados.
+      </Text>
+    );
+  }
+
+  const { enabled, hiddenCount } = splitEnabledQuizzes(quizzes);
+  const legacy = enabled.some((q) => q.legacy);
+
+  if (enabled.length === 0) {
+    return (
+      <Text size="sm" c="dimmed">
+        Todos los exámenes de este curso están deshabilitados.
+      </Text>
+    );
+  }
+
+  return (
+    <Stack gap="sm">
+      {legacy && (
+        <Alert color="yellow" title="Solo se está viendo un examen">
+          <Text size="sm">
+            El servidor de este entorno todavía no distingue los varios
+            exámenes de un curso, así que devuelve uno solo y sin identificar.
+            Actualiza el backend para ver el examen general y el de cada
+            módulo por separado.
+          </Text>
+        </Alert>
+      )}
+      <Table.ScrollContainer minWidth={720}>
+        <Table striped highlightOnHover withTableBorder>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Examen</Table.Th>
+              <Table.Th ta="right">Intentos</Table.Th>
+              <Table.Th ta="right">Usuarios</Table.Th>
+              <Table.Th ta="right">Nota promedio</Table.Th>
+              <Table.Th ta="right">Nota mínima</Table.Th>
+              <Table.Th ta="right">Aprobación</Table.Th>
+              <Table.Th ta="right">Sin calificar</Table.Th>
+              <Table.Th ta="right">En revisión</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {enabled.map((quiz) => {
+              const approval =
+                quiz.passedUsers !== null && quiz.gradedUsers > 0
+                  ? `${Math.round(
+                      (quiz.passedUsers / quiz.gradedUsers) * 100
+                    )}%`
+                  : "—";
+              return (
+                <Table.Tr key={quiz.quizId}>
+                  <Table.Td>
+                    <Group gap="xs" wrap="nowrap">
+                      <Text size="sm">{quizLabel(quiz)}</Text>
+                      {quiz.moduleId === null && (
+                        <Badge size="xs" variant="light">
+                          General
+                        </Badge>
+                      )}
+                    </Group>
+                  </Table.Td>
+                  <Table.Td ta="right">
+                    {formatNumber(quiz.totalAttempts)}
+                  </Table.Td>
+                  <Table.Td ta="right">
+                    {formatNumber(quiz.uniqueUsers)}
+                  </Table.Td>
+                  <Table.Td ta="right">
+                    {quiz.avgBestScore !== null ? quiz.avgBestScore : "—"}
+                  </Table.Td>
+                  <Table.Td ta="right">
+                    {quiz.passingScore !== null ? quiz.passingScore : "—"}
+                  </Table.Td>
+                  <Table.Td ta="right">
+                    {approval}
+                    {quiz.passedUsers !== null && (
+                      <Text size="xs" c="dimmed">
+                        {formatNumber(quiz.passedUsers)}/
+                        {formatNumber(quiz.gradedUsers)}
+                      </Text>
+                    )}
+                  </Table.Td>
+                  <Table.Td ta="right">{formatNumber(quiz.pending)}</Table.Td>
+                  <Table.Td ta="right">{formatNumber(quiz.review)}</Table.Td>
+                </Table.Tr>
+              );
+            })}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
+      {hiddenCount > 0 && (
+        <Text size="xs" c="dimmed">
+          {hiddenQuizzesNote(hiddenCount)}
+        </Text>
+      )}
+    </Stack>
+  );
+}
+
 export default function EventMetricsTab({ organizationId, eventId }: Props) {
   const [metrics, setMetrics] = useState<EventMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [demoMode, setDemoMode] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const { organization } = useOrganization();
 
   useEffect(() => {
     let cancelled = false;
@@ -301,11 +410,43 @@ export default function EventMetricsTab({ organizationId, eventId }: Props) {
   }
 
   const shownMetrics = demoMode ? buildSampleMetrics(metrics) : metrics;
-  const { enrollment, time, activities, quiz, certificates } = shownMetrics;
+  const { enrollment, time, activities, quizzes, certificates } = shownMetrics;
   const completionRate =
     enrollment.total > 0
       ? Math.round((enrollment.completed / enrollment.total) * 100)
       : 0;
+
+  /** Genera el PDF del informe y lo descarga */
+  const handleDownloadPDF = async () => {
+    setDownloading(true);
+    setPdfError(null);
+    try {
+      const blob = await pdf(
+        <EventMetricsPDF
+          metrics={shownMetrics}
+          organizationName={organization?.name}
+          demo={demoMode}
+        />
+      ).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `metricas-${slugify(shownMetrics.event.name)}-${new Date()
+        .toISOString()
+        .slice(0, 10)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      // Algunos navegadores cancelan la descarga si el blob se libera al instante
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error("Error generando el PDF de métricas:", err);
+      setPdfError("No se pudo generar el PDF del informe. Intenta de nuevo.");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <Stack gap="lg">
@@ -318,13 +459,27 @@ export default function EventMetricsTab({ organizationId, eventId }: Props) {
         </Alert>
       )}
 
-      {!demoMode && (
-        <Group justify="flex-end">
+      {pdfError && (
+        <Alert color="red" title="Error" onClose={() => setPdfError(null)} withCloseButton>
+          {pdfError}
+        </Alert>
+      )}
+
+      <Group justify="flex-end">
+        {!demoMode && (
           <Button size="xs" variant="light" onClick={() => setDemoMode(true)}>
             Ver con datos de ejemplo
           </Button>
-        </Group>
-      )}
+        )}
+        <Button
+          size="xs"
+          variant="filled"
+          onClick={handleDownloadPDF}
+          loading={downloading}
+        >
+          Descargar informe PDF
+        </Button>
+      </Group>
 
       {/* KPIs principales */}
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
@@ -406,79 +561,40 @@ export default function EventMetricsTab({ organizationId, eventId }: Props) {
         )}
       </Paper>
 
-      {/* Examen y certificados */}
-      <SimpleGrid cols={{ base: 1, md: 2 }}>
-        <Paper withBorder p="md" radius="md">
-          <Title order={5} mb="sm">
-            Examen
-          </Title>
-          {quiz.exists ? (
-            <SimpleGrid cols={2}>
-              <StatTile
-                label="Intentos"
-                value={formatNumber(quiz.totalAttempts)}
-                detail={`${formatNumber(quiz.uniqueUsers)} usuarios`}
-              />
-              <StatTile
-                label="Nota promedio (mejor intento)"
-                value={
-                  quiz.avgBestScore !== null ? `${quiz.avgBestScore}` : "—"
-                }
-                detail={
-                  quiz.passingScore !== null
-                    ? `Nota mínima para aprobar: ${quiz.passingScore}`
-                    : "Sin nota mínima configurada"
-                }
-              />
-              <StatTile
-                label="Aprobación"
-                value={
-                  quiz.passedUsers !== null && quiz.gradedUsers > 0
-                    ? `${Math.round(
-                        (quiz.passedUsers / quiz.gradedUsers) * 100
-                      )}%`
-                    : "—"
-                }
-                detail={
-                  quiz.passedUsers !== null
-                    ? `${formatNumber(quiz.passedUsers)} de ${formatNumber(
-                        quiz.gradedUsers
-                      )} usuarios calificados`
-                    : "Requiere nota mínima configurada"
-                }
-              />
-              <StatTile
-                label="Pendientes de revisión"
-                value={formatNumber(quiz.review)}
-                detail={`${formatNumber(quiz.pending)} sin calificar`}
-              />
-            </SimpleGrid>
-          ) : (
-            <Text size="sm" c="dimmed">
-              Este curso no tiene examen configurado.
-            </Text>
-          )}
-        </Paper>
+      {/* Exámenes */}
+      <Paper withBorder p="md" radius="md">
+        <Title order={5} mb={2}>
+          Exámenes
+        </Title>
+        <Text size="xs" c="dimmed" mb="sm">
+          Un curso puede tener un examen general y uno por módulo; aquí se
+          muestran todos por separado. La nota es el mejor intento de cada
+          usuario.
+        </Text>
+        <QuizzesTable quizzes={quizzes} />
+      </Paper>
 
-        <Paper withBorder p="md" radius="md">
-          <Title order={5} mb="sm">
-            Certificados
-          </Title>
-          <SimpleGrid cols={2}>
-            <StatTile
-              label="Certificados generados"
-              value={formatNumber(certificates.completed)}
-              detail={`${formatNumber(certificates.total)} solicitados`}
-            />
-            <StatTile
-              label="Pendientes / fallidos"
-              value={`${formatNumber(certificates.pending)} / ${formatNumber(
-                certificates.failed
-              )}`}
-            />
-          </SimpleGrid>
-        </Paper>
-      </SimpleGrid>
+      {/* Certificados */}
+      <Paper withBorder p="md" radius="md">
+        <Title order={5} mb="sm">
+          Certificados
+        </Title>
+        <SimpleGrid cols={{ base: 1, sm: 3 }}>
+          <StatTile
+            label="Certificados generados"
+            value={formatNumber(certificates.completed)}
+            detail={`${formatNumber(certificates.total)} solicitados`}
+          />
+          <StatTile
+            label="Pendientes"
+            value={formatNumber(certificates.pending)}
+          />
+          <StatTile
+            label="Fallidos"
+            value={formatNumber(certificates.failed)}
+          />
+        </SimpleGrid>
+      </Paper>
     </Stack>
   );
 }

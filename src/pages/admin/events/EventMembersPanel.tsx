@@ -22,6 +22,7 @@ import {
   EventMembersMetrics,
   EventMembersSortKey,
 } from "../../../services/eventMetricsService";
+import { formatDate, formatDuration } from "./eventMetricsFormat";
 
 interface Props {
   organizationId: string;
@@ -52,27 +53,7 @@ const CERTIFICATE_STATUS_META: Record<
   NOT_GENERATED: { label: "No generado", color: "gray" },
 };
 
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es-CO", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  });
-}
-
 const PLACEHOLDER_NAMES = new Set(["Usuario sin nombre", "Cuenta eliminada"]);
-
-function formatDuration(ms: number): string {
-  if (!ms || ms <= 0) return "0 min";
-  const totalMinutes = Math.round(ms / 60000);
-  if (totalMinutes < 1) return "< 1 min";
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours === 0) return `${minutes} min`;
-  if (minutes === 0) return `${hours} h`;
-  return `${hours} h ${minutes} min`;
-}
 
 function ProgressCell({ value }: { value: number }) {
   return (
