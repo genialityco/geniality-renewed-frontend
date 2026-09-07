@@ -222,6 +222,50 @@ export function getModuleExamNavQuizId(params: {
 }
 
 /**
+ * Actividad a la que debe avanzar el usuario después de APROBAR el examen de
+ * un módulo: la primera actividad del siguiente módulo (en el orden de
+ * aprendizaje). Si el módulo siguiente no tiene actividades se sigue buscando
+ * en los posteriores, y como último recurso se devuelven las actividades sin
+ * módulo.
+ *
+ * Devuelve `null` cuando no hay nada después (último módulo) o cuando el
+ * examen es el general del curso (sin `moduleId`).
+ */
+export function getNextActivityAfterQuiz(params: {
+  quiz: { moduleId?: any } | null | undefined;
+  modules: any[];
+  activities: any[];
+}): any | null {
+  const { quiz, modules, activities } = params;
+  const moduleId = quiz?.moduleId ? String(quiz.moduleId) : "";
+  if (!moduleId) return null;
+
+  const orderedModules = sortModulesByOrder(modules);
+  const currentIndex = orderedModules.findIndex(
+    (m) => String(m?._id) === moduleId
+  );
+  if (currentIndex === -1) return null;
+
+  for (let i = currentIndex + 1; i < orderedModules.length; i++) {
+    const modActivities = sortActivitiesByDate(
+      activities.filter(
+        (a) => String(a?.module_id ?? "") === String(orderedModules[i]?._id)
+      )
+    );
+    if (modActivities.length > 0) return modActivities[0];
+  }
+
+  // Actividades sin módulo (o de módulos inexistentes) van al final del curso.
+  const moduleIds = new Set(orderedModules.map((m) => String(m?._id)));
+  const looseActivities = sortActivitiesByDate(
+    activities.filter(
+      (a) => !a?.module_id || !moduleIds.has(String(a.module_id))
+    )
+  );
+  return looseActivities[0] ?? null;
+}
+
+/**
  * Determina si el examen está desbloqueado según la configuración del curso.
  * Por defecto (sin configuración) el examen permanece bloqueado.
  */

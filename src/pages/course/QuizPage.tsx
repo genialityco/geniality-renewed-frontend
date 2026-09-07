@@ -72,6 +72,61 @@ function getYoutubeEmbedUrl(url: string): string | null {
   return null;
 }
 
+/** Fisher–Yates: devuelve una copia mezclada del arreglo (no muta el original). */
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+/**
+ * Aplica la aleatorización configurada por el administrador
+ * (`config.shuffleQuestions` / `config.shuffleOptions`). Ambas vienen
+ * desactivadas por defecto, así que sin configuración el examen se presenta
+ * en el orden original.
+ *
+ * Solo cambia el ORDEN de presentación: tanto las respuestas del usuario como
+ * la calificación se resuelven por id de pregunta y de opción, de modo que
+ * mezclar no altera el puntaje ni las respuestas correctas.
+ *
+ * Las preguntas de concordancia de script quedan excluidas de la mezcla de
+ * opciones porque su escala (-2 … +2) tiene un orden con significado propio.
+ */
+function applyQuizShuffle(quiz: Quiz): Quiz {
+  const shuffleQuestions = quiz.config?.shuffleQuestions === true;
+  const shuffleOptions = quiz.config?.shuffleOptions === true;
+  if (!shuffleQuestions && !shuffleOptions) return quiz;
+
+  let questions: Question[] = quiz.questions ?? [];
+
+  if (shuffleOptions) {
+    questions = questions.map((q) => {
+      if (q.type === "script-concordance") return q;
+      const next: Question = { ...q };
+      if (next.options?.length) {
+        next.options = shuffled(next.options);
+      }
+      // Relación de columnas: se mezclan las opciones de cada columna.
+      if (next.columns?.length) {
+        next.columns = next.columns.map((col) => ({
+          ...col,
+          options: shuffled(col.options ?? []),
+        }));
+      }
+      return next;
+    });
+  }
+
+  if (shuffleQuestions) {
+    questions = shuffled(questions);
+  }
+
+  return { ...quiz, questions };
+}
+
 /** Renderiza bloques con soporte de imagen y video */
 function BlocksDisplay({
   blocks,
@@ -1005,7 +1060,9 @@ export default function QuizPage() {
     (async () => {
       try {
         const data = await getQuizById(quizId);
-        setQuiz(data);
+        // El orden de presentación se mezcla aquí (una sola vez por intento),
+        // según la configuración del examen.
+        setQuiz(applyQuizShuffle(data));
 
         let userAttempts: any[] = [];
         let attemptsFetchOk = false;

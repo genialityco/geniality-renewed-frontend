@@ -150,6 +150,17 @@ export interface QuizConfig {
    * - "one-by-one" → una pregunta a la vez, sin posibilidad de retroceder.
    */
   questionDisplay: "all" | "one-by-one";
+  /**
+   * Presentar las preguntas en orden aleatorio (distinto en cada intento).
+   * false (default) = se respeta el orden definido por el administrador.
+   */
+  shuffleQuestions?: boolean;
+  /**
+   * Presentar las opciones de respuesta en orden aleatorio. No aplica a las
+   * preguntas de concordancia de script, cuya escala tiene un orden fijo.
+   * false (default) = se respeta el orden definido por el administrador.
+   */
+  shuffleOptions?: boolean;
 }
 
 /** Valores que se envían al backend cuando el admin no configura el examen manualmente. */
@@ -158,6 +169,8 @@ export const DEFAULT_QUIZ_CONFIG: QuizConfig = {
   attempts: null,
   nota: 70,
   questionDisplay: "all",
+  shuffleQuestions: false,
+  shuffleOptions: false,
 };
 
 export interface Quiz {

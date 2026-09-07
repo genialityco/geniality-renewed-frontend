@@ -50,6 +50,14 @@ export default function QuizConfig({ eventId }: QuizConfigProps) {
     DEFAULT_QUIZ_CONFIG.questionDisplay,
   );
 
+  // Aleatorizar: desactivado por defecto.
+  const [shuffleQuestions, setShuffleQuestions] = useState(
+    DEFAULT_QUIZ_CONFIG.shuffleQuestions ?? false,
+  );
+  const [shuffleOptions, setShuffleOptions] = useState(
+    DEFAULT_QUIZ_CONFIG.shuffleOptions ?? false,
+  );
+
   // ── Carga inicial ──
   useEffect(() => {
     setLoading(true);
@@ -82,6 +90,9 @@ export default function QuizConfig({ eventId }: QuizConfigProps) {
           if (cfg.nota != null) setNota(cfg.nota);
 
           setQuestionDisplay(cfg.questionDisplay ?? DEFAULT_QUIZ_CONFIG.questionDisplay);
+
+          setShuffleQuestions(cfg.shuffleQuestions === true);
+          setShuffleOptions(cfg.shuffleOptions === true);
         }
       } catch (e: any) {
         setFetchError(
@@ -104,6 +115,8 @@ export default function QuizConfig({ eventId }: QuizConfigProps) {
         attempts: hasAttempts ? Number(attempts) : null,
         nota: hasNota ? Number(nota) : null,
         questionDisplay,
+        shuffleQuestions,
+        shuffleOptions,
       };
       // Config compartida: se aplica a todos los exámenes del curso.
       await Promise.all(quizIds.map((id) => saveQuizConfig(id, config)));
@@ -169,6 +182,31 @@ export default function QuizConfig({ eventId }: QuizConfigProps) {
               { label: "Una por una (sin retroceder)", value: "one-by-one" },
             ]}
           />
+        </div>
+
+        {/* ── Aleatorizar ── */}
+        <div>
+          <Text size="sm" fw={500} mb={4}>
+            Aleatorizar el examen
+          </Text>
+          <Text size="xs" c="dimmed" mb="xs">
+            Cada usuario ve el examen en un orden distinto, lo que dificulta
+            copiar respuestas entre compañeros. Desactivado por defecto.
+          </Text>
+          <Stack gap="xs">
+            <Switch
+              label="Mezclar preguntas"
+              description="Las preguntas se presentan en orden aleatorio"
+              checked={shuffleQuestions}
+              onChange={(e) => setShuffleQuestions(e.currentTarget.checked)}
+            />
+            <Switch
+              label="Mezclar opciones de respuesta"
+              description="Las opciones de cada pregunta se presentan en orden aleatorio (no aplica a concordancia de script, cuya escala tiene un orden fijo)"
+              checked={shuffleOptions}
+              onChange={(e) => setShuffleOptions(e.currentTarget.checked)}
+            />
+          </Stack>
         </div>
 
         {/* ── Tiempo ── */}

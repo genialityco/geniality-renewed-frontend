@@ -17,7 +17,7 @@ import {
   Box,
   NumberInput,
 } from "@mantine/core";
-import { FaArrowLeft, FaCircleCheck, FaTrophy, FaXmark, FaMedal, FaLock } from "react-icons/fa6";
+import { FaArrowLeft, FaArrowRight, FaCircleCheck, FaTrophy, FaXmark, FaMedal, FaLock } from "react-icons/fa6";
 import {
   getQuizById,
   Quiz,
@@ -29,9 +29,16 @@ import {
 import { getBestScore, getUserAttempts, UserAnswerDto, gradeOpenQuestion } from "../../services/userQuizAttemptService";
 import { getQuizzesByEventId } from "../../services/QuizService";
 import { fetchActivityAttendeesByUserAndEvent } from "../../services/activityAttendeeService";
-import { getCertificateGate, quizIdOf } from "./helpers/courseDetailHelpers";
+import {
+  getCertificateGate,
+  getNextActivityAfterQuiz,
+  isExamPassed,
+  quizIdOf,
+} from "./helpers/courseDetailHelpers";
 import { useUser } from "../../context/UserContext";
 import { fetchEventById } from "../../services/eventService";
+import { getModulesByEventId } from "../../services/moduleService";
+import { getActivitiesByEvent } from "../../services/activityService";
 import {
   trackQuizCertificateAction,
   trackQuizResultView,
@@ -462,17 +469,30 @@ export default function QuizResultPage() {
   const [generatingCertificate, setGeneratingCertificate] = useState(false);
   const [generatedCertificate, setGeneratedCertificate] = useState<GeneratedCertificate | null>(null);
   const [hasTrackedResultView, setHasTrackedResultView] = useState(false);
+  // Siguiente actividad del curso después del examen de este módulo
+  // (actividad 1 del módulo siguiente). null = no hay nada después.
+  const [nextActivity, setNextActivity] = useState<any | null>(null);
 
   useEffect(() => {
     if (!quizId || quizId === "undefined" || !userId) return;
     (async () => {
       try {
-        const [scoreResult, quizResult, attemptsResult, eventResult, certTemplateResult] = await Promise.allSettled([
+        const [
+          scoreResult,
+          quizResult,
+          attemptsResult,
+          eventResult,
+          certTemplateResult,
+          modulesResult,
+          activitiesResult,
+        ] = await Promise.allSettled([
           getBestScore(quizId!, userId!),
           getQuizById(quizId!),
           getUserAttempts(quizId!, userId!),
           eventId ? fetchEventById(eventId) : Promise.resolve(null),
           eventId ? getCertificateTemplateByEvent(eventId) : Promise.resolve(null),
+          eventId ? getModulesByEventId(eventId) : Promise.resolve([]),
+          eventId ? getActivitiesByEvent(eventId) : Promise.resolve([]),
         ]);
         
         // El backend devuelve false si el usuario aún no ha intentado el examen.
@@ -483,6 +503,17 @@ export default function QuizResultPage() {
         if (quizResult.status === "fulfilled") {
           setQuiz(quizResult.value);
         }
+
+        // Siguiente actividad después del examen del módulo: solo aplica a los
+        // exámenes por módulo (el examen general del curso no tiene "siguiente").
+        setNextActivity(
+          getNextActivityAfterQuiz({
+            quiz: quizResult.status === "fulfilled" ? quizResult.value : null,
+            modules: modulesResult.status === "fulfilled" ? modulesResult.value ?? [] : [],
+            activities:
+              activitiesResult.status === "fulfilled" ? activitiesResult.value ?? [] : [],
+          })
+        );
         
         // Si el servicio de intentos no está disponible, simplemente no mostres la lista
         if (attemptsResult.status === "fulfilled") {
@@ -627,6 +658,13 @@ export default function QuizResultPage() {
   const canRetry = (attemptsLeft === null || attemptsLeft > 0) && numScore < 100;
   const certBlocked = !!certGate && !certGate.unlocked;
 
+  // ── Siguiente actividad ──
+  // El botón solo se habilita si el usuario APROBÓ el examen (mismo criterio
+  // que la compuerta de módulos en `getLockedActivityIds`), y solo aparece si
+  // existe una actividad después de este módulo.
+  const examPassed = isExamPassed(quiz, score ?? false);
+  const showNextActivity = examPassed && !!nextActivity;
+
   // ── Último intento: se muestra el desglose cuando se agotan los intentos y no hay 100% ──
   const showReview = attemptsLeft !== null && attemptsLeft <= 0 && numScore < 100;
 
@@ -685,6 +723,13 @@ export default function QuizResultPage() {
       mode === "view" ? viewUrl : downloadUrl,
       "_blank",
       "noopener,noreferrer",
+    );
+  };
+
+  const handleGoToNextActivity = () => {
+    if (!nextActivity) return;
+    navigate(
+      `/organization/${organizationId}/course/${eventId}?activity=${nextActivity._id}`,
     );
   };
 
@@ -844,6 +889,25 @@ export default function QuizResultPage() {
               <> ({correctAnswers} de {totalQuestions} respuesta{totalQuestions !== 1 ? "s" : ""} correcta{totalQuestions !== 1 ? "s" : ""})</>
             )}.
           </Text>
+
+          {/* ── Ir a la siguiente actividad (solo al aprobar el examen) ── */}
+          {showNextActivity && (
+            <Stack align="center" gap={4} w="100%">
+              <Button
+                fullWidth
+                color="teal"
+                rightSection={<FaArrowRight size={14} />}
+                onClick={handleGoToNextActivity}
+              >
+                Ir a la siguiente actividad
+              </Button>
+              {nextActivity?.name && (
+                <Text size="xs" c="dimmed" ta="center">
+                  Siguiente: {nextActivity.name}
+                </Text>
+              )}
+            </Stack>
+          )}
 
           {/* ── Reintentar ── */}
           {canRetry && score !== null && (
