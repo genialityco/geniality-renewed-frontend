@@ -215,7 +215,7 @@ function BlocksDisplay({
         if (block.type === "bullet-list") {
           return (
             <Text key={block.id} size="md" c="#111">
-              • {text}
+              {`• ${text}`}
             </Text>
           );
         }
@@ -912,7 +912,7 @@ function QuestionCard({
     >
       <Group gap="xs" mb="xs">
         <Badge size="sm" variant="filled" color="gray">
-          {i + 1}
+          {`${i + 1}`}
         </Badge>
         <Badge size="sm" variant="outline" color="blue">
           {q.type === "single"
@@ -1439,7 +1439,7 @@ export default function QuizPage() {
         : "blue";
 
   return (
-    <Container size="md" py="xl">
+    <Container size="md" py="xl" className="notranslate" translate="no">
       {/* Cabecera */}
       <Group justify="space-between" mb="lg">
         <Button
@@ -1462,7 +1462,7 @@ export default function QuizPage() {
           )}
           {maxAttempts !== null && (
             <Badge size="lg" variant="light" color="gray">
-              Intento {attemptsUsed + 1}/{maxAttempts}
+              {`Intento ${attemptsUsed + 1}/${maxAttempts}`}
             </Badge>
           )}
           <Badge
@@ -1470,7 +1470,7 @@ export default function QuizPage() {
             variant="light"
             color={answered === total ? "teal" : "blue"}
           >
-            {answered}/{total} respondidas
+            {`${answered}/${total} respondidas`}
           </Badge>
         </Group>
       </Group>
@@ -1504,7 +1504,7 @@ export default function QuizPage() {
       />
       {isOneByOne && (
         <Text size="xs" c="dimmed" ta="right" mb="xl">
-          Pregunta {currentQuestionIndex + 1} de {total}
+          {`Pregunta ${currentQuestionIndex + 1} de ${total}`}
         </Text>
       )}
 
@@ -1558,9 +1558,9 @@ export default function QuizPage() {
               color="yellow"
               mb="md"
             >
-              Tienes {total - answered} pregunta
-              {total - answered !== 1 ? "s" : ""} sin responder. Puedes enviar
-              de todas formas.
+              {`Tienes ${total - answered} pregunta${
+                total - answered !== 1 ? "s" : ""
+              } sin responder. Puedes enviar de todas formas.`}
             </Alert>
           )}
           {answered === total && (
