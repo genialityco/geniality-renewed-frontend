@@ -64,6 +64,17 @@ export interface Module {
   created_at: string;
 }
 
+export type VideoProvider = "vimeo" | "bunny";
+export type VideoStatus = "active" | "inactive" | "processing" | "error";
+
+export interface VideoItem {
+  provider: VideoProvider;
+  video_id: string;
+  priority: number;
+  status: VideoStatus;
+  meta?: Record<string, any>;
+}
+
 export interface Activity {
   create_at: string | number | Date;
   createAt: any;
@@ -83,7 +94,9 @@ export interface Activity {
   description?: string;
   short_description?: string;
   host_ids: string[];
+  /** @deprecated usar `videos` (soportado solo por compatibilidad con actividades antiguas) */
   video?: string;
+  videos?: VideoItem[];
   is_info_only: boolean;
   selected_document: string[];
   type_id?: string;

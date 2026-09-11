@@ -30,9 +30,15 @@ import {
   getTranscriptionStatus,
   validateAndUpdateTranscript,
 } from "../../../services/activityService";
-import { Activity, Host, Module, Organization } from "../../../services/types";
+import {
+  Activity,
+  Host,
+  Module,
+  Organization,
+  VideoItem,
+} from "../../../services/types";
 import { getModulesByEventId } from "../../../services/moduleService";
-import { FaCheck, FaPencil, FaTrash, FaYoutube, FaCircleCheck, FaEye } from "react-icons/fa6";
+import { FaCheck, FaPencil, FaTrash, FaCircleCheck, FaEye } from "react-icons/fa6";
 import {
   createHost,
   fetchHostsByEventId,
@@ -41,6 +47,8 @@ import {
 import { uploadImageToFirebase } from "../../../utils/uploadImageToFirebase";
 import { toastSaved, toastUpdated, toastDeleted, toastError } from "../../../utils/toast";
 import { openCoursePreview } from "../../../utils/previewUrl";
+import ActivityVideosEditor from "../../../components/admin/ActivityVideosEditor";
+import { providerLabel } from "../../../utils/videoEmbed";
 
 interface Props {
   organizationId?: string;
@@ -62,7 +70,7 @@ export default function AdminActivities({
   // --------- CREAR ACTIVIDAD (sin crear host) ---------
   const [activityName, setActivityName] = useState("");
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
-  const [videoUrl, setVideoUrl] = useState("");
+  const [createVideos, setCreateVideos] = useState<VideoItem[]>([]);
   const [hosts, setHosts] = useState<Host[]>([]);
   const [selectedHostIdsCreate, setSelectedHostIdsCreate] = useState<string[]>(
     [],
@@ -73,7 +81,7 @@ export default function AdminActivities({
   const [editActivity, setEditActivity] = useState<Activity | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
-  const [editVideoUrl, setEditVideoUrl] = useState("");
+  const [editVideos, setEditVideos] = useState<VideoItem[]>([]);
   const [editModuleId, setEditModuleId] = useState<string | null>(null);
   const [editSelectedHostIds, setEditSelectedHostIds] = useState<string[]>([]);
   const [prevEditHostIds, setPrevEditHostIds] = useState<string[]>([]);
@@ -151,9 +159,29 @@ export default function AdminActivities({
       );
   }, [eventId, active]);
 
+  // --------- Validación de videos (provider + datos requeridos) ---------
+  const validateVideos = (videosToValidate: VideoItem[]): string | null => {
+    for (const v of videosToValidate) {
+      if (!v.video_id.trim()) {
+        return `Falta el Video ID para el video de ${providerLabel(v.provider)}.`;
+      }
+      if (v.provider === "bunny" && !v.meta?.library_id?.toString().trim()) {
+        return "Falta el Library ID para el video de Bunny.";
+      }
+    }
+    return null;
+  };
+
   // --------- Crear ACTIVIDAD (solo selecciona hosts existentes) ---------
   const handleCreateActivity = async () => {
     if (!eventId || !activityName.trim()) return;
+
+    const videosError = validateVideos(createVideos);
+    if (videosError) {
+      toastError(videosError);
+      return;
+    }
+
     try {
       const newActivityData: Partial<Activity> = {
         name: activityName.trim(),
@@ -162,7 +190,7 @@ export default function AdminActivities({
           ? ({ _id: organizationId } as Organization)
           : undefined,
         module_id: selectedModule || undefined,
-        video: videoUrl || undefined,
+        videos: createVideos,
         host_ids: selectedHostIdsCreate,
       };
 
@@ -185,7 +213,7 @@ export default function AdminActivities({
       // limpiar formulario
       setActivityName("");
       setSelectedModule(null);
-      setVideoUrl("");
+      setCreateVideos([]);
       setSelectedHostIdsCreate([]);
       toastSaved("Actividad creada");
     } catch (error) {
@@ -199,7 +227,7 @@ export default function AdminActivities({
     setEditActivity(act);
     setEditName(act.name || "");
     setEditDescription(act.description || "");
-    setEditVideoUrl(act.video || "");
+    setEditVideos(Array.isArray(act.videos) ? act.videos : []);
     setEditModuleId(act.module_id ?? null);
     const initial = Array.isArray(act.host_ids) ? act.host_ids : [];
     setEditSelectedHostIds(initial);
@@ -210,11 +238,18 @@ export default function AdminActivities({
   // --------- Guardar EDICIÓN (con diffs + sync Host.activities_ids) ---------
   const handleSaveEdit = async () => {
     if (!editActivity?._id) return;
+
+    const videosError = validateVideos(editVideos);
+    if (videosError) {
+      toastError(videosError);
+      return;
+    }
+
     try {
       const updatedData: Partial<Activity> = {
         name: editName.trim(),
         description: editDescription.trim(),
-        video: editVideoUrl.trim(),
+        videos: editVideos,
         module_id: editModuleId || undefined,
         host_ids: editSelectedHostIds,
       };
@@ -367,14 +402,9 @@ export default function AdminActivities({
               onChange={setSelectedModule}
               w={220}
             />
-            <TextInput
-              label="Video URL"
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.currentTarget.value)}
-              w={220}
-              leftSection={<FaYoutube size={18} />}
-            />
           </Group>
+
+          <ActivityVideosEditor videos={createVideos} onChange={setCreateVideos} />
 
           {/* Selección múltiple de hosts existentes */}
           <MultiSelect
@@ -437,7 +467,11 @@ export default function AdminActivities({
                   "Sin módulo"}
               </Text>
               <Text size="xs" c="gray" lineClamp={1}>
-                {act.video ? `Video: ${act.video}` : "Sin video"}
+                {act.videos?.length
+                  ? `Videos: ${act.videos
+                      .map((v) => providerLabel(v.provider))
+                      .join(", ")}`
+                  : "Sin video"}
               </Text>
               <Text size="xs" c="dimmed" mt={4} lineClamp={2}>
                 ID: {act._id}
@@ -587,12 +621,7 @@ export default function AdminActivities({
             onChange={setEditModuleId}
             placeholder="Sin módulo"
           />
-          <TextInput
-            label="Video URL"
-            value={editVideoUrl}
-            onChange={(e) => setEditVideoUrl(e.currentTarget.value)}
-            leftSection={<FaYoutube size={18} />}
-          />
+          <ActivityVideosEditor videos={editVideos} onChange={setEditVideos} />
 
           <MultiSelect
             label="Hosts / Speakers"

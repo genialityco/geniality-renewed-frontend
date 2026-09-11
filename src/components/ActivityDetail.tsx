@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Card,
   Title,
@@ -11,6 +11,7 @@ import {
   Flex,
   Stack,
   Avatar,
+  SegmentedControl,
 } from "@mantine/core";
 import Player from "@vimeo/player";
 import { FaShare, FaArrowLeft } from "react-icons/fa6";
@@ -34,6 +35,12 @@ import { Activity, Host } from "../services/types";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import ActivityTranscript from "./ActivityTranscript";
 import CompletionModal from "./CompletionModal";
+import {
+  getActiveSortedVideos,
+  getBunnyEmbedUrl,
+  getVimeoEmbedUrl,
+  providerLabel,
+} from "../utils/videoEmbed";
 
 interface Fragment {
   segmentId: number;
@@ -155,6 +162,42 @@ export default function ActivityDetail({
   const completionShownRef = useRef<boolean>(false);
   // Duración del video en ReactPlayer (para saber cuántos segundos faltan).
   const reactPlayerDurationRef = useRef<number>(0);
+
+  // ==================================================
+  // Videos disponibles (nuevo esquema `videos[]`) + fallback automático
+  // ==================================================
+  const activeVideos = useMemo(
+    () => getActiveSortedVideos(activity?.videos),
+    [activity]
+  );
+  // Índices que fallaron al cargar/reproducir; se saltan automáticamente.
+  const [failedVideoIndices, setFailedVideoIndices] = useState<number[]>([]);
+  // Selección manual del usuario (tiene prioridad si no ha fallado).
+  const [manualVideoIdx, setManualVideoIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    setFailedVideoIndices([]);
+    setManualVideoIdx(null);
+  }, [activity?._id]);
+
+  // Si la opción actual falla, se pasa a la siguiente activa que no haya fallado.
+  const selectedVideoIdx = useMemo(() => {
+    if (manualVideoIdx !== null && !failedVideoIndices.includes(manualVideoIdx)) {
+      return manualVideoIdx;
+    }
+    const firstOk = activeVideos.findIndex(
+      (_, i) => !failedVideoIndices.includes(i)
+    );
+    return firstOk === -1 ? 0 : firstOk;
+  }, [manualVideoIdx, failedVideoIndices, activeVideos]);
+
+  const selectedVideo = activeVideos[selectedVideoIdx];
+  const allVideosFailed =
+    activeVideos.length > 0 && failedVideoIndices.length >= activeVideos.length;
+
+  const handleVideoError = (index: number) => {
+    setFailedVideoIndices((prev) => (prev.includes(index) ? prev : [...prev, index]));
+  };
 
   // Reinicia el estado del modal al cambiar de actividad.
   useEffect(() => {
@@ -487,7 +530,7 @@ export default function ActivityDetail({
   // 3. Efecto: Instanciar Vimeo Player y manejar progreso + posicionar en videoTime
   // ==================================================
   useEffect(() => {
-    if (!activity?.video || !vimeoPlayerRef.current) return;
+    if (!vimeoPlayerRef.current) return;
 
     const newPlayer = new Player(vimeoPlayerRef.current);
     setPlayer(newPlayer);
@@ -521,25 +564,50 @@ export default function ActivityDetail({
       triggerCompletionModal(newPlayer);
     });
 
-    // Al montar, salto a videoTime si viene en URL, sino al progreso ya conocido
-    newPlayer.getDuration().then((duration) => {
-      if (videoTime !== null) {
-        newPlayer.setCurrentTime(videoTime);
-        setVideoProgress((videoTime / duration) * 100);
-      } else if (currentProgressRef.current > 0) {
-        const savedTime = (currentProgressRef.current / 100) * duration;
-        newPlayer.setCurrentTime(savedTime);
-        setVideoProgress(currentProgressRef.current);
-      }
+    // Si el video de Vimeo no existe, es privado o falla al cargar, se marca
+    // como fallido para que se pruebe automáticamente la siguiente opción.
+    // (cubre errores de reproducción posteriores a la carga inicial)
+    newPlayer.on("error", (err) => {
+      console.error("Error reproduciendo video de Vimeo:", err);
+      handleVideoError(selectedVideoIdx);
     });
 
+    let cancelled = false;
+
+    // `ready()`/`getDuration()` son las llamadas que rechazan (NotFoundError,
+    // PrivacyError, etc.) cuando el video no existe o no se puede cargar;
+    // hay que capturarlas explícitamente o quedan como promesas sin manejar
+    // y el evento "error" nunca llega a dispararse.
+    newPlayer
+      .ready()
+      .then(() => newPlayer.getDuration())
+      .then((duration) => {
+        if (cancelled) return;
+        // Al montar, salto a videoTime si viene en URL, sino al progreso ya conocido
+        if (videoTime !== null) {
+          newPlayer.setCurrentTime(videoTime);
+          setVideoProgress((videoTime / duration) * 100);
+        } else if (currentProgressRef.current > 0) {
+          const savedTime = (currentProgressRef.current / 100) * duration;
+          newPlayer.setCurrentTime(savedTime);
+          setVideoProgress(currentProgressRef.current);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("No se pudo cargar el video de Vimeo:", err);
+        handleVideoError(selectedVideoIdx);
+      });
+
     return () => {
+      cancelled = true;
       newPlayer.off("timeupdate");
       newPlayer.off("pause");
       newPlayer.off("ended");
+      newPlayer.off("error");
       setPlayer((prev) => (prev === newPlayer ? null : prev));
     };
-  }, [activity?._id, activity?.video]);
+  }, [activity?._id, activity?.video, selectedVideoIdx]);
 
   useEffect(() => {
     if (!player || videoTime === null) return;
@@ -591,8 +659,8 @@ export default function ActivityDetail({
     }, 100);
   };
 
-  // Helper para obtener el video_id de una URL de Vimeo
-  function getVimeoEmbedUrl(url: string) {
+  // Helper para obtener el video_id de una URL de Vimeo (actividades legado con `video: string`)
+  function getLegacyVimeoEmbedUrl(url: string) {
     // Ejemplo de url: https://vimeo.com/1086547406/7d27eab87d?share=copy
     // Extrae el primer número largo después de vimeo.com/
     const match = url.match(/vimeo\.com\/(\d+)/);
@@ -707,12 +775,61 @@ export default function ActivityDetail({
       <Divider id="video-section" my="sm" />
 
       {/* Video iframe o ReactPlayer */}
-      {activity.video ? (
+      {activeVideos.length > 0 ? (
+        <>
+          {activeVideos.length > 1 && (
+            <SegmentedControl
+              fullWidth
+              mb="sm"
+              value={String(selectedVideoIdx)}
+              onChange={(v) => {
+                const idx = Number(v);
+                // Al elegir manualmente una opción marcada como fallida, se reintenta.
+                setFailedVideoIndices((prev) => prev.filter((i) => i !== idx));
+                setManualVideoIdx(idx);
+              }}
+              data={activeVideos.map((v, i) => ({
+                value: String(i),
+                label: failedVideoIndices.includes(i)
+                  ? `${providerLabel(v.provider)} ⚠`
+                  : providerLabel(v.provider),
+              }))}
+            />
+          )}
+          {allVideosFailed ? (
+            <Text size="sm" c="red" mt="xs">
+              No se pudo cargar ninguna de las fuentes de video disponibles.
+            </Text>
+          ) : selectedVideo?.provider === "vimeo" ? (
+            <iframe
+              key={`${selectedVideo.provider}-${selectedVideo.video_id}`}
+              ref={vimeoPlayerRef}
+              src={getVimeoEmbedUrl(selectedVideo)}
+              style={{ width: "100%", aspectRatio: "16/9" }}
+              frameBorder="0"
+              allow="autoplay; encrypted-media"
+              sandbox="allow-same-origin allow-scripts allow-presentation"
+              allowFullScreen
+              onError={() => handleVideoError(selectedVideoIdx)}
+            />
+          ) : selectedVideo ? (
+            <iframe
+              key={`${selectedVideo.provider}-${selectedVideo.video_id}`}
+              src={getBunnyEmbedUrl(selectedVideo)}
+              style={{ width: "100%", aspectRatio: "16/9" }}
+              frameBorder="0"
+              allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+              allowFullScreen
+              onError={() => handleVideoError(selectedVideoIdx)}
+            />
+          ) : null}
+        </>
+      ) : activity.video ? (
         activity.video.includes("vimeo") ? (
           <iframe
             key={activity._id}
             ref={vimeoPlayerRef}
-            src={getVimeoEmbedUrl(activity.video)}
+            src={getLegacyVimeoEmbedUrl(activity.video)}
             style={{ width: "100%", aspectRatio: "16/9" }}
             frameBorder="0"
             allow="autoplay; encrypted-media"
