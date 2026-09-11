@@ -41,6 +41,7 @@ import {
   getVimeoEmbedUrl,
   providerLabel,
 } from "../utils/videoEmbed";
+import { BunnyPlayerInstance, loadBunnyPlayerScript } from "../utils/bunnyPlayer";
 
 interface Fragment {
   segmentId: number;
@@ -155,6 +156,8 @@ export default function ActivityDetail({
 
   const [player, setPlayer] = useState<Player | null>(null);
   const vimeoPlayerRef = useRef<HTMLIFrameElement | null>(null);
+  const [bunnyPlayer, setBunnyPlayer] = useState<BunnyPlayerInstance | null>(null);
+  const bunnyPlayerRef = useRef<HTMLIFrameElement | null>(null);
   const reactPlayerRef = useRef<ReactPlayer | null>(null);
   const lastSavedProgressRef = useRef<{ [key: string]: number }>({});
   const currentProgressRef = useRef<number>(0);
@@ -615,6 +618,88 @@ export default function ActivityDetail({
   }, [videoTime, player]);
 
   // ==================================================
+  // 3.b Efecto: Instanciar player de Bunny (protocolo player.js) y manejar
+  // progreso + posicionar en videoTime, igual que con Vimeo.
+  // ==================================================
+  useEffect(() => {
+    if (selectedVideo?.provider !== "bunny" || !bunnyPlayerRef.current) return;
+
+    let cancelled = false;
+    let newBunnyPlayer: BunnyPlayerInstance | null = null;
+
+    loadBunnyPlayerScript()
+      .then(() => {
+        if (cancelled || !bunnyPlayerRef.current || !window.playerjs) return;
+
+        newBunnyPlayer = new window.playerjs.Player(bunnyPlayerRef.current);
+        setBunnyPlayer(newBunnyPlayer);
+
+        // Si el video de Bunny no existe o falla al cargar/reproducir, se
+        // marca como fallido para probar automáticamente la siguiente opción.
+        newBunnyPlayer.on("error", () => {
+          console.error("Error reproduciendo video de Bunny");
+          handleVideoError(selectedVideoIdx);
+        });
+
+        newBunnyPlayer.on("ready", () => {
+          if (cancelled || !newBunnyPlayer) return;
+
+          newBunnyPlayer.on("timeupdate", (data: { seconds: number; duration: number }) => {
+            if (!data?.duration) return;
+            const progress = (data.seconds / data.duration) * 100;
+            setVideoProgress(progress);
+
+            // Mostrar el modal 20s antes de que termine el video.
+            if (data.duration - data.seconds <= COMPLETION_LEAD_SECONDS) {
+              triggerCompletionModal();
+            }
+          });
+
+          // Listener para cuando termina el video (respaldo si dura <20s).
+          newBunnyPlayer.on("ended", () => {
+            setVideoProgress(100);
+            saveActivityProgress(100); // Guardar como completado
+            triggerCompletionModal();
+          });
+
+          // Al montar, salto a videoTime si viene en URL, sino al progreso ya conocido.
+          newBunnyPlayer.getDuration((duration) => {
+            if (cancelled || !newBunnyPlayer || !duration) return;
+            if (videoTime !== null) {
+              newBunnyPlayer.setCurrentTime(videoTime);
+              setVideoProgress((videoTime / duration) * 100);
+            } else if (currentProgressRef.current > 0) {
+              const savedTime = (currentProgressRef.current / 100) * duration;
+              newBunnyPlayer.setCurrentTime(savedTime);
+              setVideoProgress(currentProgressRef.current);
+            }
+          });
+        });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("No se pudo inicializar el reproductor de Bunny:", err);
+        handleVideoError(selectedVideoIdx);
+      });
+
+    return () => {
+      cancelled = true;
+      if (newBunnyPlayer) {
+        newBunnyPlayer.off("timeupdate");
+        newBunnyPlayer.off("ended");
+        newBunnyPlayer.off("error");
+        newBunnyPlayer.off("ready");
+      }
+      setBunnyPlayer((prev) => (prev === newBunnyPlayer ? null : prev));
+    };
+  }, [activity?._id, selectedVideoIdx, selectedVideo?.provider]);
+
+  useEffect(() => {
+    if (!bunnyPlayer || videoTime === null) return;
+    bunnyPlayer.setCurrentTime(videoTime);
+  }, [videoTime, bunnyPlayer]);
+
+  // ==================================================
   // 4. Efecto: Saltar a videoTime en ReactPlayer (para URLs no-Vimeo)
   // ==================================================
   useEffect(() => {
@@ -649,6 +734,9 @@ export default function ActivityDetail({
     setVideoTime(startTime);
     if (player) {
       player.setCurrentTime(startTime).catch(console.error);
+    }
+    if (bunnyPlayer) {
+      bunnyPlayer.setCurrentTime(startTime);
     }
     // Scroll al video si no está visible
     setTimeout(() => {
@@ -815,6 +903,7 @@ export default function ActivityDetail({
           ) : selectedVideo ? (
             <iframe
               key={`${selectedVideo.provider}-${selectedVideo.video_id}`}
+              ref={bunnyPlayerRef}
               src={getBunnyEmbedUrl(selectedVideo)}
               style={{ width: "100%", aspectRatio: "16/9" }}
               frameBorder="0"
