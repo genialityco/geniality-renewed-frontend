@@ -685,10 +685,18 @@ export default function ActivityDetail({
     return () => {
       cancelled = true;
       if (newBunnyPlayer) {
-        newBunnyPlayer.off("timeupdate");
-        newBunnyPlayer.off("ended");
-        newBunnyPlayer.off("error");
-        newBunnyPlayer.off("ready");
+        // player.js (Bunny) intenta hacer postMessage al iframe al desuscribir
+        // eventos; si el iframe ya se desmontó (cambio de actividad), su
+        // contentWindow es null y `off()` lanza un TypeError sin capturar que
+        // tumba toda la vista. No hay nada que limpiar en un iframe destruido.
+        try {
+          newBunnyPlayer.off("timeupdate");
+          newBunnyPlayer.off("ended");
+          newBunnyPlayer.off("error");
+          newBunnyPlayer.off("ready");
+        } catch (err) {
+          console.warn("No se pudo limpiar el reproductor de Bunny:", err);
+        }
       }
       setBunnyPlayer((prev) => (prev === newBunnyPlayer ? null : prev));
     };
@@ -696,7 +704,11 @@ export default function ActivityDetail({
 
   useEffect(() => {
     if (!bunnyPlayer || videoTime === null) return;
-    bunnyPlayer.setCurrentTime(videoTime);
+    try {
+      bunnyPlayer.setCurrentTime(videoTime);
+    } catch (err) {
+      console.warn("No se pudo posicionar el reproductor de Bunny:", err);
+    }
   }, [videoTime, bunnyPlayer]);
 
   // ==================================================
@@ -736,7 +748,11 @@ export default function ActivityDetail({
       player.setCurrentTime(startTime).catch(console.error);
     }
     if (bunnyPlayer) {
-      bunnyPlayer.setCurrentTime(startTime);
+      try {
+        bunnyPlayer.setCurrentTime(startTime);
+      } catch (err) {
+        console.warn("No se pudo posicionar el reproductor de Bunny:", err);
+      }
     }
     // Scroll al video si no está visible
     setTimeout(() => {

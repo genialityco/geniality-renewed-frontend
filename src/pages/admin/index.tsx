@@ -16,7 +16,7 @@ import {
   Modal,
   Button,
 } from "@mantine/core";
-import { FaList, FaUsers, FaGear, FaFile, FaFilm } from "react-icons/fa6";
+import { FaList, FaUsers, FaGear, FaFile, FaFilm, FaWhatsapp } from "react-icons/fa6";
 
 import { useOrganization } from "../../context/OrganizationContext";
 import {
@@ -31,9 +31,16 @@ import MembersTab from "./members/MembersTab";
 import AdminOrganizationPage from "./org/AdminOrganizationPage";
 import { DocumentsAdminPage } from "./DocumentsAdminPage";
 import AdminActivitiesPage from "./activities";
+import RemindersAdminPage from "./RemindersAdminPage";
 import { openCoursePreview } from "../../utils/previewUrl";
 
-type Section = "events" | "members" | "org" | "documents" | "activities";
+type Section =
+  | "events"
+  | "members"
+  | "org"
+  | "documents"
+  | "activities"
+  | "reminders";
 
 export default function AdminOrganizationEvents() {
   const { organization } = useOrganization();
@@ -91,6 +98,8 @@ export default function AdminOrganizationEvents() {
       ? "Miembros"
       : activeSection === "activities"
       ? "Actividades"
+      : activeSection === "reminders"
+      ? "Recordatorios"
       : "Mi Organización";
 
   return (
@@ -220,6 +229,26 @@ export default function AdminOrganizationEvents() {
               <FaFile /> Ver Documentos
             </UnstyledButton>
 
+            {/* Recordatorios (WhatsApp) */}
+            <UnstyledButton
+              onClick={() => {
+                setActiveSection("reminders");
+                setEditingEventId(null);
+                setDrawerOpened(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: 8,
+                borderRadius: 4,
+                backgroundColor:
+                  activeSection === "reminders" ? "#F0F4FF" : "transparent",
+              }}
+            >
+              <FaWhatsapp /> Recordatorios
+            </UnstyledButton>
+
             <Divider my="sm" />
           </Stack>
         </ScrollArea>
@@ -263,6 +292,8 @@ export default function AdminOrganizationEvents() {
           <DocumentsAdminPage />
         ) : activeSection === "activities" ? (
           <AdminActivitiesPage />
+        ) : activeSection === "reminders" ? (
+          <RemindersAdminPage />
         ) : (
           <AdminOrganizationPage organizationId={orgId} />
         )}
