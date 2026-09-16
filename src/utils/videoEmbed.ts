@@ -43,3 +43,20 @@ export function providerLabel(provider: VideoProvider | string): string {
   if (provider === "bunny") return "Bunny";
   return provider;
 }
+
+/**
+ * URL de miniatura del video, cuando se puede derivar sin llamadas async:
+ * - Vimeo: vumbnail.com genera la miniatura a partir del video_id, sin fetch.
+ * - Bunny: no hay forma de derivarla solo con video_id/library_id (requiere
+ *   el hostname del pull zone, que Bunny no expone por esa vía), así que se
+ *   usa `meta.thumbnail_url` si el admin la configuró manualmente.
+ */
+export function getVideoThumbnailUrl(video: VideoItem): string | null {
+  if (video.provider === "vimeo") {
+    return `https://vumbnail.com/${video.video_id}.jpg`;
+  }
+  if (video.provider === "bunny") {
+    return video.meta?.thumbnail_url || null;
+  }
+  return null;
+}

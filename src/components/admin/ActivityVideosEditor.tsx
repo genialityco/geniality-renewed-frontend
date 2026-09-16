@@ -128,15 +128,26 @@ export default function ActivityVideosEditor({ videos, onChange }: Props) {
             </Group>
 
             {video.provider === "bunny" && (
-              <TextInput
-                label="Library ID (Bunny)"
-                required
-                placeholder="Ej: 747699"
-                value={video.meta?.library_id || ""}
-                onChange={(e) =>
-                  updateMeta(index, { library_id: e.currentTarget.value })
-                }
-              />
+              <>
+                <TextInput
+                  label="Library ID (Bunny)"
+                  required
+                  placeholder="Ej: 747699"
+                  value={video.meta?.library_id || ""}
+                  onChange={(e) =>
+                    updateMeta(index, { library_id: e.currentTarget.value })
+                  }
+                />
+                <TextInput
+                  label="URL de miniatura (opcional)"
+                  description="Bunny no permite derivarla solo del Library ID/Video ID; pega aquí la URL de thumbnail.jpg del video (Bunny Stream > video > Thumbnail)"
+                  placeholder="https://xxxx.b-cdn.net/{video_id}/thumbnail.jpg"
+                  value={video.meta?.thumbnail_url || ""}
+                  onChange={(e) =>
+                    updateMeta(index, { thumbnail_url: e.currentTarget.value })
+                  }
+                />
+              </>
             )}
 
             {video.provider === "vimeo" && (

@@ -14,7 +14,8 @@ import {
 import { FaCircleCheck, FaLock, FaPause, FaPlay } from "react-icons/fa6";
 import { Activity, Host } from "../services/types";
 import { getActivityProgress } from "../services/activityAttendeeService";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { getActiveSortedVideos, getVideoThumbnailUrl } from "../utils/videoEmbed";
 
 // (Vimeo detection and oEmbed are handled with isVimeoUrl + oEmbed below)
 
@@ -91,6 +92,106 @@ function YouTubeThumbnail({ youtubeId, activityName }: YouTubeThumbnailProps) {
       style={{ width: "100%", height: "100%" }}
     />
   );
+}
+
+interface ActivityThumbnailProps {
+  activity: Activity;
+}
+
+/**
+ * Miniatura del video activo de mayor prioridad (esquema `videos[]`). Si
+ * falla (Vimeo eliminado/privado, o Bunny sin `meta.thumbnail_url` o con una
+ * URL rota) prueba automáticamente con la siguiente opción antes de caer al
+ * campo legado `activity.video` o al ícono genérico.
+ */
+function ActivityThumbnail({ activity }: ActivityThumbnailProps) {
+  const candidates = useMemo(
+    () => getActiveSortedVideos(activity.videos),
+    [activity.videos]
+  );
+  const [idx, setIdx] = useState(0);
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIdx(0);
+    setResolvedUrl(null);
+  }, [activity._id]);
+
+  useEffect(() => {
+    const candidate = candidates[idx];
+    if (!candidate) {
+      setResolvedUrl(null);
+      return;
+    }
+
+    if (candidate.provider === "bunny") {
+      const thumb = getVideoThumbnailUrl(candidate);
+      if (thumb) setResolvedUrl(thumb);
+      else setIdx((i) => i + 1);
+      return;
+    }
+
+    if (candidate.provider === "vimeo") {
+      let cancelled = false;
+      // vumbnail.com siempre responde 200 (con una imagen genérica) aunque el
+      // video no exista, así que no sirve para detectar fallos; el oEmbed de
+      // Vimeo sí devuelve error real para videos eliminados o privados.
+      fetch(
+        `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(
+          `https://vimeo.com/${candidate.video_id}`
+        )}`
+      )
+        .then((resp) => {
+          if (!resp.ok) throw new Error("oEmbed no disponible");
+          return resp.json();
+        })
+        .then((data) => {
+          if (cancelled) return;
+          const url = data.thumbnail_url || data.thumbnail_url_with_play_button;
+          if (url) setResolvedUrl(url);
+          else setIdx((i) => i + 1);
+        })
+        .catch(() => {
+          if (!cancelled) setIdx((i) => i + 1);
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setIdx((i) => i + 1);
+  }, [idx, candidates]);
+
+  if (resolvedUrl) {
+    return (
+      <Image
+        src={resolvedUrl}
+        alt={activity.name}
+        fit="cover"
+        style={{ width: "100%", height: "100%" }}
+        loading="lazy"
+        onError={() => {
+          setResolvedUrl(null);
+          setIdx((i) => i + 1);
+        }}
+      />
+    );
+  }
+
+  // Se agotaron todas las opciones del nuevo esquema: caer al campo legado.
+  if (idx >= candidates.length && activity.video) {
+    return isVimeoUrl(activity.video) ? (
+      <VimeoThumbnail videoUrl={activity.video} activityName={activity.name} />
+    ) : getYouTubeId(activity.video) ? (
+      <YouTubeThumbnail
+        youtubeId={getYouTubeId(activity.video)!}
+        activityName={activity.name}
+      />
+    ) : null;
+  }
+
+  return null;
 }
 
 interface ActivityGridProps {
@@ -188,20 +289,10 @@ export default function ActivityGrid({
                   overflow: "hidden",
                 }}
               >
-                {/* Mostrar siempre thumbnail derivado del link de video (Vimeo o YouTube) */}
-                {activity.video ? (
-                  isVimeoUrl(activity.video) ? (
-                    <VimeoThumbnail
-                      videoUrl={activity.video}
-                      activityName={activity.name}
-                    />
-                  ) : getYouTubeId(activity.video) ? (
-                    <YouTubeThumbnail
-                      youtubeId={getYouTubeId(activity.video)!}
-                      activityName={activity.name}
-                    />
-                  ) : null
-                ) : null}
+                {/* Mostrar siempre thumbnail derivado del video (nuevo esquema
+                    `videos[]`, con fallback automático entre opciones, o el
+                    campo legado `video` como respaldo) */}
+                <ActivityThumbnail activity={activity} />
 
                 {/* Botón play (o candado si está bloqueada) siempre al centro */}
                 <ThemeIcon
