@@ -88,7 +88,7 @@ function YouTubeThumbnail({ youtubeId, activityName }: YouTubeThumbnailProps) {
     <Image
       src={thumbnailUrl}
       alt={activityName}
-      fit="cover"
+      fit="contain"
       style={{ width: "100%", height: "100%" }}
     />
   );
@@ -168,7 +168,7 @@ function ActivityThumbnail({ activity }: ActivityThumbnailProps) {
       <Image
         src={resolvedUrl}
         alt={activity.name}
-        fit="cover"
+        fit="contain"
         style={{ width: "100%", height: "100%" }}
         loading="lazy"
         onError={() => {
