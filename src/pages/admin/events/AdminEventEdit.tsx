@@ -34,14 +34,24 @@ export default function AdminEventEdit({
   const isEditing = eventId !== "new";
 
   useEffect(() => {
-    if (isEditing) {
+    // Si `formData` ya corresponde a este eventId (p.ej. justo después de
+    // crear/guardar, ver `handleSaved`), no hace falta re-consultar al
+    // backend: evita el parpadeo de pantalla en blanco al guardar.
+    if (isEditing && formData._id !== eventId) {
       setLoading(true);
       fetchEventById(eventId).then((data) => {
         setFormData(data);
         setLoading(false);
       });
     }
-  }, [eventId, isEditing]);
+  }, [eventId, isEditing, formData._id]);
+
+  // Al crear o guardar, el backend ya devuelve el evento completo: lo usamos
+  // directamente para permanecer en el editor sin recargar la pantalla.
+  const handleSaved = (newEventId?: string, savedEvent?: Event) => {
+    if (savedEvent) setFormData(savedEvent);
+    onFinish(newEventId);
+  };
 
   if (loading && isEditing) {
     return <Loader />;
@@ -67,7 +77,7 @@ export default function AdminEventEdit({
             organizationId={organizationId}
             eventId={eventId}
             isEditing={isEditing}
-            onSaved={onFinish}
+            onSaved={handleSaved}
           />
         </Tabs.Panel>
 

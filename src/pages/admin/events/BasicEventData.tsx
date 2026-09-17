@@ -34,7 +34,7 @@ interface Props {
   organizationId: string; // puedes dejarlo por compatibilidad, no lo usamos aquí
   eventId: string;
   isEditing: boolean;
-  onSaved: (newEventId?: string) => void;
+  onSaved: (newEventId?: string, savedEvent?: Event) => void;
 }
 
 export default function BasicEventData({
@@ -167,14 +167,15 @@ export default function BasicEventData({
         // Mantengo ese contrato:
         const updated = await updateEvent(eventId, payload);
         toastUpdated("Evento actualizado");
-        // Pasamos el id para que el contenedor permanezca en el editor (no
-        // vuelva a la lista). Respaldo: el eventId actual si el backend no lo
-        // devolviera.
-        onSaved(updated._id || eventId);
+        // Pasamos el id y el evento actualizado para que el contenedor
+        // permanezca en el editor sin recargarlo desde el servidor (evita el
+        // parpadeo de "salir y volver a entrar" al guardar). Respaldo: el
+        // eventId actual si el backend no lo devolviera.
+        onSaved(updated._id || eventId, updated);
       } else {
         const created = await createEvent(organizationId, payload);
         toastSaved("Evento creado");
-        onSaved(created._id);
+        onSaved(created._id, created);
       }
     } catch (error: any) {
       console.error("Error saving event:", error);
@@ -268,11 +269,18 @@ export default function BasicEventData({
 
       <Divider my="xl" label="Imágenes y branding" labelPosition="center" />
 
+      <Text size="sm" c="dimmed" mb="md">
+        El curso usa 4 imágenes independientes. Puedes subir solo las que
+        necesites: si falta alguna, el curso usa la miniatura del catálogo
+        como respaldo en la mayoría de los lugares.
+      </Text>
+
       <Grid gutter="xl">
         {/* Miniatura */}
-        <Grid.Col span={{ base: 12, md: 4 }}>
+        <Grid.Col span={{ base: 12, md: 6 }}>
           <FileInput
-            label="Imagen miniatura (catálogo)"
+            label="Miniatura del catálogo"
+            description="Se ve en las tarjetas del curso: catálogo de la organización, listado de 'Mis cursos' y tarjetas de actividad. También sirve de respaldo del banner y el logo si esos no se suben."
             placeholder="Selecciona una imagen"
             accept="image/*"
             onChange={(file) => handleFileUpload(file, ["picture"])}
@@ -296,9 +304,10 @@ export default function BasicEventData({
         </Grid.Col>
 
         {/* Banner superior */}
-        <Grid.Col span={{ base: 12, md: 4 }}>
+        <Grid.Col span={{ base: 12, md: 6 }}>
           <FileInput
-            label="Banner superior (header del curso)"
+            label="Banner del curso"
+            description="Imagen grande (recomendado formato horizontal/panorámico) que se muestra como fondo principal arriba del todo, al entrar al curso."
             placeholder="Selecciona una imagen"
             accept="image/*"
             onChange={(file) =>
@@ -325,41 +334,11 @@ export default function BasicEventData({
           )}
         </Grid.Col>
 
-        {/* Footer */}
-        <Grid.Col span={{ base: 12, md: 4 }}>
+        {/* Logo del curso (cabecera) */}
+        <Grid.Col span={{ base: 12, md: 6 }}>
           <FileInput
-            label="Imagen Footer (pie del curso)"
-            placeholder="Selecciona una imagen"
-            accept="image/*"
-            onChange={(file) =>
-              handleFileUpload(file, ["styles", "banner_footer"])
-            }
-            disabled={!!uploading}
-          />
-          {getImage(["styles", "banner_footer"]) && (
-            <Image
-              key={getImage(["styles", "banner_footer"])}
-              src={getImage(["styles", "banner_footer"])}
-              alt="Footer"
-              height={120}
-              mt="xs"
-              radius="md"
-              fit="cover"
-              style={{
-                border:
-                  uploading === "styles.banner_footer"
-                    ? "2px dashed #228be6"
-                    : undefined,
-              }}
-            />
-          )}
-        </Grid.Col>
-
-          {/* Logo del curso (cabecera) */}
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <FileInput
-            label="Logo del curso (cabecera)"
-            description="Imagen pequeña que aparece junto al título en el header del curso. Es independiente del banner superior."
+            label="Logo del curso"
+            description="Imagen pequeña que aparece junto al título, en la barra superior fija del curso (donde también está el menú). Es independiente del banner."
             placeholder="Selecciona una imagen"
             accept="image/*"
             onChange={(file) =>
@@ -379,6 +358,37 @@ export default function BasicEventData({
               style={{
                 border:
                   uploading === "styles.event_image"
+                    ? "2px dashed #228be6"
+                    : undefined,
+              }}
+            />
+          )}
+        </Grid.Col>
+
+        {/* Footer */}
+        <Grid.Col span={{ base: 12, md: 6 }}>
+          <FileInput
+            label="Imagen de cierre (footer)"
+            description="Imagen de ancho completo que se muestra al final de la página del curso, después de los módulos, actividades y conferencistas."
+            placeholder="Selecciona una imagen"
+            accept="image/*"
+            onChange={(file) =>
+              handleFileUpload(file, ["styles", "banner_footer"])
+            }
+            disabled={!!uploading}
+          />
+          {getImage(["styles", "banner_footer"]) && (
+            <Image
+              key={getImage(["styles", "banner_footer"])}
+              src={getImage(["styles", "banner_footer"])}
+              alt="Footer"
+              height={120}
+              mt="xs"
+              radius="md"
+              fit="cover"
+              style={{
+                border:
+                  uploading === "styles.banner_footer"
                     ? "2px dashed #228be6"
                     : undefined,
               }}
