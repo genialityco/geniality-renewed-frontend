@@ -98,21 +98,18 @@ export async function updateVideoProgress(
 }
 
 /**
- * Genera la transcripción de la actividad
+ * Genera la transcripción de la actividad (encola el job en AssemblyAI;
+ * el resultado llega de forma asíncrona vía el polling del backend).
  * POST /activities/generate-transcript/:activity_id
  */
 export async function generateTranscript(
   activityId: string,
-  options?: { use_gpu?: boolean; generate_embeddings?: boolean },
 ): Promise<{ message: string; jobId?: string; status?: string }> {
   const response = await api.post<{
     message: string;
     jobId?: string;
     status?: string;
-  }>(`${BASE_URL}/generate-transcript/${activityId}`, {
-    use_gpu: options?.use_gpu ?? false,
-    generate_embeddings: options?.generate_embeddings ?? true,
-  });
+  }>(`${BASE_URL}/generate-transcript/${activityId}`);
   return response.data;
 }
 

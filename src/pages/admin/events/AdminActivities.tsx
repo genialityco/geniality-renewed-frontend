@@ -111,12 +111,9 @@ export default function AdminActivities({
   >({});
   const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
 
-  // Modal de opciones de transcripción
+  // Modal de confirmación de transcripción
   const [transcriptModalActivity, setTranscriptModalActivity] =
     useState<Activity | null>(null);
-  const [transcriptUseGpu, setTranscriptUseGpu] = useState(false);
-  const [transcriptGenerateEmbeddings, setTranscriptGenerateEmbeddings] =
-    useState(true);
 
   // Cargar data inicial
   useEffect(() => {
@@ -309,18 +306,11 @@ export default function AdminActivities({
   };
 
   // --------- Transcript ---------
-  const handleGenerateTranscript = async (
-    activityId: string,
-    useGpu: boolean,
-    generateEmbeddings: boolean,
-  ) => {
+  const handleGenerateTranscript = async (activityId: string) => {
     setTranscriptModalActivity(null);
     setGeneratingTranscriptId(activityId);
     try {
-      await generateTranscript(activityId, {
-        use_gpu: useGpu,
-        generate_embeddings: generateEmbeddings,
-      });
+      await generateTranscript(activityId);
       if (eventId) {
         const acts = await getActivitiesByEvent(eventId);
         setActivities(acts);
@@ -548,11 +538,7 @@ export default function AdminActivities({
                     variant="subtle"
                     color="orange"
                     loading={generatingTranscriptId === act._id}
-                    onClick={() => {
-                      setTranscriptUseGpu(false);
-                      setTranscriptGenerateEmbeddings(true);
-                      setTranscriptModalActivity(act);
-                    }}
+                    onClick={() => setTranscriptModalActivity(act)}
                   >
                     Re-generar
                   </Button>
@@ -561,11 +547,7 @@ export default function AdminActivities({
                 <Button
                   size="xs"
                   loading={generatingTranscriptId === act._id}
-                  onClick={() => {
-                    setTranscriptUseGpu(false);
-                    setTranscriptGenerateEmbeddings(true);
-                    setTranscriptModalActivity(act);
-                  }}
+                  onClick={() => setTranscriptModalActivity(act)}
                   variant="light"
                 >
                   Generar Transcript
@@ -794,20 +776,11 @@ export default function AdminActivities({
         size="sm"
       >
         <Stack gap="md">
-          <Switch
-            label="Usar GPU (CUDA)"
-            description="Más rápido si el servidor tiene GPU disponible"
-            checked={transcriptUseGpu}
-            onChange={(e) => setTranscriptUseGpu(e.currentTarget.checked)}
-          />
-          <Switch
-            label="Generar embeddings"
-            description="Genera vectores semánticos por segmento (requiere Gemini API)"
-            checked={transcriptGenerateEmbeddings}
-            onChange={(e) =>
-              setTranscriptGenerateEmbeddings(e.currentTarget.checked)
-            }
-          />
+          <Text size="sm">
+            Esto encola la transcripción en AssemblyAI. El resultado se
+            procesa en segundo plano; puedes revisar el avance con el botón
+            "Estado transcripción" o recargando la lista.
+          </Text>
           {transcriptModalActivity?.transcript_available && (
             <Text size="xs" c="orange">
               Esta actividad ya tiene transcripción. Se reemplazará al completar.
@@ -822,11 +795,7 @@ export default function AdminActivities({
             </Button>
             <Button
               onClick={() =>
-                handleGenerateTranscript(
-                  transcriptModalActivity!._id,
-                  transcriptUseGpu,
-                  transcriptGenerateEmbeddings,
-                )
+                handleGenerateTranscript(transcriptModalActivity!._id)
               }
             >
               {transcriptModalActivity?.transcript_available

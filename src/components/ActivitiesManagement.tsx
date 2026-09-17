@@ -318,22 +318,15 @@ export default function ActivitiesManagement() {
     try {
       setGeneratingTranscript(activityId);
 
-      const result = await generateTranscript(activityId, {
-        use_gpu: true,
-        generate_embeddings: true,
-      });
+      const result = await generateTranscript(activityId);
 
       notifications.show({
-        title: "Éxito",
-        message: result.message || "Transcripción generada correctamente",
+        title: "Transcripción encolada",
+        message:
+          result.message ||
+          "Se está procesando en segundo plano; el estado se actualizará al terminar.",
         color: "green",
       });
-
-      try {
-        await saveActivityTranscriptText(activityId);
-      } catch (error) {
-        console.error("Error guardando texto de transcripción:", error);
-      }
 
       await loadData();
     } catch (error) {
@@ -361,21 +354,8 @@ export default function ActivitiesManagement() {
 
       for (const activityId of activityIds) {
         try {
-          await generateTranscript(activityId, {
-            use_gpu: true,
-            generate_embeddings: true,
-          });
-
+          await generateTranscript(activityId);
           successCount++;
-
-          try {
-            await saveActivityTranscriptText(activityId);
-          } catch (error) {
-            console.error(
-              `Error guardando texto de transcripción para ${activityId}:`,
-              error,
-            );
-          }
         } catch (error) {
           console.error(
             `Error generando transcripción para ${activityId}:`,
@@ -387,8 +367,8 @@ export default function ActivitiesManagement() {
       }
 
       notifications.show({
-        title: "Generación completada",
-        message: `${successCount} transcripciones generadas${
+        title: "Transcripciones encoladas",
+        message: `${successCount} encoladas, se procesan en segundo plano${
           errorCount > 0 ? `, ${errorCount} errores` : ""
         }`,
         color: errorCount > 0 ? "yellow" : "green",
