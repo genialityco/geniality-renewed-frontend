@@ -533,7 +533,7 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
                 label="Correo"
                 placeholder="tucorreo@ejemplo.com"
                 value={email}
-                onChange={(e) => setEmail(e.currentTarget.value)}
+                onChange={(e) => setEmail(e.currentTarget.value.toLowerCase())}
                 mb="sm"
                 required
               />

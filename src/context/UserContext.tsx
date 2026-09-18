@@ -398,8 +398,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // En UserContext.tsx (signIn)
   const signIn = useCallback(
     async (email: string, password: string, organizationId?: string) => {
+    const cleanEmail = email.trim().toLowerCase();
     // 1) Login Firebase
-    const result = await signInWithEmailAndPassword(auth, email, password);
+    const result = await signInWithEmailAndPassword(auth, cleanEmail, password);
     const uid = result.user.uid;
 
     // 2) Trae el usuario (identidad global, sin importar organización)
@@ -466,8 +467,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // signUp: Firebase + /users + /organization-users
   const signUp = useCallback(async (data: SignUpData) => {
-    const { email, password, properties, organizationId, positionId, rolId } =
-      data;
+    const {
+      email: rawEmail,
+      password,
+      properties,
+      organizationId,
+      positionId,
+      rolId,
+    } = data;
+    const email = rawEmail.trim().toLowerCase();
 
     // Asegura que siempre uses 'names'
     const nombres =
