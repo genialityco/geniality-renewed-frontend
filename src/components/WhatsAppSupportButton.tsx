@@ -21,7 +21,7 @@ export default function WhatsAppSupportButton() {
   }, []);
 
   const message = organization?.name
-    ? `Hola, necesito ayuda con ${organization.name}`
+    ? `Hola, estoy usando ${organization.name} y quisiera recibir acompañamiento del área de tecnología`
     : "Hola, necesito ayuda con GenCampus";
 
   const href = `https://wa.me/${SUPPORT_PHONE}?text=${encodeURIComponent(message)}`;
