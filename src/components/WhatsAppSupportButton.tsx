@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Affix, ActionIcon, Button, Tooltip } from "@mantine/core";
 import { FaWhatsapp } from "react-icons/fa6";
-import { useOrganization } from "../context/OrganizationContext";
+//import { useOrganization } from "../context/OrganizationContext";
 
 const SUPPORT_PHONE = "573224387523"; // +57 322 4387523, formato E.164 sin "+"
 const WHATSAPP_GREEN = "#25D366";
@@ -12,7 +12,7 @@ const LABEL = "¿Necesitas ayuda?";
 const COLLAPSE_DELAY_MS = 6000;
 
 export default function WhatsAppSupportButton() {
-  const { organization } = useOrganization();
+  //const { organization } = useOrganization();
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
@@ -20,9 +20,7 @@ export default function WhatsAppSupportButton() {
     return () => clearTimeout(timer);
   }, []);
 
-  const message = organization?.name
-    ? `Hola, estoy usando ${organization.name} y quisiera recibir acompañamiento del área de tecnología`
-    : "Hola, necesito ayuda con GenCampus";
+  const message =`Hola, estoy usando GENCAMPUS y quisiera recibir acompañamiento `
 
   const href = `https://wa.me/${SUPPORT_PHONE}?text=${encodeURIComponent(message)}`;
   const shadow = "0 4px 12px rgba(0, 0, 0, 0.25)";
