@@ -232,10 +232,15 @@ export default function DynamicField({
         return cleaned;
       }
 
-      // Email y demás: no forzamos
+      // Email: normaliza a minúsculas
+      if (isEmailField) {
+        return String(nextVal || "").toLowerCase();
+      }
+
+      // Demás: no forzamos
       return nextVal;
     },
-    [isIdField, isPhoneField, isNamesField, isSurnamesField]
+    [isIdField, isPhoneField, isNamesField, isSurnamesField, isEmailField]
   );
 
   // ====== Validación en blur ======
