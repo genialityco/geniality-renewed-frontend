@@ -6,14 +6,14 @@ import MembershipPlan from "./sections/MembershipPlan";
 import ChangePassword from "./sections/ChangePassword";
 import MyOrganizations from "./sections/MyOrganizations";
 import { MyActivity } from "../../components/MyActivity";
-import { useUser } from "../../context/UserContext";
+import { useUser, extractOrganizationId } from "../../context/UserContext";
 
 const Profile = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get("tab") || "courses";
   const { userId, firebaseUser, organizationUserData } = useUser();
 
-  const organizationId = organizationUserData?.organization_id?._id || organizationUserData?.organization_id;
+  const organizationId = extractOrganizationId(organizationUserData);
 
   const handleTabChange = (value: string | null) => {
     setSearchParams({ tab: value || "courses" });

@@ -39,6 +39,7 @@ import {
   createPaymentPlan,
 } from "../services/paymentPlansService";
 import { getOrgIdFromPathname } from "../utils/getOrgIdFromPathname";
+import { sanitizeOrganizationId } from "../utils/sanitizeOrganizationId";
 
 interface SignUpData {
   email: string;
@@ -83,11 +84,18 @@ interface UserContextValue {
   adminCreateUserAndOrganizationUser?: typeof adminCreateUserAndOrganizationUser;
 }
 
-function extractOrganizationId(organizationUser: any): string | null {
+/**
+ * Extrae el organizationId de un OrganizationUser, saneando el caso conocido
+ * de registros de `user-activity` (y potencialmente otros) donde el campo
+ * quedó guardado como la URL completa en vez del id solo (ver
+ * `sanitizeOrganizationId`).
+ */
+export function extractOrganizationId(organizationUser: any): string | null {
   const raw = organizationUser?.organization_id;
   if (!raw) return null;
-  if (typeof raw === "string") return raw;
-  if (typeof raw === "object" && typeof raw._id === "string") return raw._id;
+  if (typeof raw === "string") return sanitizeOrganizationId(raw);
+  if (typeof raw === "object" && typeof raw._id === "string")
+    return sanitizeOrganizationId(raw._id);
   return null;
 }
 

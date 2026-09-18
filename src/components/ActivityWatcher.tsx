@@ -1,4 +1,4 @@
-import { useUser } from '../context/UserContext';
+import { useUser, extractOrganizationId } from '../context/UserContext';
 import { useActivityTracker } from '../hooks/activity/useActivityTracker';
 
 /**
@@ -8,7 +8,7 @@ import { useActivityTracker } from '../hooks/activity/useActivityTracker';
 export default function ActivityWatcher() {
   const { userId, firebaseUser, organizationUserData } = useUser();
 
-  const organizationId = organizationUserData?.organization_id?._id || organizationUserData?.organization_id;
+  const organizationId = extractOrganizationId(organizationUserData);
 
   // Inicializar el rastreador
   useActivityTracker({

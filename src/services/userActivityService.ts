@@ -1,4 +1,5 @@
 import api from './api';
+import { sanitizeOrganizationId } from '../utils/sanitizeOrganizationId';
 
 /**
  * Servicio para rastrear actividad del usuario
@@ -12,7 +13,7 @@ export const userActivityService = {
     const response = await api.post('/user-activity/session-start', {
       user_id: userId,
       firebase_uid: firebaseUid,
-      organization_id: organizationId,
+      organization_id: sanitizeOrganizationId(organizationId),
     });
     return response.data;
   },
@@ -23,7 +24,7 @@ export const userActivityService = {
   async endSession(userId: string, organizationId: string) {
     const response = await api.post('/user-activity/session-end', {
       user_id: userId,
-      organization_id: organizationId,
+      organization_id: sanitizeOrganizationId(organizationId),
     });
     return response.data;
   },
@@ -41,7 +42,7 @@ export const userActivityService = {
   ) {
     const response = await api.post('/user-activity/update-course-time', {
       user_id: userId,
-      organization_id: organizationId,
+      organization_id: sanitizeOrganizationId(organizationId),
       course_id: courseId,
       event_id: eventId,
       time_delta_ms: timeDeltaMs,
@@ -63,7 +64,7 @@ export const userActivityService = {
   ) {
     const response = await api.post('/user-activity/update-activity-time', {
       user_id: userId,
-      organization_id: organizationId,
+      organization_id: sanitizeOrganizationId(organizationId),
       activity_id: activityId,
       event_id: eventId,
       time_delta_ms: timeDeltaMs,
@@ -76,7 +77,8 @@ export const userActivityService = {
    * Obtiene el registro de actividad actual del usuario
    */
   async getActiveActivity(userId: string, organizationId: string) {
-    const response = await api.get(`/user-activity/active/${userId}/${organizationId}`);
+    const orgId = sanitizeOrganizationId(organizationId);
+    const response = await api.get(`/user-activity/active/${userId}/${orgId}`);
     return response.data;
   },
 
@@ -84,7 +86,8 @@ export const userActivityService = {
    * Obtiene el último registro de actividad del usuario
    */
   async getLastActivity(userId: string, organizationId: string) {
-    const response = await api.get(`/user-activity/last/${userId}/${organizationId}`);
+    const orgId = sanitizeOrganizationId(organizationId);
+    const response = await api.get(`/user-activity/last/${userId}/${orgId}`);
     return response.data;
   },
 
@@ -92,7 +95,8 @@ export const userActivityService = {
    * Obtiene el histórico de actividad del usuario
    */
   async getActivityHistory(userId: string, organizationId: string) {
-    const response = await api.get(`/user-activity/history/${userId}/${organizationId}`);
+    const orgId = sanitizeOrganizationId(organizationId);
+    const response = await api.get(`/user-activity/history/${userId}/${orgId}`);
     return response.data;
   },
 };
