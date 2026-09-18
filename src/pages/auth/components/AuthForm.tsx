@@ -30,6 +30,7 @@ import { FaArrowLeft } from "react-icons/fa6";
 // import VincularTelefonoModal from "./VincularTelefonoModal"; // 👈 se mantiene
 import useOrganizationAuth from "../useOrganizationAuth";
 import shouldRenderProperty from "../../../utils/shouldRenderProperty";
+import { diagnoseLoginFailure } from "../../../utils/diagnoseLoginFailure";
 import DynamicField from "./DynamicField";
 import EmailRecoverBlock from "./EmailRecoverBlock";
 // import SmsRecoverBlock from "./SmsRecoverBlock";
@@ -232,16 +233,39 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
       navigate(nextPath, { replace: true });
     } catch (err: any) {
       let msg = "Error al iniciar sesión. Intenta de nuevo.";
-      if (err?.code === "org/not-member")
+      let errorCode: string = err?.code || "unknown";
+
+      if (err?.code === "org/not-member") {
         msg =
           "No estás registrado en esta organización. Crea una cuenta para acceder.";
-      else if (err?.code === "auth/user-not-found")
-        msg = "No existe una cuenta con este correo.";
-      else if (err?.code === "auth/invalid-credential")
-        msg = "Email o cédula/ID incorrecto.";
-      else if (err?.code === "auth/too-many-requests")
+      } else if (err?.code === "app/user-not-synced") {
+        msg =
+          "Tus datos son correctos, pero tu cuenta no está vinculada con tu perfil. Escríbenos para restablecer el acceso.";
+      } else if (
+        err?.code === "auth/invalid-credential" ||
+        err?.code === "auth/user-not-found" ||
+        err?.code === "auth/wrong-password"
+      ) {
+        // Firebase usa el mismo código para "no existe el correo" y para
+        // "contraseña incorrecta", así que se le pregunta al backend cuál de
+        // los dos es antes de culpar a la cédula/ID.
+        const reason = await diagnoseLoginFailure(
+          email.trim(),
+          organizationId
+        );
+        errorCode = `${errorCode}:${reason}`;
+        if (reason === "not-registered")
+          msg =
+            "Este correo no está registrado. Crea una cuenta para acceder al curso.";
+        else if (reason === "other-organization")
+          msg =
+            "No estás registrado en esta organización. Crea una cuenta para acceder.";
+        else msg = "Email o cédula/ID incorrecto.";
+      } else if (err?.code === "auth/too-many-requests") {
         msg = "Demasiados intentos fallidos. Intenta más tarde.";
-      trackLoginError(err?.code || "unknown", organizationId);
+      }
+
+      trackLoginError(errorCode, organizationId);
       setFormError(msg);
     } finally {
       setSubmitting(false);

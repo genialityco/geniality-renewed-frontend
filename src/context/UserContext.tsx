@@ -404,12 +404,28 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const uid = result.user.uid;
 
     // 2) Trae el usuario (identidad global, sin importar organización)
-    const userData = await fetchUserByFirebaseUid(uid);
+    // El 404 llega como excepción de axios, no como null, así que hay que
+    // capturarlo: si se deja subir tal cual, la UI no reconoce el error y
+    // muestra un "Error al iniciar sesión" genérico que no dice nada.
+    let userData: Awaited<ReturnType<typeof fetchUserByFirebaseUid>> | null =
+      null;
+    try {
+      userData = await fetchUserByFirebaseUid(uid);
+    } catch (err: any) {
+      if (err?.response?.status !== 404) throw err;
+    }
     if (!userData) {
-      // Usuario no existe en tu backend (404): limpia y error controlado
+      // Las credenciales son correctas (Firebase ya autenticó), pero el uid de
+      // Firebase no corresponde a ningún documento User. Pasa cuando la cuenta
+      // de Firebase se recrea y el User en Mongo se queda con el uid anterior.
+      // No lo puede resolver la persona: necesita que un admin revincule.
       await firebaseSignOut(auth);
       localStorage.removeItem("myUserInfo");
-      throw new Error("Usuario no encontrado en el backend.");
+      const notSynced = new Error(
+        "Tu cuenta de acceso no está vinculada con tu perfil."
+      ) as Error & { code?: string };
+      notSynced.code = "app/user-not-synced";
+      throw notSynced;
     }
 
     // 3) Aislamiento por organización: si el login ocurre dentro de una
