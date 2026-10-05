@@ -171,6 +171,12 @@ export default function ActivityDetail({
   const vimeoPlayerRef = useRef<HTMLIFrameElement | null>(null);
   const [bunnyPlayer, setBunnyPlayer] = useState<BunnyPlayerInstance | null>(null);
   const bunnyPlayerRef = useRef<HTMLIFrameElement | null>(null);
+  // Si el iframe de Bunny aún no terminó de cargar cuando se pide un salto de
+  // tiempo (p.ej. clic en un fragmento justo al entrar a la actividad), se
+  // guarda acá para aplicarlo en cuanto dispare "ready" — no confiamos
+  // ciegamente en que el player.js de Bunny encole el comando internamente.
+  const bunnyReadyRef = useRef(false);
+  const pendingBunnySeekRef = useRef<number | null>(null);
   const reactPlayerRef = useRef<ReactPlayer | null>(null);
   const lastSavedProgressRef = useRef<{ [key: string]: number }>({});
   const currentProgressRef = useRef<number>(0);
@@ -639,6 +645,7 @@ export default function ActivityDetail({
 
     let cancelled = false;
     let newBunnyPlayer: BunnyPlayerInstance | null = null;
+    bunnyReadyRef.current = false;
 
     loadBunnyPlayerScript()
       .then(() => {
@@ -656,6 +663,17 @@ export default function ActivityDetail({
 
         newBunnyPlayer.on("ready", () => {
           if (cancelled || !newBunnyPlayer) return;
+          bunnyReadyRef.current = true;
+
+          // Si se pidió un salto (p.ej. clic en un fragmento) antes de que el
+          // player terminara de cargar, se aplica ahora en vez de confiar en
+          // que player.js lo haya encolado internamente.
+          if (pendingBunnySeekRef.current !== null) {
+            const seekTo = pendingBunnySeekRef.current;
+            pendingBunnySeekRef.current = null;
+            newBunnyPlayer.setCurrentTime(seekTo);
+            newBunnyPlayer.play();
+          }
 
           newBunnyPlayer.on("timeupdate", (data: { seconds: number; duration: number }) => {
             if (!data?.duration) return;
@@ -715,13 +733,27 @@ export default function ActivityDetail({
     };
   }, [activity?._id, selectedVideoIdx, selectedVideo?.provider]);
 
-  useEffect(() => {
-    if (!bunnyPlayer || videoTime === null) return;
+  // Salta el player de Bunny a `seconds` y arranca la reproducción. Si el
+  // player todavía no terminó de cargar (bunnyReadyRef en false), guarda el
+  // salto para aplicarlo en cuanto dispare "ready" (ver efecto de arriba) en
+  // vez de confiar en que player.js lo encole internamente.
+  const seekBunnyTo = (seconds: number) => {
+    if (!bunnyPlayer) return;
+    if (!bunnyReadyRef.current) {
+      pendingBunnySeekRef.current = seconds;
+      return;
+    }
     try {
-      bunnyPlayer.setCurrentTime(videoTime);
+      bunnyPlayer.setCurrentTime(seconds);
+      bunnyPlayer.play();
     } catch (err) {
       console.warn("No se pudo posicionar el reproductor de Bunny:", err);
     }
+  };
+
+  useEffect(() => {
+    if (videoTime === null) return;
+    seekBunnyTo(videoTime);
   }, [videoTime, bunnyPlayer]);
 
   // ==================================================
@@ -760,13 +792,7 @@ export default function ActivityDetail({
     if (player) {
       player.setCurrentTime(startTime).catch(console.error);
     }
-    if (bunnyPlayer) {
-      try {
-        bunnyPlayer.setCurrentTime(startTime);
-      } catch (err) {
-        console.warn("No se pudo posicionar el reproductor de Bunny:", err);
-      }
-    }
+    seekBunnyTo(startTime);
     // Scroll al video si no está visible
     setTimeout(() => {
       const videoSection = document.getElementById("video-section");
