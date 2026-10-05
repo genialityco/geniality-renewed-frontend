@@ -48,7 +48,20 @@ interface Fragment {
   endTime: any;
   startTime: number;
   text: string;
+  /** De qué motor salió el match (ver SearchMatchSource en transcriptSegmentsService). */
+  source?: "text" | "vector" | "hybrid";
 }
+
+// Color sutil por tipo de match: azul = coincidencia textual (el default de
+// siempre), violeta = semántica, verde = encontrado por ambos motores.
+const MATCH_SOURCE_META: Record<
+  "text" | "vector" | "hybrid",
+  { color: string; label: string }
+> = {
+  text: { color: "#74c0fc", label: "Coincidencia textual" },
+  vector: { color: "#9c6ade", label: "Coincidencia semántica" },
+  hybrid: { color: "#12b886", label: "Coincidencia textual y semántica" },
+};
 
 // A partir de este % de reproducción la actividad se cuenta como completada
 // (100%). Los videos suelen tener créditos/silencios al final y casi nadie
@@ -1099,6 +1112,19 @@ export default function ActivityDetail({
                 style={{ textAlign: "left", whiteSpace: "normal" }}
                 onClick={() => handleFragmentClick(frag.startTime)}
               >
+                {frag.source && (
+                  <span
+                    title={MATCH_SOURCE_META[frag.source].label}
+                    style={{
+                      display: "inline-block",
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      marginRight: 6,
+                      backgroundColor: MATCH_SOURCE_META[frag.source].color,
+                    }}
+                  />
+                )}
                 ⏳ {(formatTime || formatTimeDefault)(frag.startTime)}
                 {typeof frag.endTime === "number"
                   ? ` - ${(formatTime || formatTimeDefault)(frag.endTime)}`

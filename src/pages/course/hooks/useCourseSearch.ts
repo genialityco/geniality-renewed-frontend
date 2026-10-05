@@ -122,6 +122,7 @@ export function useCourseSearch(
                 startTime: seg.startTime,
                 endTime: seg.endTime,
                 score: seg.score,
+                source: seg.source,
               }));
 
             const firstSegmentStartTime =

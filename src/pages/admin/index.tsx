@@ -16,7 +16,7 @@ import {
   Modal,
   Button,
 } from "@mantine/core";
-import { FaList, FaUsers, FaGear, FaFile, FaFilm, FaWhatsapp } from "react-icons/fa6";
+import { FaList, FaUsers, FaGear, FaFile, FaFilm, FaWhatsapp, FaWandMagicSparkles } from "react-icons/fa6";
 
 import { useOrganization } from "../../context/OrganizationContext";
 import {
@@ -32,6 +32,7 @@ import AdminOrganizationPage from "./org/AdminOrganizationPage";
 import { DocumentsAdminPage } from "./DocumentsAdminPage";
 import AdminActivitiesPage from "./activities";
 import RemindersAdminPage from "./RemindersAdminPage";
+import EmbeddingsAdminPage from "./EmbeddingsAdminPage";
 import { openCoursePreview } from "../../utils/previewUrl";
 
 type Section =
@@ -40,7 +41,8 @@ type Section =
   | "org"
   | "documents"
   | "activities"
-  | "reminders";
+  | "reminders"
+  | "embeddings";
 
 export default function AdminOrganizationEvents() {
   const { organization } = useOrganization();
@@ -100,6 +102,8 @@ export default function AdminOrganizationEvents() {
       ? "Actividades"
       : activeSection === "reminders"
       ? "Recordatorios"
+      : activeSection === "embeddings"
+      ? "Embeddings"
       : "Mi Organización";
 
   return (
@@ -249,6 +253,26 @@ export default function AdminOrganizationEvents() {
               <FaWhatsapp /> Recordatorios
             </UnstyledButton>
 
+            {/* Embeddings de transcripciones */}
+            <UnstyledButton
+              onClick={() => {
+                setActiveSection("embeddings");
+                setEditingEventId(null);
+                setDrawerOpened(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: 8,
+                borderRadius: 4,
+                backgroundColor:
+                  activeSection === "embeddings" ? "#F0F4FF" : "transparent",
+              }}
+            >
+              <FaWandMagicSparkles /> Embeddings
+            </UnstyledButton>
+
             <Divider my="sm" />
           </Stack>
         </ScrollArea>
@@ -294,6 +318,8 @@ export default function AdminOrganizationEvents() {
           <AdminActivitiesPage />
         ) : activeSection === "reminders" ? (
           <RemindersAdminPage />
+        ) : activeSection === "embeddings" ? (
+          <EmbeddingsAdminPage />
         ) : (
           <AdminOrganizationPage organizationId={orgId} />
         )}

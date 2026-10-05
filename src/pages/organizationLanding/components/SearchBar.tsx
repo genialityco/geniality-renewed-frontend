@@ -36,9 +36,22 @@ export interface SearchResult {
     startTime?: number;
     endTime?: number;
     score?: number;
+    /** De qué motor salió el match (ver SearchMatchSource en transcriptSegmentsService). */
+    source?: "text" | "vector" | "hybrid";
   }>;
   startTime?: number;
 }
+
+// Color sutil por tipo de match: azul = coincidencia textual (el default de
+// siempre), violeta = semántica, verde = encontrado por ambos motores.
+const MATCH_SOURCE_META: Record<
+  "text" | "vector" | "hybrid",
+  { color: string; label: string }
+> = {
+  text: { color: "#74c0fc", label: "Coincidencia textual" },
+  vector: { color: "#9c6ade", label: "Coincidencia semántica" },
+  hybrid: { color: "#12b886", label: "Coincidencia textual y semántica" },
+};
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -374,6 +387,24 @@ export default function SearchBar({
                                       }}
                                     >
                                       <Group gap={4} mb={2}>
+                                        {segment.source && (
+                                          <Box
+                                            w={6}
+                                            h={6}
+                                            title={
+                                              MATCH_SOURCE_META[segment.source]
+                                                .label
+                                            }
+                                            style={{
+                                              borderRadius: "50%",
+                                              flexShrink: 0,
+                                              backgroundColor:
+                                                MATCH_SOURCE_META[
+                                                  segment.source
+                                                ].color,
+                                            }}
+                                          />
+                                        )}
                                         <IconClock size={11} color="#74c0fc" />
                                         <Text size="xs" c="blue" fw={500}>
                                           {typeof segment.startTime === "number"

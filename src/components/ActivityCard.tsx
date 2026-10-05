@@ -20,7 +20,20 @@ interface MatchedSegment {
   startTime: number;
   endTime: number;
   score?: number;
+  /** De qué motor salió el match (ver SearchMatchSource en transcriptSegmentsService). */
+  source?: "text" | "vector" | "hybrid";
 }
+
+// Color sutil por tipo de match: azul = coincidencia textual (el default de
+// siempre), violeta = semántica, verde = encontrado por ambos motores.
+const MATCH_SOURCE_META: Record<
+  "text" | "vector" | "hybrid",
+  { color: string; label: string }
+> = {
+  text: { color: "#74c0fc", label: "Coincidencia textual" },
+  vector: { color: "#9c6ade", label: "Coincidencia semántica" },
+  hybrid: { color: "#12b886", label: "Coincidencia textual y semántica" },
+};
 
 interface ActivityCardProps {
   activity: Activity;
@@ -209,6 +222,19 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                   >
                     <Box px={4} py={3} mb={1} style={{ borderRadius: 4 }}>
                       <Group gap={4} mb={1}>
+                        {seg.source && (
+                          <Box
+                            w={6}
+                            h={6}
+                            title={MATCH_SOURCE_META[seg.source].label}
+                            style={{
+                              borderRadius: "50%",
+                              flexShrink: 0,
+                              backgroundColor:
+                                MATCH_SOURCE_META[seg.source].color,
+                            }}
+                          />
+                        )}
                         <IconClock size={11} color="#74c0fc" />
                         <Text size="xs" c="blue" fw={500}>
                           {formatTime(seg.startTime)} –{" "}
