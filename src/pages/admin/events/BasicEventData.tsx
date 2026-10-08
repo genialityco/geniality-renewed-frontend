@@ -19,14 +19,46 @@ import {
   Switch,
   NumberInput,
   Textarea,
+  Chip,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { uploadImageToFirebase } from "../../../utils/uploadImageToFirebase";
 import { createEvent, updateEvent } from "../../../services/eventService";
-import type { Event } from "../../../services/types";
+import type { Event, TimeWindow } from "../../../services/types";
 import { useUser } from "../../../context/UserContext";
 import { useOrganization } from "../../../context/OrganizationContext";
 import { toastSaved, toastUpdated, toastError } from "../../../utils/toast";
+import TimeWindowsEditor from "./TimeWindowsEditor";
+
+// Defaults del repaso automático por WhatsApp (los mismos del backend)
+const DEFAULT_TIMEZONE = "America/Bogota";
+const DEFAULT_REVIEW_DAYS = [1, 2, 3, 4, 5, 6];
+const DEFAULT_REVIEW_WINDOWS: TimeWindow[] = [{ start: "09:00", end: "19:00" }];
+const DEFAULT_REST_WINDOWS: TimeWindow[] = [{ start: "12:00", end: "14:00" }];
+
+const WEEKDAYS = [
+  { value: 1, label: "Lun" },
+  { value: 2, label: "Mar" },
+  { value: 3, label: "Mié" },
+  { value: 4, label: "Jue" },
+  { value: 5, label: "Vie" },
+  { value: 6, label: "Sáb" },
+  { value: 0, label: "Dom" },
+];
+
+const TIMEZONES = [
+  { value: "America/Bogota", label: "Colombia (Bogotá)" },
+  { value: "America/Mexico_City", label: "México (Ciudad de México)" },
+  { value: "America/Lima", label: "Perú (Lima)" },
+  { value: "America/Guayaquil", label: "Ecuador (Guayaquil)" },
+  { value: "America/Panama", label: "Panamá" },
+  { value: "America/Caracas", label: "Venezuela (Caracas)" },
+  { value: "America/Santiago", label: "Chile (Santiago)" },
+  { value: "America/Argentina/Buenos_Aires", label: "Argentina (Buenos Aires)" },
+  { value: "America/Sao_Paulo", label: "Brasil (São Paulo)" },
+  { value: "America/New_York", label: "EE. UU. (Nueva York)" },
+  { value: "Europe/Madrid", label: "España (Madrid)" },
+];
 
 interface Props {
   formData: Partial<Event>;
@@ -501,6 +533,159 @@ export default function BasicEventData({
                 }
               />
             </Grid.Col>
+          </Grid>
+        )}
+      </Stack>
+
+      <Divider my="xl" label="Práctica y repaso" labelPosition="center" />
+
+      <Stack gap="lg">
+        {/* Preguntas dentro del video */}
+        <Switch
+          checked={!!formData.in_video_questions_enabled}
+          onChange={(e) =>
+            setField("in_video_questions_enabled", e.currentTarget.checked)
+          }
+          label="Preguntas dentro del video"
+          description="Pausa el video y muestra una pregunta (opción única, múltiple o verdadero/falso) del banco de la actividad sobre lo que se acaba de explicar. Es opcional: el alumno puede saltarla y no afecta su progreso. Nunca se repite una pregunta que ya vio."
+        />
+
+        {formData.in_video_questions_enabled && (
+          <Grid gutter="md">
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <NumberInput
+                label="Minutos mínimos entre preguntas"
+                min={1}
+                max={120}
+                clampBehavior="strict"
+                value={formData.in_video_questions_interval_minutes ?? 5}
+                onChange={(v) =>
+                  setField(
+                    "in_video_questions_interval_minutes",
+                    typeof v === "number" ? v : Number(v) || 5
+                  )
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <NumberInput
+                label="Máximo de preguntas por video"
+                min={1}
+                max={20}
+                clampBehavior="strict"
+                value={formData.in_video_questions_max ?? 3}
+                onChange={(v) =>
+                  setField(
+                    "in_video_questions_max",
+                    typeof v === "number" ? v : Number(v) || 3
+                  )
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={12}>
+              <Text size="xs" c="dimmed">
+                Solo se usan preguntas con minuto del video (las generadas con IA a partir del
+                transcript lo traen). Aparecen un minuto después de que empieza a explicarse el
+                tema.
+              </Text>
+            </Grid.Col>
+          </Grid>
+        )}
+
+        <Divider variant="dashed" />
+
+        {/* Repaso automático por WhatsApp */}
+        <Switch
+          checked={!!formData.whatsapp_review_enabled}
+          onChange={(e) =>
+            setField("whatsapp_review_enabled", e.currentTarget.checked)
+          }
+          label="Repaso automático por WhatsApp"
+          description="Envía un simulacro de 3 o 4 preguntas que el alumno no ha visto, unos días después de completar actividades. Solo a quienes aceptaron los mensajes en su perfil; como máximo uno cada tantos días como el retraso, y se pausa si ignora dos seguidos."
+        />
+
+        {formData.whatsapp_review_enabled && (
+          <Grid gutter="md">
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <NumberInput
+                label="Días de retraso"
+                description="Tras completar actividades"
+                min={1}
+                max={60}
+                clampBehavior="strict"
+                value={formData.whatsapp_review_delay_days ?? 2}
+                onChange={(v) =>
+                  setField(
+                    "whatsapp_review_delay_days",
+                    typeof v === "number" ? v : Number(v) || 2
+                  )
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 8 }}>
+              <Select
+                label="Zona horaria"
+                description="En la que se evalúan las franjas"
+                data={TIMEZONES}
+                searchable
+                allowDeselect={false}
+                value={formData.whatsapp_review_timezone || DEFAULT_TIMEZONE}
+                onChange={(v) =>
+                  setField("whatsapp_review_timezone", v || DEFAULT_TIMEZONE)
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={12}>
+              <Text size="sm" fw={500} mb={6}>
+                Días en que se puede enviar
+              </Text>
+              <Chip.Group
+                multiple
+                value={(formData.whatsapp_review_days ?? DEFAULT_REVIEW_DAYS).map(String)}
+                onChange={(v) =>
+                  setField(
+                    "whatsapp_review_days",
+                    v.map(Number).sort((a, b) => a - b)
+                  )
+                }
+              >
+                <Group gap="xs">
+                  {WEEKDAYS.map((d) => (
+                    <Chip key={d.value} value={String(d.value)} size="sm">
+                      {d.label}
+                    </Chip>
+                  ))}
+                </Group>
+              </Chip.Group>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <TimeWindowsEditor
+                label="Franjas de envío"
+                description="Solo se envía dentro de estas horas"
+                value={formData.whatsapp_review_windows ?? DEFAULT_REVIEW_WINDOWS}
+                onChange={(v) => setField("whatsapp_review_windows", v)}
+                addLabel="Agregar franja"
+                newWindow={{ start: "09:00", end: "12:00" }}
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <TimeWindowsEditor
+                label="Franjas de descanso"
+                description="Nunca se envía en estas horas, aunque estén dentro de una franja de envío"
+                value={formData.whatsapp_review_rest_windows ?? DEFAULT_REST_WINDOWS}
+                onChange={(v) => setField("whatsapp_review_rest_windows", v)}
+                addLabel="Agregar descanso"
+                newWindow={{ start: "12:00", end: "14:00" }}
+              />
+            </Grid.Col>
+            {(!(formData.whatsapp_review_windows ?? DEFAULT_REVIEW_WINDOWS).length ||
+              !(formData.whatsapp_review_days ?? DEFAULT_REVIEW_DAYS).length) && (
+              <Grid.Col span={12}>
+                <Alert color="yellow" variant="light">
+                  Sin días o sin franjas de envío no se enviará ningún repaso.
+                </Alert>
+              </Grid.Col>
+            )}
           </Grid>
         )}
       </Stack>

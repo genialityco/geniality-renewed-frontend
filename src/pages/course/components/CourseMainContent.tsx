@@ -52,8 +52,6 @@ import {
   DocumentService,
   Document as CourseDocument,
 } from "../../../services/documentService";
-import { getAiEvaluationAvailability } from "../../../services/aiEvaluationService";
-import AiEvaluationButton from "../../../components/AiEvaluationButton";
 
 /** Formatea el tamaño de un archivo en una unidad legible. */
 function formatFileSize(bytes?: number): string {
@@ -157,29 +155,6 @@ export function CourseMainContent({
       })
       .catch(() => {
         if (!cancelled) setDocuments([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [eventId]);
-
-  // Evaluación por WhatsApp con IA: solo si el admin la habilitó en el curso.
-  const [aiEvalModuleIds, setAiEvalModuleIds] = useState<Set<string> | null>(
-    null
-  );
-  useEffect(() => {
-    if (!eventId) return;
-    let cancelled = false;
-    getAiEvaluationAvailability(eventId)
-      .then((a) => {
-        if (!cancelled) {
-          setAiEvalModuleIds(
-            a.enabled ? new Set(a.modules.map((m) => m.id)) : null
-          );
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setAiEvalModuleIds(null);
       });
     return () => {
       cancelled = true;
@@ -446,11 +421,6 @@ export function CourseMainContent({
         );
       })()}
 
-      {/* Evaluación por WhatsApp con IA (el bot pregunta qué módulo evaluar) */}
-      {eventId && aiEvalModuleIds && (
-        <AiEvaluationButton fullWidth size="md" variant="light" eventId={eventId} />
-      )}
-
       {/* Certificado CTA (cursos con exámenes de módulo o con reglas activas) */}
       {showCertificateCTA &&
         (certUnlocked ? (
@@ -669,30 +639,6 @@ export function CourseMainContent({
                         </Group>
                       );
                     })()}
-
-                    {eventId && aiEvalModuleIds?.has(module._id) && (
-                      <Group
-                        justify="space-between"
-                        wrap="nowrap"
-                        mb="md"
-                        p="sm"
-                        style={{
-                          border: "1px solid #e9ecef",
-                          borderRadius: 10,
-                          backgroundColor: "#f8f9fa",
-                        }}
-                      >
-                        <Text fw={600} size="sm">
-                          🤖 Practica este módulo con IA por WhatsApp
-                        </Text>
-                        <AiEvaluationButton
-                          size="xs"
-                          eventId={eventId}
-                          moduleId={module._id}
-                          label="Evaluar mis conocimientos"
-                        />
-                      </Group>
-                    )}
 
                     <ActivityGrid
                       activities={modActivities}

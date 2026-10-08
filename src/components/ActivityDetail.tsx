@@ -12,9 +12,10 @@ import {
   Stack,
   Avatar,
   SegmentedControl,
+  Tooltip,
 } from "@mantine/core";
 import Player from "@vimeo/player";
-import { FaShare, FaArrowLeft } from "react-icons/fa6";
+import { FaShare, FaArrowLeft, FaBrain } from "react-icons/fa6";
 import ReactPlayer from "react-player";
 
 import { fetchHostById } from "../services/hostsService";
@@ -42,6 +43,13 @@ import {
   providerLabel,
 } from "../utils/videoEmbed";
 import { BunnyPlayerInstance, loadBunnyPlayerScript } from "../utils/bunnyPlayer";
+import InVideoQuestionModal from "./InVideoQuestionModal";
+import ActivityPracticeModal from "./ActivityPracticeModal";
+import { fetchWebPracticeAvailability } from "../services/webPracticeService";
+import {
+  fetchInVideoQuestions,
+  InVideoQuestion,
+} from "../services/inVideoQuestionService";
 
 interface Fragment {
   segmentId: number;
@@ -71,6 +79,10 @@ const COMPLETION_THRESHOLD = 95;
 // Segundos antes del final del video en los que se muestra el modal de
 // "actividad completada", para que el usuario lo vea aunque no llegue al final.
 const COMPLETION_LEAD_SECONDS = 20;
+
+// Avance máximo entre dos "timeupdate" seguidos para considerarlo reproducción
+// normal. Un salto mayor es un seek: no dispara preguntas dentro del video.
+const MAX_PLAYBACK_STEP_SECONDS = 3;
 
 interface ActivityDetailProps {
   activity: Activity | null; // Actividad seleccionada
@@ -185,6 +197,24 @@ export default function ActivityDetail({
   // Duración del video en ReactPlayer (para saber cuántos segundos faltan).
   const reactPlayerDurationRef = useRef<number>(0);
 
+  // Preguntas dentro del video (práctica opcional configurada en el curso)
+  const [inVideoQuestions, setInVideoQuestions] = useState<InVideoQuestion[]>([]);
+  const [activeQuestion, setActiveQuestion] = useState<InVideoQuestion | null>(null);
+  // Ya mostradas en esta visita (no se repiten al retroceder el video)
+  const askedQuestionsRef = useRef<Set<string>>(new Set());
+  const questionOpenRef = useRef(false);
+  // Último segundo reportado por el player, para detectar cuándo se cruza una pregunta
+  const lastVideoSecondsRef = useRef<number | null>(null);
+  // Los listeners de los players se registran una vez; leen el handler vigente por ref
+  const inVideoTickRef = useRef<(seconds: number) => void>(() => {});
+
+  // "Evaluar mis conocimientos" de la actividad (práctica dentro de la plataforma)
+  const [practiceAvailability, setPracticeAvailability] = useState<{
+    available: number;
+    active: boolean;
+  } | null>(null);
+  const [practiceOpen, setPracticeOpen] = useState(false);
+
   // ==================================================
   // Videos disponibles (nuevo esquema `videos[]`) + fallback automático
   // ==================================================
@@ -228,13 +258,52 @@ export default function ActivityDetail({
     setShowCompletionModal(false);
   }, [activity?._id]);
 
-  // Muestra el modal de actividad completada. Sale de pantalla completa
-  // (tanto la del navegador como la interna del reproductor de Vimeo) para que
-  // el modal sea visible aunque el usuario esté viendo el video en fullscreen.
-  const triggerCompletionModal = (vimeoPlayer?: Player | null) => {
-    if (completionShownRef.current) return;
-    completionShownRef.current = true;
+  // Carga las preguntas dentro del video de la actividad (si el curso las tiene)
+  useEffect(() => {
+    setInVideoQuestions([]);
+    setActiveQuestion(null);
+    questionOpenRef.current = false;
+    askedQuestionsRef.current = new Set();
+    lastVideoSecondsRef.current = null;
+    if (!activity?._id || !organizationId || !userId) return;
 
+    let cancelled = false;
+    fetchInVideoQuestions(organizationId, activity._id)
+      .then((data) => {
+        if (!cancelled && data.enabled) setInVideoQuestions(data.questions);
+      })
+      .catch((err) => {
+        console.warn("No se pudieron cargar las preguntas del video:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activity?._id, organizationId, userId]);
+
+  const refreshPracticeAvailability = () => {
+    if (!activity?._id || !organizationId || !userId) return;
+    const activityId = activity._id;
+    fetchWebPracticeAvailability(organizationId, activityId)
+      .then((a) => {
+        if (activityId === activity?._id) {
+          setPracticeAvailability({
+            available: a.available,
+            active: !!a.active_session_id,
+          });
+        }
+      })
+      .catch(() => setPracticeAvailability(null));
+  };
+
+  useEffect(() => {
+    setPracticeAvailability(null);
+    setPracticeOpen(false);
+    refreshPracticeAvailability();
+  }, [activity?._id, organizationId, userId]);
+
+  // Sale de pantalla completa (tanto la del navegador como la interna del
+  // reproductor de Vimeo) para que un modal sea visible.
+  const exitFullscreen = (vimeoPlayer?: Player | null) => {
     try {
       if (typeof document !== "undefined" && document.fullscreenElement) {
         document.exitFullscreen?.().catch(() => {});
@@ -250,7 +319,14 @@ export default function ActivityDetail({
     } catch {
       /* noop */
     }
+  };
 
+  // Muestra el modal de actividad completada, visible aunque el usuario esté
+  // viendo el video en fullscreen.
+  const triggerCompletionModal = (vimeoPlayer?: Player | null) => {
+    if (completionShownRef.current) return;
+    completionShownRef.current = true;
+    exitFullscreen(vimeoPlayer);
     setShowCompletionModal(true);
   };
 
@@ -569,6 +645,7 @@ export default function ActivityDetail({
     newPlayer.on("timeupdate", async (data) => {
       const progress = (data.seconds / data.duration) * 100;
       setVideoProgress(progress);
+      inVideoTickRef.current(data.seconds);
 
       // Mostrar el modal 20s antes de que termine el video.
       if (
@@ -679,6 +756,7 @@ export default function ActivityDetail({
             if (!data?.duration) return;
             const progress = (data.seconds / data.duration) * 100;
             setVideoProgress(progress);
+            inVideoTickRef.current(data.seconds);
 
             // Mostrar el modal 20s antes de que termine el video.
             if (data.duration - data.seconds <= COMPLETION_LEAD_SECONDS) {
@@ -764,6 +842,104 @@ export default function ActivityDetail({
       reactPlayerRef.current.seekTo(videoTime, "seconds");
     }
   }, [videoTime]);
+
+  // ==================================================
+  // Preguntas dentro del video
+  // ==================================================
+  const pauseVideo = () => {
+    player?.pause().catch(() => {});
+    try {
+      bunnyPlayer?.pause();
+    } catch {
+      /* noop */
+    }
+    const internal = reactPlayerRef.current?.getInternalPlayer() as any;
+    if (typeof internal?.pause === "function") internal.pause();
+    else if (typeof internal?.pauseVideo === "function") internal.pauseVideo();
+  };
+
+  const resumeVideo = () => {
+    player?.play().catch(() => {});
+    try {
+      bunnyPlayer?.play();
+    } catch {
+      /* noop */
+    }
+    const internal = reactPlayerRef.current?.getInternalPlayer() as any;
+    if (typeof internal?.play === "function") internal.play()?.catch?.(() => {});
+    else if (typeof internal?.playVideo === "function") internal.playVideo();
+  };
+
+  // Se llama en cada "timeupdate" de cualquier player: si la reproducción
+  // normal (no un seek) cruza el momento de una pregunta pendiente, pausa y la
+  // muestra.
+  inVideoTickRef.current = (seconds: number) => {
+    const prev = lastVideoSecondsRef.current;
+    lastVideoSecondsRef.current = seconds;
+    if (prev === null || questionOpenRef.current || !inVideoQuestions.length) return;
+    const step = seconds - prev;
+    if (step <= 0 || step > MAX_PLAYBACK_STEP_SECONDS) return;
+
+    const due = inVideoQuestions.find(
+      (q) =>
+        !askedQuestionsRef.current.has(q.id) &&
+        prev < q.trigger_at &&
+        seconds >= q.trigger_at
+    );
+    if (!due) return;
+    askedQuestionsRef.current.add(due.id);
+    questionOpenRef.current = true;
+    pauseVideo();
+    exitFullscreen(player);
+    setActiveQuestion(due);
+  };
+
+  const closeQuestion = () => {
+    questionOpenRef.current = false;
+    setActiveQuestion(null);
+  };
+
+  const handleQuestionContinue = () => {
+    closeQuestion();
+    resumeVideo();
+  };
+
+  const handleQuestionRewatch = (startTime: number) => {
+    closeQuestion();
+    if (player) {
+      player
+        .setCurrentTime(startTime)
+        .then(() => player.play())
+        .catch(console.error);
+    }
+    seekBunnyTo(startTime);
+    if (reactPlayerRef.current) {
+      reactPlayerRef.current.seekTo(startTime, "seconds");
+      resumeVideo();
+    }
+  };
+
+  const canPractice =
+    !!practiceAvailability &&
+    (practiceAvailability.available > 0 || practiceAvailability.active);
+
+  const openPractice = () => {
+    pauseVideo();
+    setShowCompletionModal(false);
+    setPracticeOpen(true);
+  };
+
+  // Desde la práctica: cierra y lleva el video al minuto del tema
+  const handlePracticeRewatch = (startTime: number) => {
+    setPracticeOpen(false);
+    refreshPracticeAvailability();
+    handleQuestionRewatch(startTime);
+    setTimeout(() => {
+      document
+        .getElementById("video-section")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+  };
 
   // ==================================================
   // HELPERS
@@ -995,6 +1171,7 @@ export default function ActivityDetail({
             }}
             onProgress={({ played, playedSeconds }) => {
               setVideoProgress(played * 100);
+              inVideoTickRef.current(playedSeconds);
               // Mostrar el modal 20s antes de que termine el video.
               const dur = reactPlayerDurationRef.current;
               if (dur > 0 && dur - playedSeconds <= COMPLETION_LEAD_SECONDS) {
@@ -1046,6 +1223,28 @@ export default function ActivityDetail({
               : "Siguiente"}
         </Button>
       </Group>
+
+      {organizationId && canPractice && (
+        <Tooltip
+          label="Completa el video para evaluar tus conocimientos"
+          disabled={currentCleared}
+        >
+          <div>
+            <Button
+              fullWidth
+              variant="light"
+              mb="md"
+              leftSection={<FaBrain size={16} />}
+              disabled={!currentCleared}
+              onClick={openPractice}
+            >
+              {practiceAvailability?.active
+                ? "Continuar evaluación de conocimientos"
+                : "Evaluar mis conocimientos"}
+            </Button>
+          </div>
+        </Tooltip>
+      )}
 
       {nextLocked && nextLockedNotice && (
         <Notification
@@ -1163,11 +1362,37 @@ export default function ActivityDetail({
         </>
       )}
 
+      {organizationId && (
+        <InVideoQuestionModal
+          question={activeQuestion}
+          organizationId={organizationId}
+          activityId={activity._id}
+          onContinue={handleQuestionContinue}
+          onRewatch={handleQuestionRewatch}
+        />
+      )}
+
+      {organizationId && (
+        <ActivityPracticeModal
+          opened={practiceOpen}
+          onClose={() => {
+            setPracticeOpen(false);
+            refreshPracticeAvailability();
+          }}
+          organizationId={organizationId}
+          activityId={activity._id}
+          activityName={activity.name}
+          onRewatch={handlePracticeRewatch}
+        />
+      )}
+
       {/* Completion Modal */}
       <CompletionModal
         opened={showCompletionModal}
         onClose={() => setShowCompletionModal(false)}
         blocks={completionMessage?.blocks || []}
+        actionLabel={canPractice ? "Evaluar mis conocimientos" : undefined}
+        onAction={canPractice ? openPractice : undefined}
       />
     </Card>
   );

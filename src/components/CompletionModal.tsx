@@ -15,6 +15,9 @@ interface CompletionModalProps {
   blocks?: Block[];
   showCertificateButton?: boolean;
   onGetCertificate?: () => void;
+  /** Acción extra opcional (p. ej. "Evaluar mis conocimientos") */
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
 export default function CompletionModal({
@@ -25,6 +28,8 @@ export default function CompletionModal({
   blocks,
   showCertificateButton,
   onGetCertificate,
+  actionLabel,
+  onAction,
 }: CompletionModalProps) {
   // Si se pasan bloques, usarlos; si no, usar title/description
   const hasBlocks = blocks && blocks.length > 0;
@@ -67,6 +72,13 @@ export default function CompletionModal({
               >
                 Descargar certificado
               </Button>
+            </>
+          ) : actionLabel && onAction ? (
+            <>
+              <Button variant="default" onClick={onClose}>
+                Continuar
+              </Button>
+              <Button onClick={onAction}>{actionLabel}</Button>
             </>
           ) : (
             <Button onClick={onClose}>Continuar</Button>
