@@ -16,6 +16,7 @@ import AdminExamsManager from "./AdminExamsManager";
 import CertificateComponent from "../../../components/CertificateComponent";
 import EventMetricsTab from "./EventMetricsTab";
 import CertificateRulesConfig from "./CertificateRulesConfig";
+import AiEvaluationTab from "./AiEvaluationTab";
 interface Props {
   organizationId: string;
   eventId: string; // puede ser "new" o un id real
@@ -66,6 +67,7 @@ export default function AdminEventEdit({
           <Tabs.Tab value="actividades">Actividades</Tabs.Tab>
           <Tabs.Tab value="hosts">Conferencistas</Tabs.Tab>
           <Tabs.Tab value="Examen">Examen</Tabs.Tab>
+          <Tabs.Tab value="evaluacionIA">Evaluación IA</Tabs.Tab>
           <Tabs.Tab value="certificado">Certificado</Tabs.Tab>
           <Tabs.Tab value="metricas">Métricas</Tabs.Tab>
         </Tabs.List>
@@ -98,6 +100,18 @@ export default function AdminEventEdit({
           ) : (
             <Text mb="md">
               Guarda primero el evento para gestionar los exámenes.
+            </Text>
+          )}
+        </Tabs.Panel>
+
+        <Tabs.Panel value="evaluacionIA" pt="md">
+          {isEditing ? (
+            activeTab === "evaluacionIA" && (
+              <AiEvaluationTab organizationId={organizationId} eventId={eventId} />
+            )
+          ) : (
+            <Text mb="md">
+              Guarda primero el evento para configurar la evaluación con IA.
             </Text>
           )}
         </Tabs.Panel>

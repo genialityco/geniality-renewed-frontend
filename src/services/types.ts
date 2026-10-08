@@ -52,6 +52,26 @@ export interface Event {
   certificate_required_activities?: number | null;
   certificate_required_exams?: number | null;
   certificate_locked_message?: string;
+
+  // Preguntas dentro del video (práctica opcional, configurable por el administrador)
+  in_video_questions_enabled?: boolean;
+  in_video_questions_interval_minutes?: number;
+  in_video_questions_max?: number;
+
+  // Repaso automático por WhatsApp (configurable por el administrador)
+  whatsapp_review_enabled?: boolean;
+  whatsapp_review_delay_days?: number;
+  whatsapp_review_timezone?: string;
+  /** 0 = domingo … 6 = sábado */
+  whatsapp_review_days?: number[];
+  /** Franjas de envío y de descanso en "HH:mm" */
+  whatsapp_review_windows?: TimeWindow[];
+  whatsapp_review_rest_windows?: TimeWindow[];
+}
+
+export interface TimeWindow {
+  start: string;
+  end: string;
 }
 
 export interface Module {

@@ -17,6 +17,7 @@ import {
 import { trackSavePersonalInfo } from "../../../utils/analytics";
 import { User } from "../../../services/types";
 import { FaX } from "react-icons/fa6";
+import WhatsappOptIn from "./WhatsappOptIn";
 
 const PersonalInfo = () => {
   const { userId } = useUser();
@@ -107,6 +108,8 @@ const PersonalInfo = () => {
           {error}
         </Notification>
       )}
+
+      <WhatsappOptIn />
     </Stack>
   );
 };

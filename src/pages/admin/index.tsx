@@ -32,6 +32,7 @@ import AdminOrganizationPage from "./org/AdminOrganizationPage";
 import { DocumentsAdminPage } from "./DocumentsAdminPage";
 import AdminActivitiesPage from "./activities";
 import RemindersAdminPage from "./RemindersAdminPage";
+import PracticeAdminPage from "./PracticeAdminPage";
 import EmbeddingsAdminPage from "./EmbeddingsAdminPage";
 import { openCoursePreview } from "../../utils/previewUrl";
 
@@ -42,6 +43,7 @@ type Section =
   | "documents"
   | "activities"
   | "reminders"
+  | "practice"
   | "embeddings";
 
 export default function AdminOrganizationEvents() {
@@ -102,6 +104,8 @@ export default function AdminOrganizationEvents() {
       ? "Actividades"
       : activeSection === "reminders"
       ? "Recordatorios"
+      : activeSection === "practice"
+      ? "Simulacros WhatsApp"
       : activeSection === "embeddings"
       ? "Embeddings"
       : "Mi Organización";
@@ -253,6 +257,26 @@ export default function AdminOrganizationEvents() {
               <FaWhatsapp /> Recordatorios
             </UnstyledButton>
 
+            {/* Simulacros de práctica (WhatsApp) */}
+            <UnstyledButton
+              onClick={() => {
+                setActiveSection("practice");
+                setEditingEventId(null);
+                setDrawerOpened(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: 8,
+                borderRadius: 4,
+                backgroundColor:
+                  activeSection === "practice" ? "#F0F4FF" : "transparent",
+              }}
+            >
+              <FaWhatsapp /> Simulacros WhatsApp
+            </UnstyledButton>
+
             {/* Embeddings de transcripciones */}
             <UnstyledButton
               onClick={() => {
@@ -318,6 +342,8 @@ export default function AdminOrganizationEvents() {
           <AdminActivitiesPage />
         ) : activeSection === "reminders" ? (
           <RemindersAdminPage />
+        ) : activeSection === "practice" ? (
+          <PracticeAdminPage />
         ) : activeSection === "embeddings" ? (
           <EmbeddingsAdminPage />
         ) : (

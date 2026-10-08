@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Button,
   Loader,
@@ -38,7 +38,14 @@ import {
   VideoItem,
 } from "../../../services/types";
 import { getModulesByEventId } from "../../../services/moduleService";
-import { FaCheck, FaPencil, FaTrash, FaCircleCheck, FaEye } from "react-icons/fa6";
+import {
+  FaCheck,
+  FaPencil,
+  FaTrash,
+  FaCircleCheck,
+  FaEye,
+  FaWandMagicSparkles,
+} from "react-icons/fa6";
 import {
   createHost,
   fetchHostsByEventId,
@@ -49,6 +56,11 @@ import { toastSaved, toastUpdated, toastDeleted, toastError } from "../../../uti
 import { openCoursePreview } from "../../../utils/previewUrl";
 import ActivityVideosEditor from "../../../components/admin/ActivityVideosEditor";
 import { providerLabel } from "../../../utils/videoEmbed";
+import {
+  ActivityQuestionCounts,
+  fetchActivityQuestionCounts,
+} from "../../../services/activityQuestionService";
+import ActivityQuestionsModal from "./ActivityQuestionsModal";
 
 interface Props {
   organizationId?: string;
@@ -115,6 +127,20 @@ export default function AdminActivities({
   const [transcriptModalActivity, setTranscriptModalActivity] =
     useState<Activity | null>(null);
 
+  // --------- PREGUNTAS CON IA ---------
+  const [questionsActivity, setQuestionsActivity] = useState<Activity | null>(
+    null,
+  );
+  const [questionCounts, setQuestionCounts] = useState<ActivityQuestionCounts>(
+    {},
+  );
+
+  const handleQuestionCountChange = useCallback(
+    (activityId: string, count: { total: number; enabled: number }) =>
+      setQuestionCounts((prev) => ({ ...prev, [activityId]: count })),
+    [],
+  );
+
   // Cargar data inicial
   useEffect(() => {
     if (!eventId) return;
@@ -133,7 +159,15 @@ export default function AdminActivities({
         setHosts(hs);
       })
       .finally(() => setLoading(false));
-  }, [eventId]);
+
+    if (organizationId) {
+      fetchActivityQuestionCounts(organizationId, eventId)
+        .then(setQuestionCounts)
+        .catch((error) =>
+          console.warn("No se pudieron cargar los conteos de preguntas:", error),
+        );
+    }
+  }, [eventId, organizationId]);
 
   // Recargar módulos y hosts cada vez que la pestaña se vuelve activa, para
   // reflejar los que se hayan creado en las pestañas de Módulos / Hosts sin
@@ -315,8 +349,12 @@ export default function AdminActivities({
         const acts = await getActivitiesByEvent(eventId);
         setActivities(acts);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al generar transcript:", error);
+      toastError(
+        "No se pudo generar la transcripción",
+        error?.response?.data?.message || error?.message,
+      );
     } finally {
       setGeneratingTranscriptId(null);
     }
@@ -553,6 +591,19 @@ export default function AdminActivities({
                   Generar Transcript
                 </Button>
               )}
+              <Button
+                size="xs"
+                variant="light"
+                color="violet"
+                leftSection={<FaWandMagicSparkles size={12} />}
+                onClick={() => setQuestionsActivity(act)}
+                disabled={!organizationId}
+              >
+                Preguntas
+                {questionCounts[act._id]?.total
+                  ? ` (${questionCounts[act._id].total})`
+                  : ""}
+              </Button>
               <ActionIcon
                 color="blue"
                 variant="subtle"
@@ -749,6 +800,29 @@ export default function AdminActivities({
             </>
           )}
 
+          <Divider my="sm" />
+          <Group justify="space-between">
+            <Text size="sm" c="dimmed">
+              Preguntas con IA:{" "}
+              {editActivity && questionCounts[editActivity._id]?.total
+                ? `${questionCounts[editActivity._id].total} creadas`
+                : "ninguna aún"}
+            </Text>
+            <Button
+              variant="light"
+              color="violet"
+              size="xs"
+              leftSection={<FaWandMagicSparkles size={12} />}
+              disabled={!organizationId}
+              onClick={() => {
+                setEditModalOpen(false);
+                setQuestionsActivity(editActivity);
+              }}
+            >
+              Gestionar preguntas
+            </Button>
+          </Group>
+
           <Group justify="flex-end" mt="sm">
             <Button variant="light" onClick={() => setEditModalOpen(false)}>
               Cancelar
@@ -762,6 +836,14 @@ export default function AdminActivities({
           </Group>
         </Stack>
       </Modal>
+
+      {/* --------- PREGUNTAS CON IA --------- */}
+      <ActivityQuestionsModal
+        organizationId={organizationId}
+        activity={questionsActivity}
+        onClose={() => setQuestionsActivity(null)}
+        onCountChange={handleQuestionCountChange}
+      />
 
       {/* --------- OPCIONES DE TRANSCRIPCIÓN --------- */}
       <Modal
