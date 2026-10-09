@@ -35,13 +35,15 @@ import { buildSampleMetrics } from "./eventMetricsSample";
 import EventMembersPanel from "./EventMembersPanel";
 import { EventMetricsPDF } from "./EventMetricsPDF";
 import {
-  AVG_PROGRESS_DETAIL,
-  enrolledDetail,
+  certificatesDetail,
+  COMPLETED_DETAIL,
+  ENROLLED_DETAIL,
   formatDuration,
   formatMonth,
   formatNumber,
   hiddenQuizzesNote,
   IN_PROGRESS_DETAIL,
+  STARTED_DETAIL,
   splitEnabledQuizzes,
 } from "./eventMetricsFormat";
 import { useOrganization } from "../../../context/OrganizationContext";
@@ -122,15 +124,8 @@ function EnrollmentChart({
 
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <BarChart
-        data={data}
-        margin={{ top: 8, right: 8, bottom: 0, left: -16 }}
-      >
-        <CartesianGrid
-          vertical={false}
-          stroke={viz.gridline}
-          strokeWidth={1}
-        />
+      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+        <CartesianGrid vertical={false} stroke={viz.gridline} strokeWidth={1} />
         <XAxis
           dataKey="label"
           tick={{ fill: viz.inkMuted, fontSize: 12 }}
@@ -193,16 +188,14 @@ function ActivityFunnel({ activities }: { activities: ActivityMetrics[] }) {
         lastModule = activity.moduleName ?? lastModule;
 
         const ratio =
-          activity.attendees > 0
-            ? activity.completed / activity.attendees
-            : 0;
+          activity.attendees > 0 ? activity.completed / activity.attendees : 0;
 
         return (
           <Box key={activity.activityId}>
             {moduleHeader}
             <MantineTooltip
               label={`Progreso promedio ${activity.avgProgress}% · tiempo total ${formatDuration(
-                activity.totalTimeMs
+                activity.totalTimeMs,
               )} (${activity.usersWithTime} usuarios con tiempo registrado)`}
               position="top-start"
               withArrow
@@ -216,8 +209,7 @@ function ActivityFunnel({ activities }: { activities: ActivityMetrics[] }) {
                     size="xs"
                     style={{ color: viz.inkSecondary, whiteSpace: "nowrap" }}
                   >
-                    {formatNumber(activity.completed)}/
-                    {formatNumber(activity.attendees)} completaron
+                    {formatNumber(activity.attendees)} han iniciado la actividad, {formatNumber(activity.completed)} la han completado
                   </Text>
                 </Group>
                 <Box
@@ -232,8 +224,7 @@ function ActivityFunnel({ activities }: { activities: ActivityMetrics[] }) {
                     style={{
                       width: `${Math.min(ratio * 100, 100)}%`,
                       height: "100%",
-                      borderRadius:
-                        ratio >= 1 ? 4 : ("4px 0 0 4px" as const),
+                      borderRadius: ratio >= 1 ? 4 : ("4px 0 0 4px" as const),
                       background: viz.series1,
                     }}
                   />
@@ -255,9 +246,7 @@ function ActivityFunnel({ activities }: { activities: ActivityMetrics[] }) {
 function quizLabel(quiz: QuizMetrics): string {
   if (quiz.legacy) return "Examen sin identificar";
   if (quiz.moduleId === null) return "General del curso";
-  return quiz.moduleName
-    ? `Módulo: ${quiz.moduleName}`
-    : "Módulo eliminado";
+  return quiz.moduleName ? `Módulo: ${quiz.moduleName}` : "Módulo eliminado";
 }
 
 function QuizzesTable({ quizzes }: { quizzes: QuizMetrics[] }) {
@@ -285,10 +274,10 @@ function QuizzesTable({ quizzes }: { quizzes: QuizMetrics[] }) {
       {legacy && (
         <Alert color="yellow" title="Solo se está viendo un examen">
           <Text size="sm">
-            El servidor de este entorno todavía no distingue los varios
-            exámenes de un curso, así que devuelve uno solo y sin identificar.
-            Actualiza el backend para ver el examen general y el de cada
-            módulo por separado.
+            El servidor de este entorno todavía no distingue los varios exámenes
+            de un curso, así que devuelve uno solo y sin identificar. Actualiza
+            el backend para ver el examen general y el de cada módulo por
+            separado.
           </Text>
         </Alert>
       )}
@@ -311,7 +300,7 @@ function QuizzesTable({ quizzes }: { quizzes: QuizMetrics[] }) {
               const approval =
                 quiz.passedUsers !== null && quiz.gradedUsers > 0
                   ? `${Math.round(
-                      (quiz.passedUsers / quiz.gradedUsers) * 100
+                      (quiz.passedUsers / quiz.gradedUsers) * 100,
                     )}%`
                   : "—";
               return (
@@ -413,11 +402,7 @@ export default function EventMetricsTab({ organizationId, eventId }: Props) {
   }
 
   const shownMetrics = demoMode ? buildSampleMetrics(metrics) : metrics;
-  const { enrollment, time, activities, quizzes, certificates } = shownMetrics;
-  const completionRate =
-    enrollment.total > 0
-      ? Math.round((enrollment.completed / enrollment.total) * 100)
-      : 0;
+  const { enrollment, activities, quizzes, certificates } = shownMetrics;
 
   /** Genera el PDF del informe y lo descarga */
   const handleDownloadPDF = async () => {
@@ -429,7 +414,7 @@ export default function EventMetricsTab({ organizationId, eventId }: Props) {
           metrics={shownMetrics}
           organizationName={organization?.name}
           demo={demoMode}
-        />
+        />,
       ).toBlob();
 
       const url = URL.createObjectURL(blob);
@@ -456,14 +441,19 @@ export default function EventMetricsTab({ organizationId, eventId }: Props) {
       {!demoMode && metrics.enrollment.total === 0 && (
         <Alert color="blue" title="Este curso aún no tiene inscritos">
           <Text size="sm">
-            Cuando los usuarios se inscriban, aquí verás inscripciones por
-            mes, avance por actividad, resultados del examen y certificados.
+            Cuando los usuarios se inscriban, aquí verás inscripciones por mes,
+            avance por actividad, resultados del examen y certificados.
           </Text>
         </Alert>
       )}
 
       {pdfError && (
-        <Alert color="red" title="Error" onClose={() => setPdfError(null)} withCloseButton>
+        <Alert
+          color="red"
+          title="Error"
+          onClose={() => setPdfError(null)}
+          withCloseButton
+        >
           {pdfError}
         </Alert>
       )}
@@ -485,33 +475,33 @@ export default function EventMetricsTab({ organizationId, eventId }: Props) {
       </Group>
 
       {/* KPIs principales */}
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }}>
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
         <StatTile
           label="Inscritos"
           value={formatNumber(enrollment.total)}
-          detail={enrolledDetail(enrollment)}
+          detail={ENROLLED_DETAIL}
         />
-        <StatTile
-          label="Completaron el curso"
-          value={formatNumber(enrollment.completed)}
-          detail={`${completionRate}% de los inscritos`}
-        />
+        {enrollment.startedFirstActivity !== undefined && (
+          <StatTile
+            label="Empezaron su estudio"
+            value={formatNumber(enrollment.startedFirstActivity)}
+            detail={STARTED_DETAIL}
+          />
+        )}
         <StatTile
           label="En progreso"
           value={formatNumber(enrollment.inProgress)}
           detail={IN_PROGRESS_DETAIL}
         />
         <StatTile
-          label="Progreso promedio"
-          value={`${enrollment.avgProgress}%`}
-          detail={AVG_PROGRESS_DETAIL}
+          label="Completaron el curso"
+          value={formatNumber(enrollment.completed)}
+          detail={COMPLETED_DETAIL}
         />
         <StatTile
-          label="Tiempo promedio por usuario"
-          value={formatDuration(time.avgPerUserMs)}
-          detail={`${formatDuration(time.totalMs)} en total · ${formatNumber(
-            time.usersWithTime
-          )} usuarios`}
+          label="Certificados descargados"
+          value={formatNumber(certificates.completed)}
+          detail={certificatesDetail(certificates.completed)}
         />
       </SimpleGrid>
 
@@ -561,7 +551,10 @@ export default function EventMetricsTab({ organizationId, eventId }: Props) {
         </Group>
         {showMembers && (
           <Box mt="sm">
-            <EventMembersPanel organizationId={organizationId} eventId={eventId} />
+            <EventMembersPanel
+              organizationId={organizationId}
+              eventId={eventId}
+            />
           </Box>
         )}
       </Paper>
@@ -577,28 +570,6 @@ export default function EventMetricsTab({ organizationId, eventId }: Props) {
           usuario.
         </Text>
         <QuizzesTable quizzes={quizzes} />
-      </Paper>
-
-      {/* Certificados */}
-      <Paper withBorder p="md" radius="md">
-        <Title order={5} mb="sm">
-          Certificados
-        </Title>
-        <SimpleGrid cols={{ base: 1, sm: 3 }}>
-          <StatTile
-            label="Certificados generados"
-            value={formatNumber(certificates.completed)}
-            detail={`${formatNumber(certificates.total)} solicitados`}
-          />
-          <StatTile
-            label="Pendientes"
-            value={formatNumber(certificates.pending)}
-          />
-          <StatTile
-            label="Fallidos"
-            value={formatNumber(certificates.failed)}
-          />
-        </SimpleGrid>
       </Paper>
     </Stack>
   );

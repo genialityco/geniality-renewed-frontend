@@ -12,9 +12,92 @@ interface TimeTrackerConfig {
   isActive: boolean; // Si está activamente viendo
 }
 
+/** Cada cuánto se envía el tiempo acumulado al backend. */
+const SYNC_INTERVAL_MS = 30_000;
+/** Cada cuánto se suma el tiempo transcurrido. */
+const TICK_MS = 1_000;
+/**
+ * Máximo que puede sumar un tick. Si el equipo se suspende con la pestaña
+ * visible, el siguiente tick llega horas después; sin este tope esas horas
+ * contarían como estudio.
+ */
+const MAX_TICK_MS = 5_000;
+
+interface TrackTarget {
+  userId: string;
+  organizationId: string;
+  eventId: string;
+  courseId?: string;
+  activityId?: string;
+}
+
+/**
+ * Envía `deltaMs` al curso y/o actividad del target. Con `keepalive` usa
+ * fetch keepalive para que el envío sobreviva al cierre de la pestaña.
+ */
+async function sendTime(
+  target: TrackTarget,
+  names: { courseName?: string; activityName?: string },
+  deltaMs: number,
+  keepalive: boolean,
+) {
+  const common = {
+    user_id: target.userId,
+    organization_id: target.organizationId,
+    event_id: target.eventId,
+    time_delta_ms: deltaMs,
+  };
+
+  if (keepalive) {
+    if (target.courseId) {
+      userActivityService.sendTimeOnUnload('update-course-time', {
+        ...common,
+        course_id: target.courseId,
+        course_name: names.courseName,
+      });
+    }
+    if (target.activityId) {
+      userActivityService.sendTimeOnUnload('update-activity-time', {
+        ...common,
+        activity_id: target.activityId,
+        activity_name: names.activityName,
+      });
+    }
+    return;
+  }
+
+  await Promise.all([
+    target.courseId
+      ? userActivityService.updateCourseTime(
+          target.userId,
+          target.organizationId,
+          target.courseId,
+          target.eventId,
+          deltaMs,
+          names.courseName,
+        )
+      : null,
+    target.activityId
+      ? userActivityService.updateActivityTime(
+          target.userId,
+          target.organizationId,
+          target.activityId,
+          target.eventId,
+          deltaMs,
+          names.activityName,
+        )
+      : null,
+  ]);
+}
+
 /**
  * Hook que rastrea el tiempo que el usuario pasa en un curso o actividad
- * y lo sincroniza periódicamente con el backend
+ * y lo sincroniza periódicamente con el backend.
+ *
+ * El tiempo corre mientras `isActive` sea true y se atribuye siempre al
+ * curso/actividad en que se generó: al cambiar de actividad, lo pendiente se
+ * envía a la anterior antes de empezar a contar la nueva. Al ocultar o cerrar
+ * la pestaña se envía con keepalive para no perder el último tramo.
  */
 export const useTimeTracker = ({
   userId,
@@ -26,144 +109,90 @@ export const useTimeTracker = ({
   activityName,
   isActive = true,
 }: TimeTrackerConfig) => {
-  const elapsedTimeRef = useRef<number>(0);
-  const lastUpdateRef = useRef<number>(Date.now());
-  const trackerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isInitializedRef = useRef(false);
+  // Tiempo acumulado aún no enviado
+  const pendingMsRef = useRef(0);
+  // Momento del último tick; null mientras el rastreo está detenido
+  const lastTickRef = useRef<number | null>(null);
+  const isActiveRef = useRef(isActive);
+  // Los nombres pueden llegar después (se cargan aparte); no cambian el target
+  const namesRef = useRef({ courseName, activityName });
+  namesRef.current = { courseName, activityName };
+  // Envía lo pendiente del target actual (lo asigna el efecto principal)
+  const flushRef = useRef<(keepalive?: boolean) => void>(() => {});
 
-  /**
-   * Sincroniza el tiempo con el backend
-   */
-  const syncTime = useCallback(async () => {
-    if (!userId || !organizationId || elapsedTimeRef.current === 0) {
-      return;
-    }
-
-    try {
-      // Si hay courseId, sincronizar tiempo de curso
-      if (courseId && eventId) {
-        await userActivityService.updateCourseTime(
-          userId,
-          organizationId,
-          courseId,
-          eventId,
-          elapsedTimeRef.current,
-          courseName,
-        );
-      }
-
-      // Si hay activityId, sincronizar tiempo de actividad
-      if (activityId && eventId) {
-        await userActivityService.updateActivityTime(
-          userId,
-          organizationId,
-          activityId,
-          eventId,
-          elapsedTimeRef.current,
-          activityName,
-        );
-      }
-
-      // Resetear contador después de sincronizar
-      elapsedTimeRef.current = 0;
-      lastUpdateRef.current = Date.now();
-    } catch (error: any) {
-      if (error?.response?.status === 404) {
-        // Si la sesión ya no está activa, evitar ruido de logs en cleanup/race conditions
-        return;
-      }
-      console.error('Error sincronizando tiempo:', error);
-    }
-  }, [userId, organizationId, courseId, eventId, courseName, activityId, activityName]);
-
-  /**
-   * Obtener el tiempo transcurrido sin sincronizar
-   */
-  const getElapsedTime = useCallback(() => {
-    return elapsedTimeRef.current;
+  /** Suma al pendiente el tiempo transcurrido desde el último tick. */
+  const accumulate = useCallback(() => {
+    if (lastTickRef.current === null) return;
+    const now = Date.now();
+    pendingMsRef.current += Math.min(now - lastTickRef.current, MAX_TICK_MS);
+    lastTickRef.current = now;
   }, []);
 
-  /**
-   * Resetear el tiempo
-   */
-  const resetTime = useCallback(() => {
-    elapsedTimeRef.current = 0;
-    lastUpdateRef.current = Date.now();
-  }, []);
-
-  /**
-   * Inicializar rastreador
-   */
   useEffect(() => {
-    if (!userId || !organizationId || isInitializedRef.current) {
+    if (!userId || !organizationId || !eventId || (!courseId && !activityId)) {
       return;
     }
 
-    // Si no está activo, no iniciar rastreador
-    if (!isActive) {
-      return;
-    }
+    const target: TrackTarget = { userId, organizationId, eventId, courseId, activityId };
+    pendingMsRef.current = 0;
+    lastTickRef.current = isActiveRef.current ? Date.now() : null;
 
-    // Si no hay courseId ni activityId, no hay nada que rastrear
-    if (!courseId && !activityId) {
-      return;
-    }
-
-    isInitializedRef.current = true;
-    lastUpdateRef.current = Date.now();
-
-    // El rastreador de tiempo se ejecuta cada 100ms para mayor precisión
-    trackerIntervalRef.current = setInterval(() => {
-      const now = Date.now();
-      const delta = now - lastUpdateRef.current;
-      elapsedTimeRef.current += delta;
-      lastUpdateRef.current = now;
-    }, 100);
-
-    // Sincronizar con el backend cada 30 segundos
-    syncIntervalRef.current = setInterval(() => {
-      syncTime();
-    }, 30000);
-
-    // Sincronizar cuando se desmonta el componente
-    return () => {
-      if (trackerIntervalRef.current) {
-        clearInterval(trackerIntervalRef.current);
-      }
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current);
-      }
-
-      // Sincronizar antes de desmontar (best effort)
-      syncTime();
-      isInitializedRef.current = false;
+    const flush = (keepalive = document.visibilityState === 'hidden') => {
+      accumulate();
+      const delta = Math.round(pendingMsRef.current);
+      if (delta <= 0) return;
+      // Se descuenta antes de enviar para que dos flush seguidos no manden
+      // el mismo tramo dos veces.
+      pendingMsRef.current = 0;
+      sendTime(target, namesRef.current, delta, keepalive).catch((error) => {
+        console.error('Error sincronizando tiempo:', error);
+      });
     };
-  }, [userId, organizationId, courseId, eventId, courseName, activityId, activityName, isActive, syncTime]);
+    flushRef.current = flush;
 
-  /**
-   * Sincronizar cuando se cambia de curso/actividad
-   */
-  useEffect(() => {
-    if (isInitializedRef.current) {
-      // Al cambiar de curso/actividad, sincronizar primero y luego resetear
-      syncTime();
-    }
-  }, [courseId, activityId]);
+    const tickInterval = setInterval(accumulate, TICK_MS);
+    const syncInterval = setInterval(() => flush(), SYNC_INTERVAL_MS);
+    const handlePageHide = () => flush(true);
+    window.addEventListener('pagehide', handlePageHide);
 
-  /**
-   * Detener rastreador cuando isActive se vuelve false
-   */
+    return () => {
+      clearInterval(tickInterval);
+      clearInterval(syncInterval);
+      window.removeEventListener('pagehide', handlePageHide);
+      // Cambio de actividad/curso o desmontaje: lo pendiente es del target
+      // que se va.
+      flush();
+      lastTickRef.current = null;
+      flushRef.current = () => {};
+    };
+  }, [userId, organizationId, eventId, courseId, activityId, accumulate]);
+
+  /** Pausar/reanudar sin cambiar de target. */
   useEffect(() => {
-    if (!isActive && trackerIntervalRef.current) {
-      clearInterval(trackerIntervalRef.current);
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current);
-      }
-      // Sincronizar antes de detener
-      syncTime();
+    isActiveRef.current = isActive;
+    if (isActive) {
+      if (lastTickRef.current === null) lastTickRef.current = Date.now();
+    } else {
+      // Suma hasta el momento de la pausa y envía (keepalive si la pestaña
+      // se está ocultando, que es también lo que precede a cerrarla).
+      flushRef.current();
+      lastTickRef.current = null;
     }
-  }, [isActive, syncTime]);
+  }, [isActive]);
+
+  const getElapsedTime = useCallback(() => {
+    accumulate();
+    return pendingMsRef.current;
+  }, [accumulate]);
+
+  const resetTime = useCallback(() => {
+    pendingMsRef.current = 0;
+    if (lastTickRef.current !== null) lastTickRef.current = Date.now();
+  }, []);
+
+  const syncTime = useCallback(async () => {
+    flushRef.current();
+  }, []);
 
   return {
     getElapsedTime,

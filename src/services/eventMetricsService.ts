@@ -56,6 +56,11 @@ export interface EventMetrics {
      * Ausente en backends anteriores a este cálculo.
      */
     openedFirstActivity?: number;
+    /**
+     * Inscritos con avance > 0 en la primera actividad. Opcional: los
+     * backends desplegados antes de este campo no lo envían.
+     */
+    startedFirstActivity?: number;
     /** Avance promedio en todas las actividades de quienes entraron a la primera. */
     avgProgress: number;
     byMonth: { month: string; count: number }[];

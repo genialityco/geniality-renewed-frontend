@@ -12,8 +12,11 @@ interface VisibleTimeTrackerConfig {
 }
 
 /**
- * Hook que rastrea el tiempo SOLO cuando el usuario está activamente viendo
- * (tab visible y ventana en foco del navegador)
+ * Hook que rastrea el tiempo SOLO mientras la pestaña está visible.
+ *
+ * No se pausa cuando la ventana pierde el foco: al hacer clic en el
+ * reproductor (iframe de Vimeo/Bunny/YouTube) la página dispara `blur`, y
+ * antes eso detenía el conteo durante todo el video.
  */
 export const useVisibleTimeTracker = ({
   userId,
@@ -24,12 +27,12 @@ export const useVisibleTimeTracker = ({
   activityId,
   activityName,
 }: VisibleTimeTrackerConfig) => {
-  const [isPageVisible, setIsPageVisible] = useState(true);
-  const [isWindowFocused, setIsWindowFocused] = useState(true);
+  const [isPageVisible, setIsPageVisible] = useState(
+    () => typeof document === 'undefined' || !document.hidden,
+  );
   const [isPaused, setIsPaused] = useState(false);
 
-  // El tracker solo está activo si el tab es visible Y la ventana está en foco
-  const isActive = isPageVisible && isWindowFocused && !isPaused;
+  const isActive = isPageVisible && !isPaused;
 
   const timeTracker = useTimeTracker({
     userId,
@@ -54,26 +57,9 @@ export const useVisibleTimeTracker = ({
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  /**
-   * Detectar cuando la ventana pierde/recupera el foco
-   */
-  useEffect(() => {
-    const handleFocus = () => setIsWindowFocused(true);
-    const handleBlur = () => setIsWindowFocused(false);
-
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('blur', handleBlur);
-
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('blur', handleBlur);
-    };
-  }, []);
-
   return {
     isActive,
     isPageVisible,
-    isWindowFocused,
     isPaused,
     pauseTracking: useCallback(() => setIsPaused(true), []),
     resumeTracking: useCallback(() => setIsPaused(false), []),

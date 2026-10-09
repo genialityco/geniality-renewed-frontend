@@ -59,23 +59,20 @@ export function percent(part: number, total: number): number {
   return Math.round((part / total) * 100);
 }
 
-// Textos de las tarjetas de resumen (ver getEnrollmentMetrics en el backend).
-// El progreso promedio se mide contra la primera actividad del curso, así que
-// la tarjeta lo dice explícitamente.
+// Textos de las tarjetas de resumen, compartidos por la pestaña y el PDF (ver
+// getEnrollmentMetrics en el backend).
+export const ENROLLED_DETAIL = "Completaron el formulario de inscripción";
 export const IN_PROGRESS_DETAIL =
-  "Terminaron al menos una actividad, sin terminar el curso";
-export const AVG_PROGRESS_DETAIL =
-  "Avance de la 1.ª a la última actividad de quienes entraron a la 1.ª";
-
-/** Detalle de la tarjeta de inscritos (con fallback para backends antiguos). */
-export function enrolledDetail(enrollment: {
-  notStarted: number;
-  openedFirstActivity?: number;
-}): string {
-  return enrollment.openedFirstActivity !== undefined
-    ? `${formatNumber(enrollment.openedFirstActivity)} entraron a la 1.ª actividad`
-    : `${formatNumber(enrollment.notStarted)} sin empezar`;
+  "Al menos completaron una actividad, sin terminar el curso";
+export const STARTED_DETAIL = "Empezaron a ver la primera actividad del curso (sin completarlo)";
+/** El backend cuenta certificados por persona, no por descarga. */
+export function certificatesDetail(people: number): string {
+  return people === 1
+    ? "1 persona ha descargado su certificado"
+    : "Personas han descargado su certificado";
 }
+export const COMPLETED_DETAIL =
+  "Vieron todas las actividades y aprobaron todos los exámenes";
 
 /**
  * El informe solo reporta los exámenes habilitados: un examen deshabilitado

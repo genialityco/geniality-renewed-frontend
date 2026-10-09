@@ -48,12 +48,11 @@ export default function CourseDetailWithTracker() {
       console.log(`📚 Rastreador de curso activo para evento ${eventId}:`, {
         isActive: timeTracker.isActive,
         isPageVisible: timeTracker.isPageVisible,
-        isWindowFocused: timeTracker.isWindowFocused,
         isPaused: timeTracker.isPaused,
         courseName,
       });
     }
-  }, [eventId, courseName, timeTracker.isActive, timeTracker.isPageVisible, timeTracker.isWindowFocused, timeTracker.isPaused]);
+  }, [eventId, courseName, timeTracker.isActive, timeTracker.isPageVisible, timeTracker.isPaused]);
 
   return <CourseDetail />;
 }

@@ -79,11 +79,10 @@ export default function ActivityDetailWithTracker({
       console.log(`⏱️ Rastreador activo para actividad ${activity._id}:`, {
         isActive: timeTracker.isActive,
         isPageVisible: timeTracker.isPageVisible,
-        isWindowFocused: timeTracker.isWindowFocused,
         isPaused: timeTracker.isPaused,
       });
     }
-  }, [activity?._id, timeTracker.isActive, timeTracker.isPageVisible, timeTracker.isWindowFocused, timeTracker.isPaused]);
+  }, [activity?._id, timeTracker.isActive, timeTracker.isPageVisible, timeTracker.isPaused]);
 
   return (
     <ActivityDetail

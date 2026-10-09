@@ -74,6 +74,42 @@ export const userActivityService = {
   },
 
   /**
+   * Envía tiempo pendiente cuando la página se está cerrando. Usa fetch con
+   * `keepalive` (axios no lo soporta) para que el navegador complete la
+   * petición aunque la pestaña ya no exista; por eso replica a mano los
+   * headers de sesión que agrega el interceptor de `api`.
+   */
+  sendTimeOnUnload(
+    path: 'update-course-time' | 'update-activity-time',
+    body: Record<string, unknown>,
+  ) {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    try {
+      const raw = localStorage.getItem('myUserInfo');
+      if (raw) {
+        const { uid, sessionToken } = JSON.parse(raw) as {
+          uid?: string;
+          sessionToken?: string;
+        };
+        if (uid) headers['x-uid'] = uid;
+        if (sessionToken) headers['x-session-token'] = sessionToken;
+      }
+    } catch {
+      // Sin sesión legible el backend rechazará el envío; no hay más que hacer.
+    }
+    const baseUrl = (api.defaults.baseURL || '').replace(/\/$/, '');
+    fetch(`${baseUrl}/user-activity/${path}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        ...body,
+        organization_id: sanitizeOrganizationId(body.organization_id as string),
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  },
+
+  /**
    * Obtiene el registro de actividad actual del usuario
    */
   async getActiveActivity(userId: string, organizationId: string) {
