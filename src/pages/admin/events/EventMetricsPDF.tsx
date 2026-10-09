@@ -5,11 +5,14 @@ import {
   QuizMetrics,
 } from "../../../services/eventMetricsService";
 import {
+  AVG_PROGRESS_DETAIL,
+  enrolledDetail,
   formatDate,
   formatDuration,
   formatMonth,
   formatNumber,
   hiddenQuizzesNote,
+  IN_PROGRESS_DETAIL,
   percent,
   splitEnabledQuizzes,
 } from "./eventMetricsFormat";
@@ -319,22 +322,24 @@ export function EventMetricsPDF({ metrics, organizationName, demo }: Props) {
               {
                 label: "Inscritos",
                 value: formatNumber(enrollment.total),
-                desc: `${formatNumber(
-                  enrollment.notStarted
-                )} sin empezar · ${formatNumber(enrollment.inProgress)} en progreso`,
+                desc: enrolledDetail(enrollment),
               },
               {
                 label: "Completaron el curso",
-                value: `${completionRate}%`,
+                value: formatNumber(enrollment.completed),
                 color: C.green,
-                desc: `${formatNumber(enrollment.completed)} de ${formatNumber(
-                  enrollment.total
-                )} inscritos`,
+                desc: `${completionRate}% de los inscritos`,
+              },
+              {
+                label: "En progreso",
+                value: formatNumber(enrollment.inProgress),
+                desc: IN_PROGRESS_DETAIL,
               },
               {
                 label: "Progreso promedio",
                 value: `${enrollment.avgProgress}%`,
                 color: C.blue,
+                desc: AVG_PROGRESS_DETAIL,
               },
               {
                 label: "Tiempo prom. por usuario",

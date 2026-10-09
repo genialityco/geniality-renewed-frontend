@@ -35,10 +35,13 @@ import { buildSampleMetrics } from "./eventMetricsSample";
 import EventMembersPanel from "./EventMembersPanel";
 import { EventMetricsPDF } from "./EventMetricsPDF";
 import {
+  AVG_PROGRESS_DETAIL,
+  enrolledDetail,
   formatDuration,
   formatMonth,
   formatNumber,
   hiddenQuizzesNote,
+  IN_PROGRESS_DETAIL,
   splitEnabledQuizzes,
 } from "./eventMetricsFormat";
 import { useOrganization } from "../../../context/OrganizationContext";
@@ -482,24 +485,26 @@ export default function EventMetricsTab({ organizationId, eventId }: Props) {
       </Group>
 
       {/* KPIs principales */}
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }}>
         <StatTile
           label="Inscritos"
           value={formatNumber(enrollment.total)}
-          detail={`${formatNumber(enrollment.notStarted)} sin empezar · ${formatNumber(
-            enrollment.inProgress
-          )} en progreso`}
+          detail={enrolledDetail(enrollment)}
         />
         <StatTile
           label="Completaron el curso"
-          value={`${completionRate}%`}
-          detail={`${formatNumber(enrollment.completed)} de ${formatNumber(
-            enrollment.total
-          )} inscritos`}
+          value={formatNumber(enrollment.completed)}
+          detail={`${completionRate}% de los inscritos`}
+        />
+        <StatTile
+          label="En progreso"
+          value={formatNumber(enrollment.inProgress)}
+          detail={IN_PROGRESS_DETAIL}
         />
         <StatTile
           label="Progreso promedio"
           value={`${enrollment.avgProgress}%`}
+          detail={AVG_PROGRESS_DETAIL}
         />
         <StatTile
           label="Tiempo promedio por usuario"

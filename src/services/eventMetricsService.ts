@@ -48,8 +48,15 @@ export interface EventMetrics {
   enrollment: {
     total: number;
     completed: number;
+    /** Progreso del curso > 0 y < 100 (terminaron al menos una actividad). */
     inProgress: number;
     notStarted: number;
+    /**
+     * Inscritos con registro en la primera actividad (aunque sea en 0%).
+     * Ausente en backends anteriores a este cálculo.
+     */
+    openedFirstActivity?: number;
+    /** Avance promedio en todas las actividades de quienes entraron a la primera. */
     avgProgress: number;
     byMonth: { month: string; count: number }[];
   };

@@ -169,7 +169,8 @@ export function buildSampleMetrics(real: EventMetrics): EventMetrics {
       completed,
       notStarted,
       inProgress: TOTAL_ENROLLED - completed - notStarted,
-      avgProgress: 68.4,
+      openedFirstActivity: TOTAL_ENROLLED - 10,
+      avgProgress: 41.2,
       byMonth: buildByMonth(),
     },
     time: {

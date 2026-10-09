@@ -59,6 +59,24 @@ export function percent(part: number, total: number): number {
   return Math.round((part / total) * 100);
 }
 
+// Textos de las tarjetas de resumen (ver getEnrollmentMetrics en el backend).
+// El progreso promedio se mide contra la primera actividad del curso, así que
+// la tarjeta lo dice explícitamente.
+export const IN_PROGRESS_DETAIL =
+  "Terminaron al menos una actividad, sin terminar el curso";
+export const AVG_PROGRESS_DETAIL =
+  "Avance de la 1.ª a la última actividad de quienes entraron a la 1.ª";
+
+/** Detalle de la tarjeta de inscritos (con fallback para backends antiguos). */
+export function enrolledDetail(enrollment: {
+  notStarted: number;
+  openedFirstActivity?: number;
+}): string {
+  return enrollment.openedFirstActivity !== undefined
+    ? `${formatNumber(enrollment.openedFirstActivity)} entraron a la 1.ª actividad`
+    : `${formatNumber(enrollment.notStarted)} sin empezar`;
+}
+
 /**
  * El informe solo reporta los exámenes habilitados: un examen deshabilitado
  * no se le muestra al alumno, así que sus intentos son historia y mezclarlos
