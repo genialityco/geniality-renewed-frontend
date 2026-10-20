@@ -76,6 +76,14 @@ export default function WhatsappConsentForm({ organizationId }: Props) {
         WhatsApp. Quien se dé de baja no vuelve a recibir mensajes.
       </Text>
 
+      <Alert color="blue" variant="light">
+        Actualmente la plataforma tiene activo el consentimiento por defecto:
+        todos los miembros con teléfono pueden recibir WhatsApp salvo que se
+        den de baja (respondiendo BAJA o desde su perfil). Mientras siga
+        activo, esta casilla no cambia quién recibe mensajes; solo se usa si
+        se desactiva en el servidor (WHATSAPP_CONSENT_DEFAULT=false).
+      </Alert>
+
       {error && (
         <Alert color="red" icon={<IconAlertCircle size={16} />}>
           {error}
