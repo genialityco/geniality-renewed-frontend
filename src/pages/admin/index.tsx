@@ -16,7 +16,7 @@ import {
   Modal,
   Button,
 } from "@mantine/core";
-import { FaList, FaUsers, FaGear, FaFile, FaFilm, FaWhatsapp, FaWandMagicSparkles } from "react-icons/fa6";
+import { FaList, FaUsers, FaGear, FaFile, FaFilm, FaWhatsapp, FaWandMagicSparkles, FaChartLine } from "react-icons/fa6";
 
 import { useOrganization } from "../../context/OrganizationContext";
 import {
@@ -34,6 +34,7 @@ import AdminActivitiesPage from "./activities";
 import RemindersAdminPage from "./RemindersAdminPage";
 import PracticeAdminPage from "./PracticeAdminPage";
 import EmbeddingsAdminPage from "./EmbeddingsAdminPage";
+import BaselineAdminPage from "./BaselineAdminPage";
 import { openCoursePreview } from "../../utils/previewUrl";
 
 type Section =
@@ -44,6 +45,7 @@ type Section =
   | "activities"
   | "reminders"
   | "practice"
+  | "baseline"
   | "embeddings";
 
 export default function AdminOrganizationEvents() {
@@ -106,6 +108,8 @@ export default function AdminOrganizationEvents() {
       ? "Recordatorios"
       : activeSection === "practice"
       ? "Simulacros WhatsApp"
+      : activeSection === "baseline"
+      ? "Línea base"
       : activeSection === "embeddings"
       ? "Embeddings"
       : "Mi Organización";
@@ -277,6 +281,26 @@ export default function AdminOrganizationEvents() {
               <FaWhatsapp /> Simulacros WhatsApp
             </UnstyledButton>
 
+            {/* Línea base de indicadores por curso */}
+            <UnstyledButton
+              onClick={() => {
+                setActiveSection("baseline");
+                setEditingEventId(null);
+                setDrawerOpened(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: 8,
+                borderRadius: 4,
+                backgroundColor:
+                  activeSection === "baseline" ? "#F0F4FF" : "transparent",
+              }}
+            >
+              <FaChartLine /> Línea base
+            </UnstyledButton>
+
             {/* Embeddings de transcripciones */}
             <UnstyledButton
               onClick={() => {
@@ -344,6 +368,8 @@ export default function AdminOrganizationEvents() {
           <RemindersAdminPage />
         ) : activeSection === "practice" ? (
           <PracticeAdminPage />
+        ) : activeSection === "baseline" ? (
+          <BaselineAdminPage />
         ) : activeSection === "embeddings" ? (
           <EmbeddingsAdminPage />
         ) : (
