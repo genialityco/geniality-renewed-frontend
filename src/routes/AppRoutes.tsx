@@ -17,6 +17,7 @@ import OrganizationLanding from "../pages/organizationLanding";
 import SuperAdmin from "../pages/superadmin";
 import QuizPage from "../pages/course/QuizPage";
 import QuizResultPage from "../pages/course/QuizResultPage";
+import ClinicalCasePage from "../pages/clinical-case/ClinicalCasePage";
 
 import { RequireAuth, RequireMembership, RequireAdmin } from "./guards";
 
@@ -51,6 +52,10 @@ export default function AppRoutes() {
           <Route path="course/:eventId" element={<CourseDetailWithTracker />} />
           <Route path="course/:eventId/quiz/:quizId" element={<QuizPage />} />
           <Route path="course/:eventId/quiz/:quizId/result" element={<QuizResultPage />} />
+          <Route
+            path="course/:eventId/clinical-case/:caseId"
+            element={<ClinicalCasePage />}
+          />
           <Route
             path="activitydetail/:activityId"
             element={<ActivityDetailContainer />}

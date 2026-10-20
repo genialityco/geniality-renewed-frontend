@@ -17,6 +17,7 @@ import CertificateComponent from "../../../components/CertificateComponent";
 import EventMetricsTab from "./EventMetricsTab";
 import CertificateRulesConfig from "./CertificateRulesConfig";
 import AiEvaluationTab from "./AiEvaluationTab";
+import ClinicalCasesTab from "./ClinicalCasesTab";
 interface Props {
   organizationId: string;
   eventId: string; // puede ser "new" o un id real
@@ -68,6 +69,7 @@ export default function AdminEventEdit({
           <Tabs.Tab value="hosts">Conferencistas</Tabs.Tab>
           <Tabs.Tab value="Examen">Examen</Tabs.Tab>
           <Tabs.Tab value="evaluacionIA">Evaluación IA</Tabs.Tab>
+          <Tabs.Tab value="casosClinicos">Casos clínicos</Tabs.Tab>
           <Tabs.Tab value="certificado">Certificado</Tabs.Tab>
           <Tabs.Tab value="metricas">Métricas</Tabs.Tab>
         </Tabs.List>
@@ -112,6 +114,18 @@ export default function AdminEventEdit({
           ) : (
             <Text mb="md">
               Guarda primero el evento para configurar la evaluación con IA.
+            </Text>
+          )}
+        </Tabs.Panel>
+
+        <Tabs.Panel value="casosClinicos" pt="md">
+          {isEditing ? (
+            activeTab === "casosClinicos" && (
+              <ClinicalCasesTab organizationId={organizationId} eventId={eventId} />
+            )
+          ) : (
+            <Text mb="md">
+              Guarda primero el evento para crear casos clínicos.
             </Text>
           )}
         </Tabs.Panel>

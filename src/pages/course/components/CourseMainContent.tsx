@@ -17,6 +17,7 @@ import {
   ThemeIcon,
 } from "@mantine/core";
 import { useNavigate, useParams } from "react-router-dom";
+import ClinicalCasesSection from "./ClinicalCasesSection";
 import ActivityDetailWithTracker from "../../../components/ActivityDetailWithTracker";
 import CourseProgressCard from "../../../components/CourseProgressCard";
 import ActivityGrid from "../../../components/ActivityGrid";
@@ -420,6 +421,11 @@ export function CourseMainContent({
           </Button>
         );
       })()}
+
+      {/* Casos clínicos con tutor socrático (solo si el curso tiene habilitados) */}
+      {organizationId && eventId && (
+        <ClinicalCasesSection organizationId={organizationId} eventId={eventId} />
+      )}
 
       {/* Certificado CTA (cursos con exámenes de módulo o con reglas activas) */}
       {showCertificateCTA &&
