@@ -287,7 +287,17 @@ export default function BaselineAdminPage() {
   };
 
   const totals = useMemo(() => {
-    const t = { enrolled: 0, completed: 0, active: 0, inactive: 0, never: 0, reachable: 0 };
+    const t = {
+      enrolled: 0,
+      completed: 0,
+      active: 0,
+      inactive: 0,
+      never: 0,
+      reachable: 0,
+      consent: 0,
+      // null si alguna línea base es anterior a este dato
+      withPhone: 0 as number | null,
+    };
     for (const s of snapshots) {
       t.enrolled += s.metrics.enrolled;
       t.completed += s.metrics.completed;
@@ -295,6 +305,10 @@ export default function BaselineAdminPage() {
       t.inactive += s.metrics.inactive_15d;
       t.never += s.metrics.never_active;
       t.reachable += s.metrics.reachable_not_completed;
+      t.consent += s.metrics.with_whatsapp_opt_in;
+      const phone = s.metrics.not_completed_with_phone;
+      t.withPhone =
+        t.withPhone === null || phone === undefined ? null : t.withPhone + phone;
     }
     return t;
   }, [snapshots]);
@@ -403,8 +417,23 @@ export default function BaselineAdminPage() {
                 <Stat label="Activos (≤ 15 días)" value={totals.active} />
                 <Stat label="Inactivos (> 15 días)" value={totals.inactive} />
                 <Stat label="Nunca activos" value={totals.never} />
+                <Stat
+                  label="No graduados con teléfono"
+                  value={totals.withPhone ?? "—"}
+                />
+                <Stat label="Con consentimiento WhatsApp" value={totals.consent} />
                 <Stat label="Alcanzables por WhatsApp" value={totals.reachable} />
               </Group>
+            )}
+
+            {selectedSummary && totals.enrolled > 0 && totals.consent === 0 && (
+              <Alert color="yellow" variant="light">
+                Nadie tiene consentimiento de WhatsApp registrado en esta línea
+                base, por eso no hay alcanzables. Puedes definir qué casilla del
+                registro cuenta como consentimiento en Mi Organización → Ajustes
+                → Consentimiento de WhatsApp, y luego congelar una nueva línea
+                base.
+              </Alert>
             )}
 
             {loadingSnapshots ? (
@@ -473,7 +502,8 @@ export default function BaselineAdminPage() {
               han terminado, según su última actividad en el curso (no cuenta
               iniciar sesión). Avance promedio: avance real en las actividades,
               incluidas las vistas parcialmente. Alcanzables: no graduados con
-              teléfono y consentimiento de WhatsApp. Las fechas de finalización
+              teléfono y consentimiento de WhatsApp (opt-in del perfil o la casilla
+              de registro definida por la organización, sin baja). Las fechas de finalización
               anteriores a esta versión son estimadas (certificado o última
               actividad completada) y pueden ser algo posteriores a la real.
             </Text>
