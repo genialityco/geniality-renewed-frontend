@@ -199,8 +199,9 @@ export function CourseMainContent({
           shareUrl={`${window.location.origin}/organization/${organizationId}/course/${eventId}?activity=${selectedActivity._id}`}
           activities={activities}
           activityAttendees={activityAttendees}
-          courseId={event?._id || ""}
-          courseName={event?.name || ""}
+          // Sin courseId: el tiempo de curso ya lo registra
+          // CourseDetailWithTracker, que envuelve esta página. Si ambos lo
+          // enviaran, el tiempo de curso se contaría doble.
           videoTime={videoStartTime}
           isLinear={!!event?.is_linear}
           moduleExamNextRoute={moduleExamNextRoute}

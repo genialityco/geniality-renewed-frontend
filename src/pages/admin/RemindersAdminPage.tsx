@@ -15,6 +15,7 @@ import {
 } from "@mantine/core";
 import { FaWhatsapp } from "react-icons/fa6";
 import { useUser } from "../../context/UserContext";
+import { useOrganization } from "../../context/OrganizationContext";
 import {
   fetchReminderTemplateNames,
   sendTestReminderTemplate,
@@ -25,12 +26,14 @@ import {
 const TEMPLATE_LABELS: Record<ReminderTemplateName, string> = {
   recordatorio_inactividad_3dias: "Recordatorio de inactividad (3 días)",
   reporte_semanal_progreso: "Reporte semanal de progreso",
-  ranking_lider_curso: "Ranking: líder del curso",
-  ranking_comparativo_curso: "Ranking: comparativo con el grupo",
+  ranking_lider_curso1: "Ranking: líder del curso",
+  ranking_comparativo_curso1: "Ranking: comparativo con el grupo",
 };
 
 export default function RemindersAdminPage() {
   const { userId } = useUser();
+  const { organization } = useOrganization();
+  const organizationId = organization?._id;
 
   const [templates, setTemplates] = useState<ReminderTemplateName[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
@@ -41,20 +44,22 @@ export default function RemindersAdminPage() {
   const [result, setResult] = useState<TestReminderTemplateResult | null>(null);
 
   useEffect(() => {
-    fetchReminderTemplateNames()
+    if (!organizationId) return;
+    setLoadingTemplates(true);
+    fetchReminderTemplateNames(organizationId)
       .then(setTemplates)
       .catch((e) =>
         setError(e?.message || "No se pudieron cargar las plantillas")
       )
       .finally(() => setLoadingTemplates(false));
-  }, []);
+  }, [organizationId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setResult(null);
 
-    if (!userId) {
+    if (!userId || !organizationId) {
       setError("No se encontró el usuario logueado.");
       return;
     }
@@ -65,7 +70,7 @@ export default function RemindersAdminPage() {
 
     setSending(true);
     try {
-      const res = await sendTestReminderTemplate({
+      const res = await sendTestReminderTemplate(organizationId, {
         userId,
         templateName,
         to: phone.trim(),
@@ -89,7 +94,7 @@ export default function RemindersAdminPage() {
           <Title order={2}>Probar plantillas de recordatorio (WhatsApp)</Title>
           <Text c="dimmed" size="sm">
             Envía un mensaje de prueba usando una plantilla real de WhatsApp,
-            con los datos del usuario logueado.
+            con los datos del usuario logueado en esta organización.
           </Text>
         </div>
 

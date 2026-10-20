@@ -59,6 +59,21 @@ export function percent(part: number, total: number): number {
   return Math.round((part / total) * 100);
 }
 
+// Textos de las tarjetas de resumen, compartidos por la pestaña y el PDF (ver
+// getEnrollmentMetrics en el backend).
+export const ENROLLED_DETAIL = "Completaron el formulario de inscripción";
+export const IN_PROGRESS_DETAIL =
+  "Al menos completaron una actividad, sin terminar el curso";
+export const STARTED_DETAIL = "Empezaron a ver la primera actividad del curso (sin completarlo)";
+/** El backend cuenta certificados por persona, no por descarga. */
+export function certificatesDetail(people: number): string {
+  return people === 1
+    ? "1 persona ha descargado su certificado"
+    : "Personas han descargado su certificado";
+}
+export const COMPLETED_DETAIL =
+  "Vieron todas las actividades y aprobaron todos los exámenes";
+
 /**
  * El informe solo reporta los exámenes habilitados: un examen deshabilitado
  * no se le muestra al alumno, así que sus intentos son historia y mezclarlos

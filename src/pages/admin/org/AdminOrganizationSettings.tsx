@@ -26,6 +26,7 @@ import BrandingForm from "./components/BrandingForm";
 import TabsConfigForm from "./components/TabsConfigForm";
 import CompletionMessagesForm from "./components/CompletionMessagesForm";
 import EmailTemplateForm from "./components/EmailTemplateForm";
+import WhatsappConsentForm from "./components/WhatsappConsentForm";
 
 const NAME_VAR = { token: "{{nombres}}", label: "nombre del usuario" };
 const DATE_VAR = { token: "{{fecha}}", label: "fecha de vigencia" };
@@ -236,6 +237,18 @@ export default function AdminOrganizationSettings({ organizationId }: Props) {
                 </>
               }
             />
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value="whatsapp-consent">
+          <Accordion.Control>
+            <Title order={5}>📲 Consentimiento de WhatsApp</Title>
+            <Text size="xs" c="dimmed">
+              Quiénes pueden recibir recordatorios y notificaciones por WhatsApp
+            </Text>
+          </Accordion.Control>
+          <Accordion.Panel>
+            <WhatsappConsentForm organizationId={organizationId} />
           </Accordion.Panel>
         </Accordion.Item>
 

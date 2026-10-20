@@ -5,11 +5,16 @@ import {
   QuizMetrics,
 } from "../../../services/eventMetricsService";
 import {
+  certificatesDetail,
+  COMPLETED_DETAIL,
+  ENROLLED_DETAIL,
   formatDate,
   formatDuration,
   formatMonth,
   formatNumber,
   hiddenQuizzesNote,
+  IN_PROGRESS_DETAIL,
+  STARTED_DETAIL,
   percent,
   splitEnabledQuizzes,
 } from "./eventMetricsFormat";
@@ -273,7 +278,6 @@ export function EventMetricsPDF({ metrics, organizationName, demo }: Props) {
     dateStyle: "long",
     timeStyle: "short",
   });
-  const completionRate = percent(enrollment.completed, enrollment.total);
   // El informe solo reporta exámenes habilitados (ver splitEnabledQuizzes).
   const { enabled: enabledQuizzes, hiddenCount: hiddenQuizzes } =
     splitEnabledQuizzes(quizzes);
@@ -319,22 +323,37 @@ export function EventMetricsPDF({ metrics, organizationName, demo }: Props) {
               {
                 label: "Inscritos",
                 value: formatNumber(enrollment.total),
-                desc: `${formatNumber(
-                  enrollment.notStarted
-                )} sin empezar · ${formatNumber(enrollment.inProgress)} en progreso`,
+                desc: ENROLLED_DETAIL,
               },
+              ...(enrollment.startedFirstActivity !== undefined
+                ? [
+                    {
+                      label: "Empezaron su estudio",
+                      value: formatNumber(enrollment.startedFirstActivity),
+                      desc: STARTED_DETAIL,
+                    },
+                  ]
+                : []),
+              {
+                label: "En progreso",
+                value: formatNumber(enrollment.inProgress),
+                desc: IN_PROGRESS_DETAIL,
+              },
+            ]}
+          />
+          <StatRow
+            items={[
               {
                 label: "Completaron el curso",
-                value: `${completionRate}%`,
+                value: formatNumber(enrollment.completed),
                 color: C.green,
-                desc: `${formatNumber(enrollment.completed)} de ${formatNumber(
-                  enrollment.total
-                )} inscritos`,
+                desc: COMPLETED_DETAIL,
               },
               {
-                label: "Progreso promedio",
-                value: `${enrollment.avgProgress}%`,
-                color: C.blue,
+                label: "Certificados descargados",
+                value: formatNumber(certificates.completed),
+                color: C.green,
+                desc: certificatesDetail(certificates.completed),
               },
               {
                 label: "Tiempo prom. por usuario",
@@ -440,29 +459,6 @@ export function EventMetricsPDF({ metrics, organizationName, demo }: Props) {
           )}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Certificados</Text>
-          <StatRow
-            items={[
-              {
-                label: "Generados",
-                value: formatNumber(certificates.completed),
-                color: C.green,
-                desc: `${formatNumber(certificates.total)} solicitados`,
-              },
-              {
-                label: "Pendientes",
-                value: formatNumber(certificates.pending),
-                color: C.orange,
-              },
-              {
-                label: "Fallidos",
-                value: formatNumber(certificates.failed),
-                color: C.red,
-              },
-            ]}
-          />
-        </View>
 
         <ReportFooter
           organizationName={organizationName}

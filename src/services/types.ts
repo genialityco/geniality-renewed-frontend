@@ -12,6 +12,8 @@ export interface Organization {
   description: string;
   access_settings: AccessSettings;
   visibility: "PUBLIC" | "PRIVATE";
+  /** Campo booleano de user_properties que cuenta como consentimiento de WhatsApp */
+  whatsapp_consent_property?: string | null;
 }
 
 export interface Event {
