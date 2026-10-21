@@ -156,3 +156,64 @@ export async function runDailySnapshots(
   );
   return data;
 }
+
+/** Último mensaje de la plataforma que recibió el estudiante. */
+export interface StudentLastMessage {
+  kind: string;
+  at: string;
+  status: "sent" | "fallback_email";
+  meta_status: "sent" | "delivered" | "read" | "failed" | null;
+  clicked_at: string | null;
+  replied_at: string | null;
+}
+
+/** Estado actual de un estudiante en un curso (último snapshot diario). */
+export interface StudentStateRow extends BaselineUserRow {
+  event_id: string;
+  event_name: string;
+  snapshot_date: string;
+  last_message: StudentLastMessage | null;
+  messages_30d: number;
+}
+
+export interface StudentStatesResponse {
+  /** Fecha del último snapshot diario (null si nunca se ha calculado) */
+  snapshot_date: string | null;
+  calculated_at: string | null;
+  /** Distribución por estado del curso (o de la organización) */
+  counts: Record<CourseUserStatus, number>;
+  reachable_not_completed: number;
+  /** Filas que cumplen los filtros (puede ser mayor que rows.length) */
+  total: number;
+  rows: StudentStateRow[];
+}
+
+/**
+ * Lista de seguimiento: estado de cada estudiante según el último snapshot
+ * diario, los menos activos primero.
+ * GET /course-snapshots/organization/:organizationId/daily/users
+ */
+export async function fetchStudentStates(
+  organizationId: string,
+  filter: {
+    eventId?: string;
+    status?: CourseUserStatus[];
+    minDaysInactive?: number;
+    reachable?: boolean;
+    limit?: number;
+  }
+): Promise<StudentStatesResponse> {
+  const { data } = await api.get<StudentStatesResponse>(
+    `${base(organizationId)}/daily/users`,
+    {
+      params: {
+        eventId: filter.eventId,
+        status: filter.status?.length ? filter.status.join(",") : undefined,
+        minDaysInactive: filter.minDaysInactive,
+        reachable: filter.reachable ? "true" : undefined,
+        limit: filter.limit,
+      },
+    }
+  );
+  return data;
+}

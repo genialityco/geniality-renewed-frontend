@@ -16,7 +16,7 @@ import {
   Modal,
   Button,
 } from "@mantine/core";
-import { FaList, FaUsers, FaGear, FaFile, FaFilm, FaWhatsapp, FaWandMagicSparkles, FaChartLine } from "react-icons/fa6";
+import { FaList, FaUsers, FaGear, FaFile, FaFilm, FaWhatsapp, FaWandMagicSparkles, FaChartLine, FaUserGraduate } from "react-icons/fa6";
 
 import { useOrganization } from "../../context/OrganizationContext";
 import {
@@ -35,6 +35,7 @@ import RemindersAdminPage from "./RemindersAdminPage";
 import PracticeAdminPage from "./PracticeAdminPage";
 import EmbeddingsAdminPage from "./EmbeddingsAdminPage";
 import BaselineAdminPage from "./BaselineAdminPage";
+import StudentTrackingAdminPage from "./StudentTrackingAdminPage";
 import { openCoursePreview } from "../../utils/previewUrl";
 
 type Section =
@@ -46,6 +47,7 @@ type Section =
   | "reminders"
   | "practice"
   | "baseline"
+  | "tracking"
   | "embeddings";
 
 export default function AdminOrganizationEvents() {
@@ -108,6 +110,8 @@ export default function AdminOrganizationEvents() {
       ? "Recordatorios"
       : activeSection === "practice"
       ? "Simulacros WhatsApp"
+      : activeSection === "tracking"
+      ? "Seguimiento académico"
       : activeSection === "baseline"
       ? "Línea base"
       : activeSection === "embeddings"
@@ -281,6 +285,26 @@ export default function AdminOrganizationEvents() {
               <FaWhatsapp /> Simulacros WhatsApp
             </UnstyledButton>
 
+            {/* Seguimiento académico: estado de cada estudiante */}
+            <UnstyledButton
+              onClick={() => {
+                setActiveSection("tracking");
+                setEditingEventId(null);
+                setDrawerOpened(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: 8,
+                borderRadius: 4,
+                backgroundColor:
+                  activeSection === "tracking" ? "#F0F4FF" : "transparent",
+              }}
+            >
+              <FaUserGraduate /> Seguimiento académico
+            </UnstyledButton>
+
             {/* Línea base de indicadores por curso */}
             <UnstyledButton
               onClick={() => {
@@ -368,6 +392,8 @@ export default function AdminOrganizationEvents() {
           <RemindersAdminPage />
         ) : activeSection === "practice" ? (
           <PracticeAdminPage />
+        ) : activeSection === "tracking" ? (
+          <StudentTrackingAdminPage />
         ) : activeSection === "baseline" ? (
           <BaselineAdminPage />
         ) : activeSection === "embeddings" ? (

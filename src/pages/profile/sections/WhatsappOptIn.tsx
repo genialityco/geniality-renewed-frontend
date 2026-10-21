@@ -39,7 +39,7 @@ export default function WhatsappOptIn() {
         optIn ? "WhatsApp activado" : "WhatsApp desactivado",
         optIn
           ? "Recibirás simulacros de práctica y seguimiento por WhatsApp."
-          : "Ya no recibirás prácticas por WhatsApp."
+          : "Ya no recibirás prácticas ni recordatorios por WhatsApp."
       );
     } catch (error: any) {
       toastError("No se pudo guardar", error?.response?.data?.message);
@@ -53,7 +53,7 @@ export default function WhatsappOptIn() {
       <Stack gap="xs">
         <Group gap="xs">
           <FaWhatsapp size={18} color="#25D366" />
-          <Text fw={600}>Prácticas por WhatsApp</Text>
+          <Text fw={600}>Prácticas y seguimiento por WhatsApp</Text>
         </Group>
         {loading ? (
           <Loader size="sm" />
