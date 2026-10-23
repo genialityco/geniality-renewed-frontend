@@ -8,12 +8,13 @@ import {
   ReactNode,
   useCallback,
 } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { auth } from "../firebase/firebaseConfig";
 import { initializeApp, deleteApp } from "firebase/app";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithCustomToken,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   getAuth,
@@ -28,6 +29,7 @@ import {
   logout,
   refreshSessionToken,
 } from "../services/userService";
+import { LOGIN_PARAM, redeemAuthLink } from "../services/authLinkService";
 import {
   fetchOrganizationUserByEmail,
   fetchOrganizationUserByUserAndOrg,
@@ -298,6 +300,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [orgMembershipLoading, setOrgMembershipLoading] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  // Enlace de acceso directo (?login=...): mientras se canjea, la app sigue
+  // "cargando" para que los guards no manden a iniciar sesión
+  const [autoLoginPending, setAutoLoginPending] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has(LOGIN_PARAM)
+  );
+  const navigate = useNavigate();
 
   // Persistencia y suscripción a Auth
   useEffect(() => {
@@ -313,6 +323,47 @@ export function UserProvider({ children }: { children: ReactNode }) {
         console.error("Error setting persistence:", err);
         setLoading(false);
       });
+  }, []);
+
+  // Canje del enlace de acceso directo: inicia sesión como la persona del
+  // enlace (reemplaza la sesión que hubiera en el navegador) y quita el token
+  // de la URL conservando el resto (?t= del video, ?ref= del clic)
+  useEffect(() => {
+    if (!autoLoginPending) return;
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get(LOGIN_PARAM) || "";
+    params.delete(LOGIN_PARAM);
+    const query = params.toString();
+    const cleanUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+    (async () => {
+      try {
+        const r = await redeemAuthLink(token);
+        if (auth.currentUser && auth.currentUser.uid !== r.user.uid) {
+          await firebaseSignOut(auth);
+        }
+        // Antes de iniciar sesión en Firebase: el efecto que valida la sesión
+        // local lee este registro al cambiar el usuario
+        localStorage.setItem(
+          "myUserInfo",
+          JSON.stringify({ ...r.user, sessionToken: r.sessionToken })
+        );
+        const credential = await signInWithCustomToken(auth, r.customToken);
+        // Sin esperar a onAuthStateChanged: si los guards deciden antes de
+        // que llegue, verían "sin sesión" y mandarían a iniciar sesión
+        setFirebaseUser(credential.user);
+        setUserId(r.user._id);
+        setName(r.user.names || "");
+        setEmail(r.user.email || "");
+        setSessionToken(r.sessionToken);
+      } catch (err) {
+        // Vencido o inválido: sin sesión nueva; los guards piden iniciar sesión
+        console.warn("Enlace de acceso no válido:", err);
+      } finally {
+        navigate(cleanUrl, { replace: true });
+        setAutoLoginPending(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Carga user info de localStorage
@@ -636,7 +687,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         organizationUserData,
         name,
         email,
-        loading,
+        loading: loading || autoLoginPending,
         orgMembershipLoading,
         sessionToken,
         signIn,

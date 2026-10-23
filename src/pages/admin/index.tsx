@@ -16,7 +16,7 @@ import {
   Modal,
   Button,
 } from "@mantine/core";
-import { FaList, FaUsers, FaGear, FaFile, FaFilm, FaWhatsapp, FaWandMagicSparkles, FaChartLine, FaUserGraduate } from "react-icons/fa6";
+import { FaList, FaUsers, FaGear, FaFile, FaFilm, FaWhatsapp, FaWandMagicSparkles, FaChartLine, FaUserGraduate, FaBolt } from "react-icons/fa6";
 
 import { useOrganization } from "../../context/OrganizationContext";
 import {
@@ -36,6 +36,7 @@ import PracticeAdminPage from "./PracticeAdminPage";
 import EmbeddingsAdminPage from "./EmbeddingsAdminPage";
 import BaselineAdminPage from "./BaselineAdminPage";
 import StudentTrackingAdminPage from "./StudentTrackingAdminPage";
+import GenOnAdminPage from "./genon/GenOnAdminPage";
 import { openCoursePreview } from "../../utils/previewUrl";
 
 type Section =
@@ -48,6 +49,7 @@ type Section =
   | "practice"
   | "baseline"
   | "tracking"
+  | "genon"
   | "embeddings";
 
 export default function AdminOrganizationEvents() {
@@ -112,6 +114,8 @@ export default function AdminOrganizationEvents() {
       ? "Simulacros WhatsApp"
       : activeSection === "tracking"
       ? "Seguimiento académico"
+      : activeSection === "genon"
+      ? "Gen.ON"
       : activeSection === "baseline"
       ? "Línea base"
       : activeSection === "embeddings"
@@ -305,6 +309,26 @@ export default function AdminOrganizationEvents() {
               <FaUserGraduate /> Seguimiento académico
             </UnstyledButton>
 
+            {/* Gen.ON: flujos de mensajes por segmento */}
+            <UnstyledButton
+              onClick={() => {
+                setActiveSection("genon");
+                setEditingEventId(null);
+                setDrawerOpened(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: 8,
+                borderRadius: 4,
+                backgroundColor:
+                  activeSection === "genon" ? "#F0F4FF" : "transparent",
+              }}
+            >
+              <FaBolt /> Gen.ON
+            </UnstyledButton>
+
             {/* Línea base de indicadores por curso */}
             <UnstyledButton
               onClick={() => {
@@ -394,6 +418,8 @@ export default function AdminOrganizationEvents() {
           <PracticeAdminPage />
         ) : activeSection === "tracking" ? (
           <StudentTrackingAdminPage />
+        ) : activeSection === "genon" ? (
+          <GenOnAdminPage />
         ) : activeSection === "baseline" ? (
           <BaselineAdminPage />
         ) : activeSection === "embeddings" ? (

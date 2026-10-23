@@ -752,13 +752,28 @@ export default function EditUserModal({
 
     try {
       const allowed = new Set(visibleProps.map((p) => p.name));
-      const filtered: AnyRecord = {};
+      // El backend reemplaza properties completo: al editar se parte de lo que
+      // ya tiene para no borrar los campos ocultos (p. ej. indicativodepais)
+      const filtered: AnyRecord =
+        !isCreateMode && user?.properties ? { ...user.properties } : {};
 
       Object.keys(values).forEach((k) => {
         if (allowed.has(k)) {
           filtered[k] = values[k];
         }
       });
+
+      // Indicativo según el país, aunque el campo esté oculto (suele estarlo)
+      if (selectedCountryCode) {
+        const indicativoName =
+          (userProps ?? []).find(
+            (p) => p?.name?.toLowerCase() === "indicativodepais",
+          )?.name ?? "indicativodepais";
+        const normalized = getNormalizedPhoneCode(
+          countryByCode.get(selectedCountryCode)?.phonecode ?? null,
+        );
+        if (normalized) filtered[indicativoName] = normalized;
+      }
 
       await onSave(filtered, memberShipStatus);
     } catch (error) {

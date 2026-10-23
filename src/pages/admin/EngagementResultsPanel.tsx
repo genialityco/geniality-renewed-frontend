@@ -31,7 +31,20 @@ import {
   fetchEngagementSummary,
 } from "../../services/engagementService";
 
+const SEGMENT_SHORT: Record<string, string> = {
+  abandon: "Abandono",
+  inactive: "Inactivos",
+  active: "Activos",
+};
+
+/** "Gen.ON 1.1 · Abandono" para los toques de Gen.ON; si no, el tipo. */
+const kindLabel = (kind: string, step?: string | null, segment?: string | null) =>
+  step
+    ? `Gen.ON ${step}${segment && SEGMENT_SHORT[segment] ? ` · ${SEGMENT_SHORT[segment]}` : ""}`
+    : KIND_LABELS[kind as EngagementKind] || kind;
+
 const STATUS_LABELS: Record<EngagementStatus, string> = {
+  planned: "Simulado (no enviado)",
   pending: "Enviándose",
   sent: "Enviado",
   fallback_email: "Enviado por email",
@@ -41,6 +54,7 @@ const STATUS_LABELS: Record<EngagementStatus, string> = {
 };
 
 const STATUS_COLORS: Record<EngagementStatus, string> = {
+  planned: "cyan",
   pending: "gray",
   sent: "green",
   fallback_email: "yellow",
@@ -187,8 +201,10 @@ export default function EngagementResultsPanel({
         Fecha: formatDateTime(m.at),
         Estudiante: m.name,
         Correo: m.email,
-        Tipo: KIND_LABELS[m.kind] || m.kind,
+        Tipo: kindLabel(m.kind, m.step, m.segment),
         Estado: STATUS_LABELS[m.status] || m.status,
+        "Avance al enviar (%)": m.progress ?? "",
+        "Actividades al enviar": m.completed_activities ?? "",
         "Estado en WhatsApp": m.meta_status ? META_LABELS[m.meta_status] : "",
         Entregado: m.delivered_at ? formatDateTime(m.delivered_at) : "",
         Leído: m.read_at ? formatDateTime(m.read_at) : "",
@@ -213,6 +229,7 @@ export default function EngagementResultsPanel({
           : "",
         "Nota simulacro": m.practice?.score ?? "",
         Plantilla: m.template || "",
+        Texto: m.text || "",
         Error: m.error || m.meta_error || "",
         "ID usuario": m.user_id,
       }));
@@ -516,7 +533,7 @@ function KindRow({ summary: k }: { summary: EngagementKindSummary }) {
   return (
     <Table.Tr>
       <Table.Td>
-        {k.kind === "all" ? "Total" : KIND_LABELS[k.kind] || k.kind}
+        {k.kind === "all" ? "Total" : kindLabel(k.kind, k.step, k.segment)}
       </Table.Td>
       <Table.Td ta="right">{k.delivered}</Table.Td>
       <Table.Td ta="right">{countPct(k.meta_delivered, k.delivery_rate)}</Table.Td>
@@ -618,7 +635,7 @@ function MessageRow({ row: m }: { row: EngagementMessageRow }) {
           </Text>
         )}
       </Table.Td>
-      <Table.Td>{KIND_LABELS[m.kind] || m.kind}</Table.Td>
+      <Table.Td>{kindLabel(m.kind, m.step, m.segment)}</Table.Td>
       <Table.Td>
         <Group gap={4}>
           <Tooltip label={m.error} disabled={!m.error} multiline maw={320}>

@@ -6,7 +6,8 @@ export type EngagementKind =
   | "weekly_report"
   | "course_ranking"
   | "practice_review"
-  | "practice_invite";
+  | "practice_invite"
+  | "genon";
 
 export const ENGAGEMENT_KIND_LABELS: Record<EngagementKind, string> = {
   inactivity_reminder: "Recordatorio de inactividad",
@@ -14,9 +15,11 @@ export const ENGAGEMENT_KIND_LABELS: Record<EngagementKind, string> = {
   course_ranking: "Comparación con el grupo",
   practice_review: "Repaso automático",
   practice_invite: "Simulacro enviado por admin",
+  genon: "Gen.ON",
 };
 
 export type EngagementStatus =
+  | "planned"
   | "pending"
   | "sent"
   | "fallback_email"
@@ -38,6 +41,11 @@ export interface EngagementLift {
 
 export interface EngagementKindSummary {
   kind: EngagementKind | "all";
+  /** Gen.ON: paso ("1.1") y segmento */
+  step: string | null;
+  segment: string | null;
+  /** Gen.ON en simulación: habrían salido */
+  planned: number;
   total: number;
   sent: number;
   fallback_email: number;
@@ -103,6 +111,8 @@ export interface EngagementSummary {
 export interface EngagementMessageRow {
   _id: string;
   kind: EngagementKind;
+  step: string | null;
+  segment: string | null;
   status: EngagementStatus;
   at: string;
   user_id: string;
@@ -110,6 +120,10 @@ export interface EngagementMessageRow {
   email: string;
   event_id: string | null;
   template: string | null;
+  /** Texto enviado y avance de la persona al enviar (envíos nuevos) */
+  text: string | null;
+  progress: number | null;
+  completed_activities: number | null;
   error: string | null;
   meta_status: MetaStatus | null;
   delivered_at: string | null;

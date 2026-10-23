@@ -53,7 +53,8 @@ export function useCourseData(
             fetchEventById(eventId),
             getModulesByEventId(eventId),
             getActivitiesByEvent(eventId),
-            fetchHostsByEventId(eventId),
+            // Sin conferencistas el curso igual se muestra
+            fetchHostsByEventId(eventId).catch(() => [] as Host[]),
             getQuizzesByEventId(eventId),
           ]);
 
