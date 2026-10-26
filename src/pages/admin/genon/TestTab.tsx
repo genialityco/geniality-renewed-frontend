@@ -35,6 +35,7 @@ import {
   TRIGGER_LABELS,
   apiError,
   applyGenOnStreakLab,
+  applyGenOnStreakLabAll,
   fetchGenOnCourses,
   previewGenOnStep,
   previewGenOnTrigger,
@@ -591,6 +592,54 @@ export default function TestTab({
           )}
           {busy === "send-now" && <Loader size="sm" />}
           {sendNow && <RunResult run={sendNow} />}
+        </Stack>
+      </Card>
+
+      <Card withBorder radius="md" p="lg">
+        <Stack gap="md">
+          <Group justify="space-between" align="flex-start" wrap="wrap">
+            <div style={{ maxWidth: 620 }}>
+              <Title order={4}>Pasar el tiempo (todos)</Title>
+              <Text size="sm" c="dimmed">
+                Como el laboratorio de rachas, pero para todos los inscritos del
+                programa (solo organizaciones de prueba). "Todos estudiaron hoy"
+                cuenta hoy como día de estudio a quien haya terminado alguna
+                actividad. "Pasar al día siguiente" corre un día atrás las fechas
+                de todos y los vuelve a segmentar: el día nuevo cuenta para las
+                rachas y para los flujos. Luego usa "Enviar ya" para mandar lo
+                que toque.
+              </Text>
+            </div>
+            <Group gap="xs">
+              {(["study", "next_day"] as const).map((action) => (
+                <Button
+                  key={action}
+                  variant="light"
+                  disabled={dirty}
+                  loading={busy === `streak-all-${action}`}
+                  onClick={() =>
+                    withBusy(`streak-all-${action}`, async () => {
+                      const res = await applyGenOnStreakLabAll(program._id, action);
+                      const skipped = res.results.filter((r) => !r.ok);
+                      notifications.show({
+                        color: skipped.length ? "yellow" : "green",
+                        title:
+                          action === "study"
+                            ? `Estudiaron hoy: ${res.results.length - skipped.length} de ${res.results.length}`
+                            : `Pasó un día para ${res.results.length} persona(s)`,
+                        message:
+                          skipped.map((r) => `${r.name}: ${r.reason}`).join(" · ") ||
+                          'Usa "Enviar ya" para mandar lo que toque.',
+                        autoClose: 10000,
+                      });
+                    })
+                  }
+                >
+                  {action === "study" ? "📚 Todos estudiaron hoy" : "⏭️ Pasar al día siguiente"}
+                </Button>
+              ))}
+            </Group>
+          </Group>
         </Stack>
       </Card>
 

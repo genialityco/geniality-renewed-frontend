@@ -609,6 +609,16 @@ export const applyGenOnStreakLab = async (
     })
   ).data;
 
+export interface GenOnStreakLabAllResult {
+  action: "study" | "next_day";
+  results: { user_id: string; name: string; ok: boolean; reason: string | null }[];
+}
+
+/** Lo mismo para todos los inscritos del programa (solo organizaciones de prueba). */
+export const applyGenOnStreakLabAll = async (id: string, action: "study" | "next_day") =>
+  (await api.post<GenOnStreakLabAllResult>(`/genon/programs/${id}/test/streak-all`, { action }))
+    .data;
+
 export const previewGenOnTrigger = async (
   id: string,
   data: { userId: string; eventId: string; key: GenOnTriggerKey }
