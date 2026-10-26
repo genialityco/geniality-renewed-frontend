@@ -27,6 +27,7 @@ import {
   GenOnRunResult,
   GenOnSimulation,
   GenOnTriggerPreview,
+  GenOnTriggerKey,
   GenOnTriggerSimulation,
   SEGMENT_LABELS,
   TRIGGER_LABELS,
@@ -35,6 +36,8 @@ import {
   previewGenOnStep,
   previewGenOnTrigger,
   runGenOnNow,
+  sendGenOnRealStep,
+  sendGenOnRealTrigger,
   sendGenOnScheduledNow,
   sendGenOnTest,
   sendGenOnTriggerTest,
@@ -83,6 +86,42 @@ export default function TestTab({
   const [run, setRun] = useState<GenOnRunResult | null>(null);
   const [sendNow, setSendNow] = useState<GenOnRunResult | null>(null);
   const [confirmSendNow, setConfirmSendNow] = useState(false);
+  // Envío real a la persona seleccionada (toque o disparador), pendiente de confirmar
+  const [realSend, setRealSend] = useState<
+    { kind: "step" | "trigger"; key: string; label: string } | null
+  >(null);
+
+  const doRealSend = () => {
+    if (!realSend || !user || !eventId) return;
+    const target = realSend;
+    setRealSend(null);
+    withBusy(`real-${target.key}`, async () => {
+      const res =
+        target.kind === "step"
+          ? await sendGenOnRealStep(program._id, {
+              userId: user.user_id,
+              eventId,
+              stepKey: target.key,
+            })
+          : await sendGenOnRealTrigger(program._id, {
+              userId: user.user_id,
+              eventId,
+              key: target.key as GenOnTriggerKey,
+            });
+      notifications.show({
+        color: "green",
+        title: "Enviado a la persona",
+        message:
+          `${res.template} → ${res.phone || "su teléfono"}. Sus respuestas las atiende el chatbot con su inscripción real.` +
+          (target.kind === "step"
+            ? res.advanced
+              ? " Su secuencia avanzó a este toque."
+              : ` Su secuencia no cambió (está en ${SEGMENT_LABELS[res.segment] || res.segment}).`
+            : ""),
+        autoClose: 12000,
+      });
+    });
+  };
   const [triggerSim, setTriggerSim] = useState<GenOnTriggerSimulation | null>(null);
   const [triggerPreview, setTriggerPreview] = useState<GenOnTriggerPreview | null>(null);
 
@@ -273,6 +312,19 @@ export default function TestTab({
                         >
                           Enviar a mi teléfono
                         </Button>
+                        <Button
+                          size="compact-sm"
+                          color="green"
+                          variant="outline"
+                          leftSection={<FaWhatsapp />}
+                          disabled={!ready}
+                          loading={busy === `real-${s.key}`}
+                          onClick={() =>
+                            setRealSend({ kind: "step", key: s.key, label: `${s.key} · ${s.label}` })
+                          }
+                        >
+                          Enviar a la persona
+                        </Button>
                       </Group>
                     </Table.Td>
                   </Table.Tr>
@@ -368,6 +420,23 @@ export default function TestTab({
                           }
                         >
                           Enviar a mi teléfono
+                        </Button>
+                        <Button
+                          size="compact-sm"
+                          color="green"
+                          variant="outline"
+                          leftSection={<FaWhatsapp />}
+                          disabled={!ready}
+                          loading={busy === `real-${t.key}`}
+                          onClick={() =>
+                            setRealSend({
+                              kind: "trigger",
+                              key: t.key,
+                              label: TRIGGER_LABELS[t.key] || t.key,
+                            })
+                          }
+                        >
+                          Enviar a la persona
                         </Button>
                       </Group>
                     </Table.Td>
@@ -471,6 +540,34 @@ export default function TestTab({
           {sendNow && <RunResult run={sendNow} />}
         </Stack>
       </Card>
+
+      <Modal
+        opened={Boolean(realSend)}
+        onClose={() => setRealSend(null)}
+        title="Enviar a la persona"
+      >
+        <Stack>
+          <Text size="sm">
+            Se envía <b>{realSend?.label}</b> de verdad al WhatsApp de{" "}
+            <b>{user?.name || user?.email || "la persona seleccionada"}</b>, con su
+            inscripción real: los botones, el reto y las respuestas del chatbot
+            usan sus datos y quedan en su historial.
+          </Text>
+          <Alert color="orange" variant="light">
+            No aplica el tope semanal ni el grupo de control. Si es un toque de
+            su segmento actual, su secuencia avanza a él. Si el reto se aprueba,
+            la actividad queda completada. No se puede deshacer.
+          </Alert>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setRealSend(null)}>
+              Cancelar
+            </Button>
+            <Button color="green" onClick={doRealSend}>
+              Enviar
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Modal
         opened={confirmSendNow}

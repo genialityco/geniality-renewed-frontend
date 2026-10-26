@@ -16,7 +16,7 @@ import {
   Modal,
   Button,
 } from "@mantine/core";
-import { FaList, FaUsers, FaGear, FaFile, FaFilm, FaWhatsapp, FaWandMagicSparkles, FaChartLine, FaUserGraduate, FaBolt } from "react-icons/fa6";
+import { FaList, FaUsers, FaGear, FaFile, FaFilm, FaWhatsapp, FaWandMagicSparkles, FaChartLine, FaUserGraduate, FaBolt, FaRobot } from "react-icons/fa6";
 
 import { useOrganization } from "../../context/OrganizationContext";
 import {
@@ -37,6 +37,7 @@ import EmbeddingsAdminPage from "./EmbeddingsAdminPage";
 import BaselineAdminPage from "./BaselineAdminPage";
 import StudentTrackingAdminPage from "./StudentTrackingAdminPage";
 import GenOnAdminPage from "./genon/GenOnAdminPage";
+import AssistantAdminPage from "./AssistantAdminPage";
 import { openCoursePreview } from "../../utils/previewUrl";
 
 type Section =
@@ -50,6 +51,7 @@ type Section =
   | "baseline"
   | "tracking"
   | "genon"
+  | "assistant"
   | "embeddings";
 
 export default function AdminOrganizationEvents() {
@@ -116,6 +118,8 @@ export default function AdminOrganizationEvents() {
       ? "Seguimiento académico"
       : activeSection === "genon"
       ? "Gen.ON"
+      : activeSection === "assistant"
+      ? "Asistente IA"
       : activeSection === "baseline"
       ? "Línea base"
       : activeSection === "embeddings"
@@ -329,6 +333,26 @@ export default function AdminOrganizationEvents() {
               <FaBolt /> Gen.ON
             </UnstyledButton>
 
+            {/* Asistente por WhatsApp con IA (Gemini) */}
+            <UnstyledButton
+              onClick={() => {
+                setActiveSection("assistant");
+                setEditingEventId(null);
+                setDrawerOpened(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: 8,
+                borderRadius: 4,
+                backgroundColor:
+                  activeSection === "assistant" ? "#F0F4FF" : "transparent",
+              }}
+            >
+              <FaRobot /> Asistente IA
+            </UnstyledButton>
+
             {/* Línea base de indicadores por curso */}
             <UnstyledButton
               onClick={() => {
@@ -420,6 +444,8 @@ export default function AdminOrganizationEvents() {
           <StudentTrackingAdminPage />
         ) : activeSection === "genon" ? (
           <GenOnAdminPage />
+        ) : activeSection === "assistant" ? (
+          <AssistantAdminPage />
         ) : activeSection === "baseline" ? (
           <BaselineAdminPage />
         ) : activeSection === "embeddings" ? (

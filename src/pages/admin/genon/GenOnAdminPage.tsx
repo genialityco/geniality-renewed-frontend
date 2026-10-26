@@ -39,6 +39,7 @@ import TemplatesTab from "./TemplatesTab";
 import CoursesTab from "./CoursesTab";
 import TestTab from "./TestTab";
 import TrackingTab from "./TrackingTab";
+import DemoTab from "./DemoTab";
 
 // Lo que se guarda del programa (el resto lo maneja el motor)
 const EDITABLE: (keyof GenOnProgram)[] = [
@@ -267,6 +268,7 @@ export default function GenOnAdminPage() {
                 <Tabs.Tab value="courses">Cursos y retos</Tabs.Tab>
                 <Tabs.Tab value="test">Pruebas</Tabs.Tab>
                 <Tabs.Tab value="tracking">Seguimiento</Tabs.Tab>
+                <Tabs.Tab value="demo">Demostración</Tabs.Tab>
               </Tabs.List>
               <Tabs.Panel value="program" pt="md">
                 <ProgramTab {...tabProps} dirty={dirty} />
@@ -285,6 +287,9 @@ export default function GenOnAdminPage() {
               </Tabs.Panel>
               <Tabs.Panel value="tracking" pt="md">
                 <TrackingTab {...tabProps} />
+              </Tabs.Panel>
+              <Tabs.Panel value="demo" pt="md">
+                <DemoTab {...tabProps} />
               </Tabs.Panel>
             </Tabs>
           )

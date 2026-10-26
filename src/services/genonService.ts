@@ -546,6 +546,31 @@ export const previewGenOnStep = async (
   data: { userId: string; eventId: string; stepKey: string; variant?: number }
 ) => (await api.post<GenOnPreview>(`/genon/programs/${id}/test/preview`, data)).data;
 
+export interface GenOnRealSendResult {
+  result: string;
+  template: string;
+  /** Teléfono enmascarado al que salió */
+  phone: string | null;
+  segment: GenOnSegment;
+  /** true si su secuencia avanzó a este toque */
+  advanced: boolean;
+}
+
+/** Envía de verdad el toque a la persona (su teléfono y su inscripción real). */
+export const sendGenOnRealStep = async (
+  id: string,
+  data: { userId: string; eventId: string; stepKey: string }
+) =>
+  (await api.post<GenOnRealSendResult>(`/genon/programs/${id}/test/send-real`, data)).data;
+
+/** Envía de verdad el disparador a la persona (solo si hoy se cumple). */
+export const sendGenOnRealTrigger = async (
+  id: string,
+  data: { userId: string; eventId: string; key: GenOnTriggerKey }
+) =>
+  (await api.post<GenOnRealSendResult>(`/genon/programs/${id}/test/triggers/send-real`, data))
+    .data;
+
 export const sendGenOnTest = async (
   id: string,
   data: { userId: string; eventId: string; stepKey: string; to: string }
