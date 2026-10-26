@@ -590,6 +590,25 @@ export const simulateGenOnTriggers = async (id: string, userId: string, eventId:
     })
   ).data;
 
+/**
+ * Laboratorio de rachas (solo organizaciones de prueba): "study" hace que hoy
+ * cuente como día de estudio; "next_day" corre un día atrás sus fechas, como
+ * si pasara un día. Devuelve la simulación de disparadores ya actualizada.
+ */
+export const applyGenOnStreakLab = async (
+  id: string,
+  userId: string,
+  eventId: string,
+  action: "study" | "next_day"
+) =>
+  (
+    await api.post<GenOnTriggerSimulation>(`/genon/programs/${id}/test/streak`, {
+      userId,
+      eventId,
+      action,
+    })
+  ).data;
+
 export const previewGenOnTrigger = async (
   id: string,
   data: { userId: string; eventId: string; key: GenOnTriggerKey }

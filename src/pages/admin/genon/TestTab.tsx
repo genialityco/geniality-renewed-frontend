@@ -9,6 +9,7 @@ import {
   List,
   Loader,
   Modal,
+  Paper,
   ScrollArea,
   Select,
   SimpleGrid,
@@ -32,6 +33,7 @@ import {
   SEGMENT_LABELS,
   TRIGGER_LABELS,
   apiError,
+  applyGenOnStreakLab,
   fetchGenOnCourses,
   previewGenOnStep,
   previewGenOnTrigger,
@@ -360,6 +362,54 @@ export default function TestTab({
               Simular disparadores
             </Button>
           </Group>
+
+          <Paper withBorder p="sm" radius="md">
+            <Group justify="space-between" align="center" wrap="wrap">
+              <div style={{ maxWidth: 560 }}>
+                <Text fw={600} size="sm">
+                  Probar la racha (solo organizaciones de prueba)
+                </Text>
+                <Text size="xs" c="dimmed">
+                  "Estudió hoy" cuenta el día de hoy como día de estudio.
+                  "Pasar al día siguiente" corre un día atrás todas sus fechas,
+                  como si pasara un día: así se llega a los hitos (3, 7, 14, 30
+                  días), se corta la racha (un día sin estudio) o queda en
+                  riesgo (sin estudio hoy, solo antes de la hora del aviso).
+                  Luego envía el mensaje de racha desde la tabla.
+                </Text>
+              </div>
+              <Group gap="xs">
+                <Button
+                  variant="light"
+                  disabled={!ready}
+                  loading={busy === "streak-study"}
+                  onClick={() =>
+                    withBusy("streak-study", async () =>
+                      setTriggerSim(
+                        await applyGenOnStreakLab(program._id, user!.user_id, eventId!, "study")
+                      )
+                    )
+                  }
+                >
+                  📚 Estudió hoy
+                </Button>
+                <Button
+                  variant="light"
+                  disabled={!ready}
+                  loading={busy === "streak-next"}
+                  onClick={() =>
+                    withBusy("streak-next", async () =>
+                      setTriggerSim(
+                        await applyGenOnStreakLab(program._id, user!.user_id, eventId!, "next_day")
+                      )
+                    )
+                  }
+                >
+                  ⏭️ Pasar al día siguiente
+                </Button>
+              </Group>
+            </Group>
+          </Paper>
 
           {triggerSim && <TriggerSimulationCard sim={triggerSim} />}
 
@@ -779,6 +829,9 @@ function TriggerSimulationCard({ sim }: { sim: GenOnTriggerSimulation }) {
           <Text size="xs" c="dimmed">Racha</Text>
           <Text fw={600}>
             🔥 {s?.current ?? 0} día(s){s?.activeToday ? " · estudió hoy" : ""}
+          </Text>
+          <Text size="xs" c="dimmed">
+            Hasta ayer: {s?.throughYesterday ?? 0} día(s) (cuenta para hitos y riesgo)
           </Text>
           {s?.broken && (
             <Text size="xs" c="orange">
