@@ -1041,13 +1041,20 @@ export default function ActivityDetail({
                 size={22}
                 style={{ cursor: "pointer", marginRight: 12 }}
                 onClick={() => {
-                  window.history.length > 1
-                    ? window.history.back()
-                    : window.location.assign(
-                        `/organization/${
-                          window.location.pathname.split("/")[2]
-                        }`
-                      );
+                  // Atrás solo si la página anterior es de la plataforma:
+                  // history.length también cuenta la de otros sitios (p. ej.
+                  // al abrir el enlace desde WhatsApp) y se saldría de aquí
+                  if ((window.history.state?.idx ?? 0) > 0) {
+                    navigate(-1);
+                    return;
+                  }
+                  const raw: any = activity.event_id;
+                  const courseId = raw && typeof raw === "object" ? raw._id || raw.id : raw;
+                  navigate(
+                    courseId
+                      ? `/organization/${organizationId}/course/${courseId}`
+                      : `/organization/${organizationId}`
+                  );
                 }}
               />
             );
