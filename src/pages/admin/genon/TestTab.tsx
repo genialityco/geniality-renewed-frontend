@@ -25,6 +25,7 @@ import { FaEye, FaPlay, FaWhatsapp } from "react-icons/fa6";
 import {
   GenOnCourse,
   GenOnPreview,
+  GenOnRegroupResult,
   GenOnRunResult,
   GenOnSimulation,
   GenOnTriggerPreview,
@@ -37,6 +38,7 @@ import {
   fetchGenOnCourses,
   previewGenOnStep,
   previewGenOnTrigger,
+  regroupGenOn,
   runGenOnNow,
   sendGenOnRealStep,
   sendGenOnRealTrigger,
@@ -87,6 +89,7 @@ export default function TestTab({
   const [busy, setBusy] = useState<string | null>(null);
   const [run, setRun] = useState<GenOnRunResult | null>(null);
   const [sendNow, setSendNow] = useState<GenOnRunResult | null>(null);
+  const [regroup, setRegroup] = useState<GenOnRegroupResult | null>(null);
   const [confirmSendNow, setConfirmSendNow] = useState(false);
   // Envío real a la persona seleccionada (toque o disparador), pendiente de confirmar
   const [realSend, setRealSend] = useState<
@@ -588,6 +591,60 @@ export default function TestTab({
           )}
           {busy === "send-now" && <Loader size="sm" />}
           {sendNow && <RunResult run={sendNow} />}
+        </Stack>
+      </Card>
+
+      <Card withBorder radius="md" p="lg">
+        <Stack gap="md">
+          <Group justify="space-between">
+            <div>
+              <Title order={4}>Actualizar grupos</Title>
+              <Text size="sm" c="dimmed">
+                Segmenta ya a todos los inscritos sin esperar al día siguiente:
+                quien cambió de grupo (p. ej. terminó una actividad y pasó de
+                abandono a activos) deja su secuencia anterior y empieza la del
+                grupo nuevo. No envía nada ni cambia franjas; vale también con
+                el programa activo.
+              </Text>
+            </div>
+            <Button
+              variant="light"
+              leftSection={<FaPlay />}
+              disabled={dirty}
+              loading={busy === "regroup"}
+              onClick={() =>
+                withBusy("regroup", async () => {
+                  const res = await regroupGenOn(program._id);
+                  setRegroup(res);
+                  notifications.show({
+                    color: "green",
+                    title: "Grupos actualizados",
+                    message: res.changed.length
+                      ? `${res.changed.length} persona(s) cambiaron de grupo.`
+                      : "Nadie cambió de grupo.",
+                  });
+                })
+              }
+            >
+              Actualizar grupos
+            </Button>
+          </Group>
+          {regroup && (
+            <Stack gap={4}>
+              <Text size="xs" c="dimmed">
+                Por grupo:{" "}
+                {Object.entries(regroup.counts)
+                  .map(([k, v]) => `${SEGMENT_LABELS[k as keyof typeof SEGMENT_LABELS] || k}: ${v}`)
+                  .join(" · ") || "—"}
+              </Text>
+              {regroup.changed.map((c) => (
+                <Text key={`${c.event_id}-${c.user_id}`} size="sm">
+                  <b>{c.name}</b>: {c.from ? SEGMENT_LABELS[c.from] || c.from : "nuevo"} →{" "}
+                  {SEGMENT_LABELS[c.to] || c.to}
+                </Text>
+              ))}
+            </Stack>
+          )}
         </Stack>
       </Card>
 

@@ -650,6 +650,22 @@ export interface GenOnReassignResult {
 export const reassignGenOn = async (id: string) =>
   (await api.post<GenOnReassignResult>(`/genon/programs/${id}/reassign`)).data;
 
+export interface GenOnRegroupResult {
+  counts: Record<string, number>;
+  /** Quiénes cambiaron de grupo (from null: recién inscritos) */
+  changed: {
+    user_id: string;
+    event_id: string;
+    name: string;
+    from: GenOnSegment | null;
+    to: GenOnSegment;
+  }[];
+}
+
+/** Segmenta ya a todos (no envía nada): quien cambió de grupo empieza su flujo nuevo. */
+export const regroupGenOn = async (id: string) =>
+  (await api.post<GenOnRegroupResult>(`/genon/programs/${id}/regroup`)).data;
+
 export const fetchGenOnTemplates = async () =>
   (await api.get<GenOnTemplate[]>("/genon/templates")).data;
 
