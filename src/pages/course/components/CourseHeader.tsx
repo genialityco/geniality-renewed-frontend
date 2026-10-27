@@ -1,6 +1,8 @@
 import { Stack, Flex, Title, Divider, Burger } from "@mantine/core";
 import { FaArrowLeft } from "react-icons/fa6";
 import { Event } from "../../../services/types";
+import { useStreak } from "../../../context/StreakContext";
+import StreakBadge from "../../../components/streak/StreakBadge";
 
 interface CourseHeaderProps {
   event: Event | null;
@@ -19,7 +21,9 @@ export function CourseHeader({
   onHomeClick,
   isMobile = false,
 }: CourseHeaderProps) {
+  const { forEvent } = useStreak();
   if (!event) return null;
+  const streak = forEvent(event._id);
 
   const eventImage = event.styles?.event_image;
 
@@ -39,9 +43,11 @@ export function CourseHeader({
                 maxWidth: "100%",
                 objectFit: "contain",
                 flex: 1,
+                minWidth: 0,
               }}
             />
           )}
+          <StreakBadge streak={streak} compact />
         </Flex>
         <Flex align="center" gap="xs" pt={4}>
           <FaArrowLeft
@@ -111,6 +117,7 @@ export function CourseHeader({
           {event.name}
         </Title>
       </Flex>
+      <StreakBadge streak={streak} />
     </Flex>
   );
 }

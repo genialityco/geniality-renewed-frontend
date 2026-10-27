@@ -7,11 +7,14 @@ import ChangePassword from "./sections/ChangePassword";
 import MyOrganizations from "./sections/MyOrganizations";
 import { MyActivity } from "../../components/MyActivity";
 import { useUser, extractOrganizationId } from "../../context/UserContext";
+import { useStreak } from "../../context/StreakContext";
+import StreakPanel from "../../components/streak/StreakPanel";
 
 const Profile = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get("tab") || "courses";
   const { userId, firebaseUser, organizationUserData } = useUser();
+  const { streaks } = useStreak();
 
   const organizationId = extractOrganizationId(organizationUserData);
 
@@ -30,6 +33,9 @@ const Profile = () => {
             <Tabs.Tab value="info">Información Personal</Tabs.Tab>
             <Tabs.Tab value="membership">Mi Plan</Tabs.Tab>
             <Tabs.Tab value="activity">Mi Actividad</Tabs.Tab>
+            {(streaks.length > 0 || currentTab === "streak") && (
+              <Tabs.Tab value="streak">Mi Racha</Tabs.Tab>
+            )}
             {/* <Tabs.Tab value="password">Cambiar Contraseña</Tabs.Tab> */}
           </Tabs.List>
 
@@ -55,6 +61,10 @@ const Profile = () => {
               firebaseUid={firebaseUser?.uid || null}
               organizationId={organizationId || ''}
             />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="streak">
+            <StreakPanel />
           </Tabs.Panel>
 
           <Tabs.Panel value="password">

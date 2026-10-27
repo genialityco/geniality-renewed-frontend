@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { Modal, Stack, Text, Button, Group, ThemeIcon } from "@mantine/core";
 import { IconCheck, IconTrophy } from "@tabler/icons-react";
 
@@ -18,6 +19,8 @@ interface CompletionModalProps {
   /** Acción extra opcional (p. ej. "Evaluar mis conocimientos") */
   actionLabel?: string;
   onAction?: () => void;
+  /** Contenido extra bajo el mensaje (p. ej. la racha de estudio) */
+  extra?: ReactNode;
 }
 
 export default function CompletionModal({
@@ -30,6 +33,7 @@ export default function CompletionModal({
   onGetCertificate,
   actionLabel,
   onAction,
+  extra,
 }: CompletionModalProps) {
   // Si se pasan bloques, usarlos; si no, usar title/description
   const hasBlocks = blocks && blocks.length > 0;
@@ -59,6 +63,8 @@ export default function CompletionModal({
             </Text>
           )}
         </Stack>
+
+        {extra}
 
         <Group justify="center">
           {showCertificateButton && onGetCertificate ? (

@@ -1,5 +1,6 @@
 import api from "./api";
 import { ActivityAttendee } from "./types";
+import { ACTIVITY_COMPLETED_EVENT } from "./genonStreakService";
 
 export interface ActivityAttendeePayload {
   user_id: string;
@@ -68,6 +69,14 @@ export const createOrUpdateActivityAttendee = async (
     "/activity-attendees/create-or-update",
     data
   );
+  // Actividad terminada: la racha (Gen.ON) puede haber cambiado
+  if (data.progress >= 100) {
+    window.dispatchEvent(
+      new CustomEvent(ACTIVITY_COMPLETED_EVENT, {
+        detail: { activityId: data.activity_id },
+      })
+    );
+  }
   return response.data;
 };
 

@@ -50,6 +50,9 @@ import {
   fetchInVideoQuestions,
   InVideoQuestion,
 } from "../services/inVideoQuestionService";
+import { StreakCelebrationHost, useStreak } from "../context/StreakContext";
+import type { MyStreak } from "../services/genonStreakService";
+import StreakCelebration from "./streak/StreakCelebration";
 
 interface Fragment {
   segmentId: number;
@@ -329,6 +332,53 @@ export default function ActivityDetail({
     exitFullscreen(vimeoPlayer);
     setShowCompletionModal(true);
   };
+
+  // ==================================================
+  // Racha de estudio en el modal de completada
+  // ==================================================
+  const { forEvent, registerHost, dismissCelebration } = useStreak();
+  const streak = forEvent(eventId);
+  // Logro que trajo esta actividad (día que ya cuenta o medalla nueva). Llega
+  // al guardarse el 100 %, con el modal ya abierto o abriéndolo.
+  const [streakCelebration, setStreakCelebration] = useState<MyStreak | null>(null);
+  const streakCelebrationRef = useRef<MyStreak | null>(null);
+  streakCelebrationRef.current = streakCelebration;
+  const streakHostRef = useRef<StreakCelebrationHost>(() => false);
+  streakHostRef.current = (s) => {
+    // Solo el logro de esta actividad: ya terminó o su modal ya salió (si
+    // viene de la anterior o de un reto por WhatsApp, lo muestra el contexto)
+    if (s.event_id !== eventId) return false;
+    if (!completionShownRef.current && currentProgressRef.current < COMPLETION_THRESHOLD) {
+      return false;
+    }
+    completionShownRef.current = true;
+    exitFullscreen(player);
+    setStreakCelebration(s);
+    setShowCompletionModal(true);
+    return true;
+  };
+  useEffect(() => registerHost((s) => streakHostRef.current(s)), [registerHost]);
+
+  // Al cambiar de actividad o salir, el logro mostrado queda visto
+  useEffect(() => {
+    return () => {
+      if (streakCelebrationRef.current) {
+        dismissCelebration(streakCelebrationRef.current);
+        setStreakCelebration(null);
+      }
+    };
+  }, [activity?._id, dismissCelebration]);
+
+  const closeCompletionModal = () => {
+    setShowCompletionModal(false);
+    if (streakCelebration) {
+      dismissCelebration(streakCelebration);
+      setStreakCelebration(null);
+    }
+  };
+
+  // La racha de hoy (si ya cuenta) o el logro recién llegado
+  const streakToShow = streak?.active_today ? streak : streakCelebration;
 
   // ==================================================
   // 0. Efecto: Sincronizar videoTime desde prop (para búsqueda de segmentos)
@@ -925,7 +975,7 @@ export default function ActivityDetail({
 
   const openPractice = () => {
     pauseVideo();
-    setShowCompletionModal(false);
+    closeCompletionModal();
     setPracticeOpen(true);
   };
 
@@ -1396,10 +1446,18 @@ export default function ActivityDetail({
       {/* Completion Modal */}
       <CompletionModal
         opened={showCompletionModal}
-        onClose={() => setShowCompletionModal(false)}
+        onClose={closeCompletionModal}
         blocks={completionMessage?.blocks || []}
         actionLabel={canPractice ? "Evaluar mis conocimientos" : undefined}
         onAction={canPractice ? openPractice : undefined}
+        extra={
+          streakToShow ? (
+            <StreakCelebration
+              streak={streakToShow}
+              kind={streakCelebration?.celebrate?.kind}
+            />
+          ) : null
+        }
       />
     </Card>
   );

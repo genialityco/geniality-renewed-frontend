@@ -3,6 +3,8 @@ import { Group, Avatar, Text, Button, Menu, Image, Loader } from "@mantine/core"
 import { useNavigate, useLocation } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import { useOrganization } from "../context/OrganizationContext";
+import { useStreak } from "../context/StreakContext";
+import StreakBadge from "../components/streak/StreakBadge";
 
 export default function AppShellWithAuth() {
   const {
@@ -14,6 +16,8 @@ export default function AppShellWithAuth() {
     signOut: contextSignOut,
   } = useUser();
   const { organization: headerOrg } = useOrganization();
+  // La racha más larga del usuario en los cursos de la organización
+  const { streaks } = useStreak();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
@@ -85,6 +89,7 @@ export default function AppShellWithAuth() {
           <Loader size="sm" />
         ) : showAsLoggedIn ? (
           <Group>
+            <StreakBadge streak={streaks[0] || null} />
             <Menu shadow="md" width={200}>
               <Menu.Target>
                 <Avatar radius="xl">{name?.charAt(0) || "U"}</Avatar>
@@ -99,6 +104,11 @@ export default function AppShellWithAuth() {
                 <Menu.Item onClick={() => handleNavigate("info")}>
                   Mis datos
                 </Menu.Item>
+                {streaks.length > 0 && (
+                  <Menu.Item onClick={() => handleNavigate("streak")}>
+                    Mi racha
+                  </Menu.Item>
+                )}
                 <Menu.Item color="red" onClick={handleLogout}>
                   Cerrar sesión
                 </Menu.Item>
