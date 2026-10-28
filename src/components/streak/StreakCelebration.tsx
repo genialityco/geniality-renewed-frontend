@@ -9,6 +9,7 @@ import {
   nextMedalText,
   nextStepText,
   reasonText,
+  shieldText,
   TIER_STYLE,
 } from "./streakText";
 
@@ -62,7 +63,7 @@ export default function StreakCelebration({ streak: s, kind = null }: StreakCele
             {title(s, kind)}
           </Text>
           <Text size="sm" c="dimmed" ta="center">
-            Tu racha: {daysLabel(s.current)} seguidos en {s.event_name}
+            Tu racha: {daysLabel(s.current)} seguidos estudiando {s.event_name}
           </Text>
         </Stack>
 
@@ -81,6 +82,11 @@ export default function StreakCelebration({ streak: s, kind = null }: StreakCele
           <Text size="sm" c="dimmed">
             {nextMedalText(s)}
           </Text>
+          {s.shield.enabled && (
+            <Text size="sm" c={s.shield.count > 0 ? "blue" : "dimmed"}>
+              {shieldText(s)}
+            </Text>
+          )}
         </Stack>
 
         <Text size="xs" c="dimmed" w="100%">

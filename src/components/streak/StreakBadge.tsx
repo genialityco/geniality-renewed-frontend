@@ -1,4 +1,5 @@
 import { Badge, Button, Group, Popover, Stack, Text, UnstyledButton } from "@mantine/core";
+import { IconShieldCheck } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import type { MyStreak } from "../../services/genonStreakService";
 import StreakMedal from "./StreakMedal";
@@ -6,6 +7,7 @@ import {
   daysLabel,
   nextMedalText,
   nextStepText,
+  shieldText,
   STATUS_BADGE,
   streakTitle,
   TIER_STYLE,
@@ -50,6 +52,13 @@ export default function StreakBadge({ streak, compact = false }: StreakBadgeProp
               {TIER_STYLE[medal.tier].label}
             </Text>
           )}
+          {streak.shield.count > 0 && (
+            <IconShieldCheck
+              size={16}
+              color="var(--mantine-color-blue-6)"
+              aria-label="Tienes un protector de racha"
+            />
+          )}
         </UnstyledButton>
       </Popover.Target>
       <Popover.Dropdown>
@@ -70,6 +79,11 @@ export default function StreakBadge({ streak, compact = false }: StreakBadgeProp
           <Text size="sm" c="dimmed">
             {nextMedalText(streak)}
           </Text>
+          {streak.shield.enabled && (
+            <Text size="sm" c={streak.shield.count > 0 ? "blue" : "dimmed"}>
+              {shieldText(streak)}
+            </Text>
+          )}
           <Button
             size="xs"
             variant="light"

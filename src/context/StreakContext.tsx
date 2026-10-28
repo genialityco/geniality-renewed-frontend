@@ -25,11 +25,13 @@ import StreakCelebration from "../components/streak/StreakCelebration";
 export type StreakCelebrationHost = (streak: MyStreak) => boolean;
 
 interface StreakContextValue {
-  /** Rachas del usuario en los cursos de la organización (mayor primero) */
+  /** Rachas del usuario en la organización, una por programa (mayor primero) */
   streaks: MyStreak[];
-  /** La racha de un curso, si tiene */
+  /** La racha que suma con este curso, si tiene */
   forEvent: (eventId?: string | null) => MyStreak | null;
   refresh: () => Promise<void>;
+  /** Cuándo se pidieron los datos de racha que hay en pantalla (ms) */
+  syncedAt: number;
   registerHost: (host: StreakCelebrationHost) => () => void;
   /** El logro ya se mostró: no se repite */
   dismissCelebration: (streak: MyStreak) => void;
@@ -39,6 +41,7 @@ const StreakContext = createContext<StreakContextValue>({
   streaks: [],
   forEvent: () => null,
   refresh: async () => {},
+  syncedAt: 0,
   registerHost: () => () => {},
   dismissCelebration: () => {},
 });
@@ -61,6 +64,7 @@ export function StreakProvider({
   const { userId } = useUser();
   const navigate = useNavigate();
   const [streaks, setStreaks] = useState<MyStreak[]>([]);
+  const [syncedAt, setSyncedAt] = useState(0);
   // Logro mostrado por el contexto (sin pantalla de actividad que lo tome)
   const [fallback, setFallback] = useState<MyStreak | null>(null);
   const hosts = useRef(new Set<StreakCelebrationHost>());
@@ -82,9 +86,11 @@ export function StreakProvider({
       setStreaks([]);
       return;
     }
+    const startedAt = Date.now();
     try {
       const list = await fetchMyStreaks({ organizationId });
       setStreaks(list);
+      setSyncedAt((t) => Math.max(t, startedAt));
       announce(list);
     } catch {
       // Sin racha disponible (p. ej. sin programa): no se muestra nada
@@ -110,9 +116,10 @@ export function StreakProvider({
     };
   }, [refresh]);
 
+  // La racha es de la persona en el programa: suma en cualquiera de sus cursos
   const forEvent = useCallback(
     (eventId?: string | null) =>
-      (eventId && streaks.find((s) => s.event_id === eventId)) || null,
+      (eventId && streaks.find((s) => s.event_ids.includes(eventId))) || null,
     [streaks]
   );
 
@@ -138,7 +145,7 @@ export function StreakProvider({
 
   return (
     <StreakContext.Provider
-      value={{ streaks, forEvent, refresh, registerHost, dismissCelebration }}
+      value={{ streaks, forEvent, refresh, syncedAt, registerHost, dismissCelebration }}
     >
       {children}
       <Modal

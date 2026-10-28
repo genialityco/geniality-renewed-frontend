@@ -10,6 +10,7 @@ import {
   MultiSelect,
   NumberInput,
   SegmentedControl,
+  Select,
   SimpleGrid,
   Stack,
   Switch,
@@ -152,9 +153,29 @@ export default function ProgramTab({
             placeholder="Todos los cursos"
             data={events}
             value={program.event_ids}
-            onChange={(ids) => patch({ event_ids: ids })}
+            onChange={(ids) =>
+              patch({
+                event_ids: ids,
+                // El curso de entrada tiene que seguir en el programa
+                entry_event_id:
+                  ids.length && program.entry_event_id && !ids.includes(program.entry_event_id)
+                    ? null
+                    : program.entry_event_id ?? null,
+              })
+            }
             searchable
             clearable
+          />
+          <Select
+            label="Curso para quien aún no abre ninguno"
+            description={`Al registrarse, una persona entra al programa solo cuando abre un curso. Si eliges uno aquí, los miembros de su organización que aún no han abierto ningún curso del programa entran a ese: "${SEGMENT_LABELS.waiting}" los primeros ${program.segments.abandon.min_days_enrolled} días desde que se unieron a la organización y luego "${SEGMENT_LABELS.abandon}". Ojo: incluye a los miembros antiguos que nunca empezaron. Al abrir un curso siguen con su inscripción normal.`}
+            placeholder="Nadie (solo quien ya abrió un curso)"
+            data={program.event_ids.length ? events.filter((e) => program.event_ids.includes(e.value)) : events}
+            value={program.entry_event_id || null}
+            onChange={(v) => patch({ entry_event_id: v || null })}
+            searchable
+            clearable
+            maw={520}
           />
         </Stack>
       </Card>

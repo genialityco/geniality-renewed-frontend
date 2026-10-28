@@ -262,6 +262,11 @@ export default function TrackingTab({ program }: GenOnTabProps) {
                             Control
                           </Badge>
                         )}
+                        {r.without_course && (
+                          <Badge color="gray" variant="light" size="xs">
+                            Sin abrir el curso
+                          </Badge>
+                        )}
                       </Table.Td>
                       <Table.Td ta="right">{r.progress} %</Table.Td>
                       <Table.Td>

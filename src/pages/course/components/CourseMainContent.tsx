@@ -36,6 +36,7 @@ import {
   getModuleQuiz,
   getModuleExamNavQuizId,
   getCertificateGate,
+  getOrderedActivities,
   quizIdOf,
   sortActivitiesByDate,
   sortModulesByOrder,
@@ -197,7 +198,9 @@ export function CourseMainContent({
           activity={selectedActivity}
           eventId={event?._id || ""}
           shareUrl={`${window.location.origin}/organization/${organizationId}/course/${eventId}?activity=${selectedActivity._id}`}
-          activities={activities}
+          // En el orden del temario (módulos y, dentro, actividades): de él
+          // salen "Anterior" y "Siguiente"
+          activities={getOrderedActivities(modules, activities)}
           activityAttendees={activityAttendees}
           // Sin courseId: el tiempo de curso ya lo registra
           // CourseDetailWithTracker, que envuelve esta página. Si ambos lo
@@ -509,8 +512,8 @@ export function CourseMainContent({
           </Group>
           <Accordion variant="separated" multiple radius="lg">
             {orderedModules.map((module) => {
-              const modActivities = activities.filter(
-                (a: Activity) => a.module_id === module._id
+              const modActivities = sortActivitiesByDate(
+                activities.filter((a: Activity) => a.module_id === module._id)
               );
               if (modActivities.length === 0) return null;
 

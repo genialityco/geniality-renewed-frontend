@@ -944,6 +944,10 @@ function TriggerSimulationCard({ sim }: { sim: GenOnTriggerSimulation }) {
               Se cortó: venía de {s.broken.count} días (último {s.broken.lastDay})
             </Text>
           )}
+          <Text size="xs" c={s?.shields ? "blue" : "dimmed"}>
+            🛡️ {s?.shields ?? 0} protector(es)
+            {s?.shielded?.length ? ` · cubrió ${s.shielded.join(", ")}` : ""}
+          </Text>
         </div>
         <div>
           <Text size="xs" c="dimmed">En cola</Text>

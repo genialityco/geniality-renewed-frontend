@@ -47,6 +47,7 @@ const EDITABLE: (keyof GenOnProgram)[] = [
   "mode",
   "organization_ids",
   "event_ids",
+  "entry_event_id",
   "timezone",
   "send_slots",
   "blocked_weekdays",

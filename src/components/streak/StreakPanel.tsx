@@ -1,4 +1,5 @@
 import { Badge, Card, Group, Progress, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { IconShieldCheck } from "@tabler/icons-react";
 import type { MyStreak, StreakMedalTier } from "../../services/genonStreakService";
 import { useStreak } from "../../context/StreakContext";
 import StreakMedal from "./StreakMedal";
@@ -10,6 +11,7 @@ import {
   nextMedalText,
   nextStepText,
   reasonText,
+  shieldRuleText,
   STATUS_BADGE,
   streakTitle,
   TIER_STYLE,
@@ -98,13 +100,42 @@ function StreakCard({ streak: s }: { streak: MyStreak }) {
                   <Text size="xs" w={90} c="dimmed" style={{ flexShrink: 0 }}>
                     {d.day === s.today ? "Hoy" : formatDay(d.day)}
                   </Text>
-                  <Text size="xs" c={d.recovered ? "orange" : undefined}>
+                  <Text
+                    size="xs"
+                    c={d.covered === "challenge" ? "orange" : d.covered === "shield" ? "blue" : undefined}
+                  >
                     {dayActivityText(d)}
                   </Text>
                 </Group>
               ))}
             </Stack>
           </Stack>
+        )}
+
+        {s.shield.enabled && (
+          <Group gap="sm" wrap="nowrap" align="flex-start">
+            <IconShieldCheck
+              size={28}
+              style={{ flexShrink: 0 }}
+              color={
+                s.shield.count > 0
+                  ? "var(--mantine-color-blue-6)"
+                  : "var(--mantine-color-gray-4)"
+              }
+            />
+            <Stack gap={2}>
+              <Text fw={700} size="sm">
+                Protector de racha:{" "}
+                {s.shield.count > 0 ? `tienes ${s.shield.count}` : "no tienes"}
+              </Text>
+              <Text size="sm" c="dimmed">
+                {shieldRuleText(s)}
+                {s.today_activities > 0 && s.shield.count < s.shield.max
+                  ? ` Hoy llevas ${s.today_activities} de ${s.shield.min_activities}.`
+                  : ""}
+              </Text>
+            </Stack>
+          </Group>
         )}
 
         <Stack gap={6}>

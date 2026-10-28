@@ -51,8 +51,9 @@ import {
   InVideoQuestion,
 } from "../services/inVideoQuestionService";
 import { StreakCelebrationHost, useStreak } from "../context/StreakContext";
-import type { MyStreak } from "../services/genonStreakService";
+import { ACTIVITY_COMPLETED_EVENT, type MyStreak } from "../services/genonStreakService";
 import StreakCelebration from "./streak/StreakCelebration";
+import StreakToday from "./streak/StreakToday";
 
 interface Fragment {
   segmentId: number;
@@ -336,8 +337,23 @@ export default function ActivityDetail({
   // ==================================================
   // Racha de estudio en el modal de completada
   // ==================================================
-  const { forEvent, registerHost, dismissCelebration } = useStreak();
+  const { forEvent, syncedAt, registerHost, dismissCelebration } = useStreak();
   const streak = forEvent(eventId);
+  // Cuándo se guardó el 100 % de esta actividad: la racha pedida antes es vieja
+  // (p. ej. la de ayer) y no se muestra, para no enseñar un mensaje y luego otro
+  const [completedAt, setCompletedAt] = useState<number | null>(null);
+  useEffect(() => {
+    setCompletedAt(null);
+    const onCompleted = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ activityId?: string; at?: number }>).detail;
+      if (detail?.activityId && detail.activityId === activity?._id) {
+        setCompletedAt(detail.at ?? Date.now());
+      }
+    };
+    window.addEventListener(ACTIVITY_COMPLETED_EVENT, onCompleted);
+    return () => window.removeEventListener(ACTIVITY_COMPLETED_EVENT, onCompleted);
+  }, [activity?._id]);
+  const streakSynced = completedAt !== null && syncedAt >= completedAt;
   // Logro que trajo esta actividad (día que ya cuenta o medalla nueva). Llega
   // al guardarse el 100 %, con el modal ya abierto o abriéndolo.
   const [streakCelebration, setStreakCelebration] = useState<MyStreak | null>(null);
@@ -347,7 +363,7 @@ export default function ActivityDetail({
   streakHostRef.current = (s) => {
     // Solo el logro de esta actividad: ya terminó o su modal ya salió (si
     // viene de la anterior o de un reto por WhatsApp, lo muestra el contexto)
-    if (s.event_id !== eventId) return false;
+    if (!eventId || !s.event_ids.includes(eventId)) return false;
     if (!completionShownRef.current && currentProgressRef.current < COMPLETION_THRESHOLD) {
       return false;
     }
@@ -377,8 +393,15 @@ export default function ActivityDetail({
     }
   };
 
-  // La racha de hoy (si ya cuenta) o el logro recién llegado
-  const streakToShow = streak?.active_today ? streak : streakCelebration;
+  // Logro recién llegado (con los datos más frescos de la racha). Si no hay
+  // logro y hoy ya contaba (otra actividad del día), un aviso corto sin confeti
+  const celebrationToShow = streakCelebration
+    ? streak?.active_today
+      ? streak
+      : streakCelebration
+    : null;
+  const streakToday =
+    !streakCelebration && streakSynced && streak?.active_today ? streak : null;
 
   // ==================================================
   // 0. Efecto: Sincronizar videoTime desde prop (para búsqueda de segmentos)
@@ -973,6 +996,9 @@ export default function ActivityDetail({
     !!practiceAvailability &&
     (practiceAvailability.available > 0 || practiceAvailability.active);
 
+  // Con racha, el botón de examen en la ventana de completada es opcional (Gen.ON)
+  const canPracticeOnComplete = canPractice && (!streak || streak.practice_button);
+
   const openPractice = () => {
     pauseVideo();
     closeCompletionModal();
@@ -1448,14 +1474,16 @@ export default function ActivityDetail({
         opened={showCompletionModal}
         onClose={closeCompletionModal}
         blocks={completionMessage?.blocks || []}
-        actionLabel={canPractice ? "Evaluar mis conocimientos" : undefined}
-        onAction={canPractice ? openPractice : undefined}
+        actionLabel={canPracticeOnComplete ? "Evaluar mis conocimientos" : undefined}
+        onAction={canPracticeOnComplete ? openPractice : undefined}
         extra={
-          streakToShow ? (
+          celebrationToShow ? (
             <StreakCelebration
-              streak={streakToShow}
+              streak={celebrationToShow}
               kind={streakCelebration?.celebrate?.kind}
             />
+          ) : streakToday ? (
+            <StreakToday streak={streakToday} />
           ) : null
         }
       />

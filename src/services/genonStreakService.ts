@@ -13,22 +13,27 @@ export interface StreakMedal {
 }
 
 /**
- * safe: hoy ya cuenta · at_risk: hoy aún no estudia · broken: se cortó
- * (quizá recuperable) · none: sin racha
+ * safe: hoy ya cuenta · protected: hoy aún no estudia, pero un protector
+ * cubre el día · at_risk: hoy aún no estudia · broken: se cortó (quizá
+ * recuperable) · none: sin racha
  */
-export type StreakStatus = "none" | "safe" | "at_risk" | "broken";
+export type StreakStatus = "none" | "safe" | "protected" | "at_risk" | "broken";
 
 export interface StreakDay {
   day: string;
   activities: number;
   challenges: number;
-  /** Día sin estudio que un reto de repaso recuperó */
-  recovered: boolean;
+  /** Día sin estudio que no cortó la racha: un reto de repaso o un protector */
+  covered: "challenge" | "shield" | null;
 }
 
 export interface MyStreak {
+  /** Inscripción donde se guardan los logros vistos */
   enrollment_id: string;
   event_id: string;
+  /** Cursos del programa: en cualquiera se suma a la racha */
+  event_ids: string[];
+  /** Cursos de la persona ("A y B" o "tus cursos") */
   event_name: string;
   organization_id: string;
   timezone: string;
@@ -36,7 +41,20 @@ export interface MyStreak {
   current: number;
   best: number;
   active_today: boolean;
+  /** Actividades terminadas hoy, en todos sus cursos */
+  today_activities: number;
   start: string | null;
+  /** Protector: un día con varias actividades cubre un día sin estudio */
+  shield: {
+    enabled: boolean;
+    min_activities: number;
+    max: number;
+    /** Guardados */
+    count: number;
+    earned_today: boolean;
+  };
+  /** Mostrar el botón de examen en la ventana de actividad completada */
+  practice_button: boolean;
   status: StreakStatus;
   /** Hasta cuándo hay que estudiar para no perderla */
   deadline: string | null;

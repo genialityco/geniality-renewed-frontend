@@ -109,6 +109,11 @@ export interface GenOnTriggersConfig {
     recovery_min: number;
     recovery_template_key: string;
     recovery_window_days: number;
+    /** Protector: un día con varias actividades cubre el siguiente día sin estudio */
+    shield_enabled: boolean;
+    shield_min_activities: number;
+    shield_max: number;
+    practice_button: boolean;
   };
   review_challenge: { pass_text: string; fail_text: string };
   exam_reminder: {
@@ -136,6 +141,8 @@ export interface GenOnProgram {
   mode: GenOnMode;
   organization_ids: string[];
   event_ids: string[];
+  /** Curso al que entran los miembros que aún no abren ninguno (null = nadie) */
+  entry_event_id?: string | null;
   timezone: string;
   send_slots: string[];
   blocked_weekdays: number[];
@@ -242,6 +249,8 @@ export interface GenOnEnrollmentRow {
   completed_activities: number;
   last_activity_at: string | null;
   holdout: boolean;
+  /** Miembro que aún no abre ningún curso: está en el curso de entrada */
+  without_course?: boolean;
   slot: string | null;
   last_step_key: string | null;
   next_step_key: string | null;
@@ -343,6 +352,10 @@ export interface GenOnTriggerSimulation {
     activeToday: boolean;
     broken: { count: number; lastDay: string } | null;
     lastValidDay: string | null;
+    /** Protectores guardados */
+    shields?: number;
+    /** Días sin estudio que cubrió un protector */
+    shielded?: string[];
   } | null;
   weekly_activities: number;
   candidates: {

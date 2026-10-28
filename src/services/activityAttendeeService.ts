@@ -73,7 +73,7 @@ export const createOrUpdateActivityAttendee = async (
   if (data.progress >= 100) {
     window.dispatchEvent(
       new CustomEvent(ACTIVITY_COMPLETED_EVENT, {
-        detail: { activityId: data.activity_id },
+        detail: { activityId: data.activity_id, at: Date.now() },
       })
     );
   }

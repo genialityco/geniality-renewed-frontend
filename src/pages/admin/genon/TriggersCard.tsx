@@ -201,7 +201,9 @@ export default function TriggersCard({ program, patch, templates, catalog }: Gen
           >
             <Text size="xs" c="dimmed">
               Días consecutivos (hora local) con una actividad completada o un
-              reto superado. Un reto superado recupera la racha cortada dentro
+              reto superado, en cualquiera de los cursos del programa: la racha
+              es de la persona y sus mensajes salen una sola vez aunque esté en
+              varios cursos. Un reto superado recupera la racha cortada dentro
               de la ventana de recuperación.
             </Text>
             <TagsInput
@@ -216,6 +218,34 @@ export default function TriggersCard({ program, patch, templates, catalog }: Gen
             {templateSelect("Reconocimiento", cfg.streak.milestone_template_key, (v) =>
               set("streak", { milestone_template_key: v })
             )}
+            <Switch
+              label="Protector de racha"
+              description="Un día con varias actividades gana un protector: el siguiente día sin estudio se cubre solo y la racha no se corta (el día cubierto no suma). Con un protector guardado no sale el aviso de racha en riesgo."
+              checked={cfg.streak.shield_enabled}
+              onChange={(e) => set("streak", { shield_enabled: e.currentTarget.checked })}
+            />
+            {cfg.streak.shield_enabled && (
+              <Group grow>
+                <NumberInput
+                  label="Actividades en un día para ganarlo"
+                  min={2}
+                  value={cfg.streak.shield_min_activities}
+                  onChange={(v) => set("streak", { shield_min_activities: Math.max(2, Number(v) || 2) })}
+                />
+                <NumberInput
+                  label="Protectores guardados (máximo)"
+                  min={1}
+                  value={cfg.streak.shield_max}
+                  onChange={(v) => set("streak", { shield_max: Math.max(1, Number(v) || 1) })}
+                />
+              </Group>
+            )}
+            <Switch
+              label="Botón de examen en los mensajes de racha"
+              description="Muestra “Evaluar mis conocimientos” en la ventana de actividad completada de quienes tienen racha. Apagado, esa ventana solo muestra la racha."
+              checked={cfg.streak.practice_button}
+              onChange={(e) => set("streak", { practice_button: e.currentTarget.checked })}
+            />
             <Switch
               label="Aviso de racha en riesgo (máx. una vez por semana)"
               checked={cfg.streak.risk_enabled}
