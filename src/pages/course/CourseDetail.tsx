@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   AppShell,
@@ -16,7 +16,10 @@ import { useCourseSearch } from "./hooks/useCourseSearch";
 import { CourseHeader } from "./components/CourseHeader";
 import { CourseNavbar } from "./components/CourseNavbar";
 import { CourseMainContent } from "./components/CourseMainContent";
-import { getLockedActivityIds } from "./helpers/courseDetailHelpers";
+import {
+  getLinearResumeTarget,
+  getLockedActivityIds,
+} from "./helpers/courseDetailHelpers";
 import { toastInfo } from "../../utils/toast";
 
 const DEFAULT_LOCKED_MESSAGE =
@@ -54,6 +57,7 @@ export default function CourseDetail() {
   const {
     courseProgress,
     activityAttendees,
+    progressLoaded,
   } = useCourseProgress(
     event,
     activities,
@@ -117,14 +121,46 @@ export default function CourseDetail() {
 
   const handleBackHome = () => navigate(`/organization/${organizationId}`);
 
-  // Cargar actividad desde URL
+  // Cargar actividad desde URL. En curso lineal, la que se abre al entrar (p. ej.
+  // un enlace de WhatsApp a la siguiente sin haber aprobado el examen del
+  // módulo) se revisa: si está bloqueada lleva al paso pendiente, la actividad
+  // sin terminar o el examen. Al navegar dentro del curso ya se revisa al
+  // hacer clic y en "Siguiente" (con el avance en vivo, que aquí aún no está).
+  const urlChecked = useRef(false);
   useEffect(() => {
     const activityParam = searchParams.get("activity");
-    if (activityParam && activities.length > 0) {
-      const found = activities.find((a: any) => a._id === activityParam);
-      if (found) setSelectedActivity(found);
+    if (!activityParam || activities.length === 0) return;
+    const found = activities.find((a: any) => a._id === activityParam);
+    if (!found) return;
+    if (event?.is_linear && !progressLoaded) return;
+    const checked = urlChecked.current;
+    urlChecked.current = true;
+    if (checked || !lockedActivityIds.has(String(found._id))) {
+      setSelectedActivity(found);
+      return;
     }
-  }, [searchParams, activities.length]);
+    const target = getLinearResumeTarget({
+      modules,
+      activities,
+      activityAttendees,
+      event,
+      quizzes,
+      bestScoreByQuiz,
+    });
+    toastInfo("Actividad bloqueada", DEFAULT_LOCKED_MESSAGE);
+    if (target && "quizId" in target) {
+      navigate(
+        `/organization/${organizationId}/course/${eventId}/quiz/${target.quizId}`,
+        { replace: true }
+      );
+    } else if (target) {
+      setSearchParams({ activity: target.activity._id }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+      setSelectedActivity(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, activities.length, progressLoaded, lockedActivityIds]);
 
   // Loading state
   if (loading) {

@@ -183,6 +183,46 @@ export function getLockedActivityIds(params: {
 }
 
 /**
+ * En un curso lineal, el paso en el que debe estar el usuario: la primera
+ * actividad sin superar o, si antes falta aprobar el examen de un módulo (con
+ * la compuerta activa), ese examen. Mismo recorrido que `getLockedActivityIds`.
+ * `null` si ya superó todo.
+ */
+export function getLinearResumeTarget(params: {
+  modules: any[];
+  activities: any[];
+  activityAttendees: any[];
+  event?: { module_exam_gating_enabled?: boolean } | null;
+  quizzes?: any[];
+  bestScoreByQuiz?: Record<string, number | false>;
+}): { activity: any } | { quizId: string } | null {
+  const { modules, activities, activityAttendees } = params;
+  const orderedModules = sortModulesByOrder(modules);
+  const moduleIds = new Set(orderedModules.map((m) => m._id));
+  const examGating = !!params.event?.module_exam_gating_enabled;
+
+  for (const module of orderedModules) {
+    const pending = sortActivitiesByDate(
+      activities.filter((a) => a.module_id === module._id)
+    ).find((a) => !isActivityCleared(a, activityAttendees));
+    if (pending) return { activity: pending };
+
+    if (examGating) {
+      const modQuiz = getModuleQuiz(params.quizzes ?? [], module._id);
+      if (modQuiz) {
+        const best = (params.bestScoreByQuiz ?? {})[quizIdOf(modQuiz)] ?? false;
+        if (!isExamPassed(modQuiz, best)) return { quizId: quizIdOf(modQuiz) };
+      }
+    }
+  }
+
+  const pending = sortActivitiesByDate(
+    activities.filter((a) => !a.module_id || !moduleIds.has(a.module_id))
+  ).find((a) => !isActivityCleared(a, activityAttendees));
+  return pending ? { activity: pending } : null;
+}
+
+/**
  * Cuando el usuario está viendo la ÚLTIMA actividad de un módulo y la compuerta
  * de examen de módulo está activa, la navegación "Siguiente" debe llevarlo al
  * examen del módulo (no a la actividad del siguiente módulo) hasta que lo

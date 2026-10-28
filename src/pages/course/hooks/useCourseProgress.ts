@@ -12,6 +12,8 @@ interface UseCourseProgressReturn {
   courseProgress: number;
   activityAttendees: ActivityAttendee[];
   completedCount: number;
+  /** Ya se leyó el avance de la BD (antes de eso no se sabe qué está bloqueado) */
+  progressLoaded: boolean;
   reloadProgress: () => Promise<void>;
 }
 
@@ -31,6 +33,7 @@ export function useCourseProgress(
   const [courseProgress, setCourseProgress] = useState(0);
   const [activityAttendees, setActivityAttendees] = useState<ActivityAttendee[]>([]);
   const [completedCount, setCompletedCount] = useState(0);
+  const [progressLoaded, setProgressLoaded] = useState(false);
 
   // Enroll user en el curso
   useEffect(() => {
@@ -61,6 +64,7 @@ export function useCourseProgress(
         eventId
       );
       setActivityAttendees(attendees);
+      setProgressLoaded(true);
 
       const completed = attendees.filter(
         (a: ActivityAttendee) => normalizeProgress(a.progress) >= 100
@@ -95,5 +99,5 @@ export function useCourseProgress(
     return () => clearTimeout(timeout);
   }, [selectedActivityId, reloadProgress]);
 
-  return { courseProgress, activityAttendees, completedCount, reloadProgress };
+  return { courseProgress, activityAttendees, completedCount, progressLoaded, reloadProgress };
 }
