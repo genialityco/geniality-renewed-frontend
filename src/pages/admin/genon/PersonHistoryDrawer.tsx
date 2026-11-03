@@ -18,6 +18,7 @@ import {
   FaBookOpen,
   FaCertificate,
   FaCommentDots,
+  FaFire,
   FaPaperPlane,
   FaPuzzlePiece,
   FaLink,
@@ -27,6 +28,7 @@ import { notifications } from "@mantine/notifications";
 import {
   GenOnHistory,
   GenOnHistoryItem,
+  GenOnStreakHistory,
   SEGMENT_LABELS,
   apiError,
   clearGenOnHistory,
@@ -64,7 +66,110 @@ const CHALLENGE_KIND: Record<string, string> = {
   video: "Reto del video",
 };
 
-type Filter = "all" | "messages" | "progress";
+type Filter = "all" | "messages" | "progress" | "streaks";
+
+/** Día YYYY-MM-DD de la zona del programa, sin correrlo por la zona del navegador */
+const formatDay = (ymd: string) => {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("es-CO", {
+    dateStyle: "medium",
+    timeZone: "UTC",
+  });
+};
+
+const MEDAL_COLORS: Record<string, string> = {
+  bronze: "orange",
+  silver: "gray",
+  gold: "yellow",
+  diamond: "cyan",
+};
+
+const COVERED_BY: Record<string, string> = {
+  challenge: "reto de recuperación",
+  shield: "protector",
+};
+
+/** Rachas de la persona: la actual y las que perdió, con sus días cubiertos. */
+function StreakHistoryView({ history }: { history: GenOnStreakHistory | null }) {
+  if (!history) {
+    return (
+      <Text size="sm" c="dimmed">
+        Este programa no tiene la racha activada.
+      </Text>
+    );
+  }
+  return (
+    <Stack gap="sm">
+      <Group gap={6}>
+        <Badge color="orange" variant="light">
+          🔥 Actual: {history.current} días
+        </Badge>
+        <Badge variant="light">Mejor: {history.best} días</Badge>
+        <Badge color="blue" variant="light">
+          🛡️ Protectores: {history.shields}
+        </Badge>
+        <Badge color="gray" variant="light">
+          {history.runs.length} {history.runs.length === 1 ? "racha" : "rachas"}
+        </Badge>
+      </Group>
+      {history.runs.length ? (
+        <Timeline bulletSize={22} lineWidth={2}>
+          {history.runs.map((run) => (
+            <Timeline.Item
+              key={run.start}
+              bullet={<FaFire size={11} />}
+              color={run.status === "live" ? "orange" : "gray"}
+              title={
+                <Group justify="space-between" gap="xs" wrap="nowrap">
+                  <Text size="sm" fw={500}>
+                    {run.days} {run.days === 1 ? "día" : "días"}
+                    {run.status === "live" ? " · en curso" : ""}
+                  </Text>
+                  <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
+                    {run.start === run.end
+                      ? formatDay(run.start)
+                      : `${formatDay(run.start)} → ${formatDay(run.end)}`}
+                  </Text>
+                </Group>
+              }
+            >
+              <Stack gap={4}>
+                <Group gap={6}>
+                  {run.medal && (
+                    <Badge color={MEDAL_COLORS[run.medal.tier] || "gray"} variant="light" size="sm">
+                      Medalla de {run.medal.name}
+                    </Badge>
+                  )}
+                  {run.status === "lost" && run.lost_on && (
+                    <Badge color="red" variant="light" size="sm">
+                      Se perdió el {formatDay(run.lost_on)}
+                    </Badge>
+                  )}
+                </Group>
+                {run.covered.length > 0 && (
+                  <Text size="xs" c="dimmed">
+                    Días sin estudio que no la cortaron:{" "}
+                    {run.covered
+                      .map((c) => `${formatDay(c.day)} (${COVERED_BY[c.by] || c.by})`)
+                      .join(", ")}
+                  </Text>
+                )}
+              </Stack>
+            </Timeline.Item>
+          ))}
+        </Timeline>
+      ) : (
+        <Text size="sm" c="dimmed">
+          Aún no ha tenido rachas.
+        </Text>
+      )}
+      <Text size="xs" c="dimmed">
+        Se cuentan los días con actividades terminadas o retos superados en cualquier curso del
+        programa, desde el {formatDay(history.since)}.
+      </Text>
+    </Stack>
+  );
+}
 
 const isProgress = (i: GenOnHistoryItem) =>
   i.type === "activity_progress" || i.type === "course_progress" || i.type === "course_completed";
@@ -343,17 +448,20 @@ export default function PersonHistoryDrawer({
               { value: "all", label: "Todo" },
               { value: "messages", label: "Mensajes" },
               { value: "progress", label: "Avance" },
+              { value: "streaks", label: "Rachas" },
             ]}
           />
 
-          {data.progress_since && (
+          {filter === "streaks" && <StreakHistoryView history={data.streak_history ?? null} />}
+
+          {filter !== "streaks" && data.progress_since && (
             <Text size="xs" c="dimmed">
               El avance se registra desde el {formatDateTime(data.progress_since)}; antes
               solo se conoce el avance actual.
             </Text>
           )}
 
-          {items.length ? (
+          {filter === "streaks" ? null : items.length ? (
             <Timeline bulletSize={22} lineWidth={2}>
               {items.map((item, i) => {
                 const view = itemView(item);

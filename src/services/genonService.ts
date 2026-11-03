@@ -476,6 +476,30 @@ export type GenOnHistoryItem =
     }
   | { type: "feedback"; at: string; feedback_type: string; text: string };
 
+export interface GenOnStreakRun {
+  /** Primer y último día con estudio (YYYY-MM-DD) */
+  start: string;
+  end: string;
+  /** Días con estudio (los cubiertos no cuentan) */
+  days: number;
+  /** Días sin estudio que no la cortaron */
+  covered: { day: string; by: "challenge" | "shield" }[];
+  status: "live" | "lost";
+  /** Día que la cortó */
+  lost_on: string | null;
+  medal: { tier: string; name: string; days: number } | null;
+}
+
+export interface GenOnStreakHistory {
+  current: number;
+  best: number;
+  shields: number;
+  /** Desde cuándo se leen los días de estudio */
+  since: string;
+  /** De la más reciente a la más antigua */
+  runs: GenOnStreakRun[];
+}
+
 export interface GenOnHistory {
   enrollment_id: string;
   user_id: string;
@@ -495,6 +519,8 @@ export interface GenOnHistory {
   exit_reason: string | null;
   abandon_reason: string | null;
   streak: { current: number; best: number } | null;
+  /** null si el programa no lleva racha */
+  streak_history: GenOnStreakHistory | null;
   next_step_key: string | null;
   next_step_at: string | null;
   /** Primer registro de avance (antes no hay historial de avance) */
