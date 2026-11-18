@@ -9,12 +9,15 @@ import { MyActivity } from "../../components/MyActivity";
 import { useUser, extractOrganizationId } from "../../context/UserContext";
 import { useStreak } from "../../context/StreakContext";
 import StreakPanel from "../../components/streak/StreakPanel";
+import { useAchievements } from "../../context/AchievementsContext";
+import AchievementsPanel from "../../components/achievements/AchievementsPanel";
 
 const Profile = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get("tab") || "courses";
   const { userId, firebaseUser, organizationUserData } = useUser();
   const { streaks } = useStreak();
+  const { programs: achievements } = useAchievements();
 
   const organizationId = extractOrganizationId(organizationUserData);
 
@@ -35,6 +38,9 @@ const Profile = () => {
             <Tabs.Tab value="activity">Mi Actividad</Tabs.Tab>
             {(streaks.length > 0 || currentTab === "streak") && (
               <Tabs.Tab value="streak">Mi Racha</Tabs.Tab>
+            )}
+            {(achievements.length > 0 || currentTab === "achievements") && (
+              <Tabs.Tab value="achievements">Mis Logros</Tabs.Tab>
             )}
             {/* <Tabs.Tab value="password">Cambiar Contraseña</Tabs.Tab> */}
           </Tabs.List>
@@ -65,6 +71,10 @@ const Profile = () => {
 
           <Tabs.Panel value="streak">
             <StreakPanel />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="achievements">
+            <AchievementsPanel />
           </Tabs.Panel>
 
           <Tabs.Panel value="password">

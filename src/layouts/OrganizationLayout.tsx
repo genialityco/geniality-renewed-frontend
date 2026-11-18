@@ -2,6 +2,7 @@
 import { Outlet, useLocation, useParams, matchPath } from "react-router-dom";
 import AppShellWithAuth from "./AppShellWithAuth";
 import { StreakProvider } from "../context/StreakContext";
+import { AchievementsProvider } from "../context/AchievementsContext";
 
 // Rutas que traen su propio encabezado de pantalla completa (su propio AppShell
 // con header fijo). En ellas NO se debe renderizar el navbar de la organización,
@@ -20,12 +21,15 @@ export default function OrganizationLayout() {
   return (
     // Racha académica: encabezados, perfil y aviso al lograrla
     <StreakProvider organizationId={organizationId}>
-      {/* Header/navbar de la organización (logo, nombre, acceso a perfil).
-          Se oculta en vistas que traen su propio encabezado. */}
-      {!hideOrgHeader && <AppShellWithAuth />}
+      {/* Logros: perfil y felicitación al conseguirlos */}
+      <AchievementsProvider organizationId={organizationId}>
+        {/* Header/navbar de la organización (logo, nombre, acceso a perfil).
+            Se oculta en vistas que traen su propio encabezado. */}
+        {!hideOrgHeader && <AppShellWithAuth />}
 
-      {/* Aquí se renderiza la ruta hija */}
-      <Outlet />
+        {/* Aquí se renderiza la ruta hija */}
+        <Outlet />
+      </AchievementsProvider>
     </StreakProvider>
   );
 }

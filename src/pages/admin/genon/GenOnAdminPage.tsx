@@ -40,6 +40,7 @@ import CoursesTab from "./CoursesTab";
 import TestTab from "./TestTab";
 import TrackingTab from "./TrackingTab";
 import DemoTab from "./DemoTab";
+import AchievementsTab from "./AchievementsTab";
 
 // Lo que se guarda del programa (el resto lo maneja el motor)
 const EDITABLE: (keyof GenOnProgram)[] = [
@@ -62,6 +63,7 @@ const EDITABLE: (keyof GenOnProgram)[] = [
   "challenge",
   "courses",
   "triggers",
+  "achievements",
 ];
 
 const MODE_COLORS = { off: "gray", dry_run: "yellow", live: "green" } as const;
@@ -267,6 +269,7 @@ export default function GenOnAdminPage() {
                 <Tabs.Tab value="flows">Flujos</Tabs.Tab>
                 <Tabs.Tab value="templates">Plantillas</Tabs.Tab>
                 <Tabs.Tab value="courses">Cursos y retos</Tabs.Tab>
+                <Tabs.Tab value="achievements">Logros</Tabs.Tab>
                 <Tabs.Tab value="test">Pruebas</Tabs.Tab>
                 <Tabs.Tab value="tracking">Seguimiento</Tabs.Tab>
                 <Tabs.Tab value="demo">Demostración</Tabs.Tab>
@@ -282,6 +285,9 @@ export default function GenOnAdminPage() {
               </Tabs.Panel>
               <Tabs.Panel value="courses" pt="md">
                 <CoursesTab {...tabProps} />
+              </Tabs.Panel>
+              <Tabs.Panel value="achievements" pt="md">
+                <AchievementsTab {...tabProps} dirty={dirty} />
               </Tabs.Panel>
               <Tabs.Panel value="test" pt="md">
                 <TestTab {...tabProps} dirty={dirty} />

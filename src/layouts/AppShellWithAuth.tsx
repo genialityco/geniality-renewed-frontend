@@ -5,6 +5,7 @@ import { useUser } from "../context/UserContext";
 import { useOrganization } from "../context/OrganizationContext";
 import { useStreak } from "../context/StreakContext";
 import StreakBadge from "../components/streak/StreakBadge";
+import { useAchievements } from "../context/AchievementsContext";
 
 export default function AppShellWithAuth() {
   const {
@@ -18,6 +19,7 @@ export default function AppShellWithAuth() {
   const { organization: headerOrg } = useOrganization();
   // La racha más larga del usuario en los cursos de la organización
   const { streaks } = useStreak();
+  const { programs: achievements } = useAchievements();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
@@ -107,6 +109,11 @@ export default function AppShellWithAuth() {
                 {streaks.length > 0 && (
                   <Menu.Item onClick={() => handleNavigate("streak")}>
                     Mi racha
+                  </Menu.Item>
+                )}
+                {achievements.length > 0 && (
+                  <Menu.Item onClick={() => handleNavigate("achievements")}>
+                    Mis logros
                   </Menu.Item>
                 )}
                 <Menu.Item color="red" onClick={handleLogout}>

@@ -1,4 +1,5 @@
 import api from "./api";
+import type { AchievementsConfig, AchievementType } from "./genonAchievementsService";
 
 /** Gen.ON Adherencia Educación (backend: src/genon). */
 
@@ -159,6 +160,8 @@ export interface GenOnProgram {
   courses: Record<string, GenOnCourseConfig>;
   /** Segmento 3, examen y certificado (null en programas anteriores a la fase 2) */
   triggers: GenOnTriggersConfig | null;
+  /** Logros del estudiante en la plataforma */
+  achievements?: AchievementsConfig | null;
   last_segmented_on: string | null;
   last_run_at: string | null;
 }
@@ -210,6 +213,8 @@ export interface GenOnCatalog {
   metrics: { key: GenOnMetric; label: string }[];
   mechanics: { key: GenOnMechanic; label: string }[];
   triggers: { key: GenOnTriggerKey; label: string; step: string }[];
+  /** Tipos de logro y su felicitación por defecto */
+  achievement_types?: { key: AchievementType; label: string; default_text: string }[];
 }
 
 export interface GenOnCourse {
