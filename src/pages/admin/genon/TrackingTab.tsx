@@ -1,5 +1,5 @@
 // src/pages/admin/genon/TrackingTab.tsx
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Anchor,
@@ -8,6 +8,7 @@ import {
   Card,
   Group,
   Loader,
+  Pagination,
   ScrollArea,
   Select,
   Stack,
@@ -39,6 +40,11 @@ const formatDateTime = (value: string | null) =>
     ? new Date(value).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })
     : "—";
 
+const PAGE_SIZES = ["25", "50", "100", "200"];
+const DEFAULT_PAGE_SIZE = 50;
+// El Excel se arma pidiendo bloques grandes (máximo del servidor: 2000)
+const EXPORT_PAGE_SIZE = 1000;
+
 const EXIT_LABELS: Record<string, string> = {
   opt_out: "Pidió no recibir mensajes",
   not_expected: "No era lo que esperaba",
@@ -59,43 +65,103 @@ export default function TrackingTab({ program }: GenOnTabProps) {
   const [data, setData] = useState<GenOnEnrollments | null>(null);
   const [feedback, setFeedback] = useState<GenOnFeedback[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyId, setHistoryId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
-  const load = useCallback(async () => {
+  // Solo vale la respuesta de la última consulta (al pasar de página rápido)
+  const requestRef = useRef(0);
+
+  const loadEnrollments = useCallback(async () => {
+    const request = ++requestRef.current;
     setLoading(true);
     setError(null);
     try {
-      const [enrollments, fb] = await Promise.all([
-        fetchGenOnEnrollments(program._id, {
-          segment: segment || undefined,
-          eventId: eventId || undefined,
-        }),
-        fetchGenOnFeedback(program._id),
-      ]);
+      const enrollments = await fetchGenOnEnrollments(program._id, {
+        segment: segment || undefined,
+        eventId: eventId || undefined,
+        page,
+        limit: pageSize,
+      });
+      if (request !== requestRef.current) return;
+      // Si la página quedó fuera (p. ej. se borraron inscritos), vuelve a la última
+      const last = Math.max(1, Math.ceil(enrollments.total / pageSize));
+      if (page > last) {
+        setPage(last);
+        return;
+      }
       setData(enrollments);
-      setFeedback(fb);
     } catch (e) {
-      setError(apiError(e, "No se pudo cargar el seguimiento"));
+      if (request === requestRef.current) setError(apiError(e, "No se pudo cargar el seguimiento"));
     } finally {
-      setLoading(false);
+      if (request === requestRef.current) setLoading(false);
     }
-  }, [program._id, segment, eventId]);
+  }, [program._id, segment, eventId, page, pageSize]);
+
+  const loadFeedback = useCallback(async () => {
+    try {
+      setFeedback(await fetchGenOnFeedback(program._id));
+    } catch (e) {
+      setError(apiError(e, "No se pudieron cargar los comentarios"));
+    }
+  }, [program._id]);
+
+  const load = useCallback(async () => {
+    await Promise.all([loadEnrollments(), loadFeedback()]);
+  }, [loadEnrollments, loadFeedback]);
 
   useEffect(() => {
     fetchGenOnCourses(program._id).then(setCourses).catch(() => setCourses([]));
   }, [program._id]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadEnrollments();
+  }, [loadEnrollments]);
+
+  useEffect(() => {
+    loadFeedback();
+  }, [loadFeedback]);
+
+  // Otro programa: desde la primera página (los filtros la reinician al cambiar)
+  useEffect(() => {
+    setPage(1);
+  }, [program._id]);
 
   const courseName = (id: string) => courses.find((c) => c._id === id)?.name || "";
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / data.page_size)) : 1;
+  const firstShown = data && data.rows.length ? (data.page - 1) * data.page_size + 1 : 0;
+  const lastShown = data ? firstShown + data.rows.length - Math.min(1, data.rows.length) : 0;
 
-  const exportRows = () => {
-    if (!data) return;
+  /** Todas las páginas con los filtros actuales (no solo la que se ve). */
+  const fetchAllRows = async () => {
+    const all: GenOnEnrollments["rows"] = [];
+    for (let p = 1; ; p++) {
+      const chunk = await fetchGenOnEnrollments(program._id, {
+        segment: segment || undefined,
+        eventId: eventId || undefined,
+        page: p,
+        limit: EXPORT_PAGE_SIZE,
+      });
+      all.push(...chunk.rows);
+      if (!chunk.rows.length || all.length >= chunk.total) return all;
+    }
+  };
+
+  const exportRows = async () => {
+    setExporting(true);
+    let rows: GenOnEnrollments["rows"];
+    try {
+      rows = await fetchAllRows();
+    } catch (e) {
+      setError(apiError(e, "No se pudo exportar el seguimiento"));
+      setExporting(false);
+      return;
+    }
+    setExporting(false);
     const sheet = XLSX.utils.json_to_sheet(
-      data.rows.map((r) => ({
+      rows.map((r) => ({
         Nombre: r.name,
         Correo: r.email,
         Curso: r.event_name,
@@ -194,7 +260,10 @@ export default function TrackingTab({ program }: GenOnTabProps) {
                 clearable
                 data={Object.entries(SEGMENT_LABELS).map(([value, label]) => ({ value, label }))}
                 value={segment}
-                onChange={setSegment}
+                onChange={(v) => {
+                  setSegment(v);
+                  setPage(1);
+                }}
                 w={260}
               />
               <Select
@@ -204,7 +273,10 @@ export default function TrackingTab({ program }: GenOnTabProps) {
                 searchable
                 data={courses.map((c) => ({ value: c._id, label: c.name }))}
                 value={eventId}
-                onChange={setEventId}
+                onChange={(v) => {
+                  setEventId(v);
+                  setPage(1);
+                }}
                 w={300}
               />
               <Button variant="light" leftSection={<FaRotateRight />} onClick={load} loading={loading}>
@@ -216,9 +288,10 @@ export default function TrackingTab({ program }: GenOnTabProps) {
               color="green"
               leftSection={<FaFileExcel />}
               onClick={exportRows}
-              disabled={!data?.rows.length}
+              loading={exporting}
+              disabled={!data?.total}
             >
-              Excel
+              Excel{data?.total ? ` (${data.total.toLocaleString("es-CO")})` : ""}
             </Button>
           </Group>
 
@@ -345,6 +418,42 @@ export default function TrackingTab({ program }: GenOnTabProps) {
             <Text size="sm" c="dimmed">
               No hay inscritos con estos filtros.
             </Text>
+          )}
+
+          {data && data.total > 0 && (
+            <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+              <Group gap="xs">
+                <Text size="sm" c="dimmed">
+                  {firstShown.toLocaleString("es-CO")}–{lastShown.toLocaleString("es-CO")} de{" "}
+                  {data.total.toLocaleString("es-CO")} inscritos
+                </Text>
+                {loading && <Loader size="xs" />}
+              </Group>
+              <Group gap="sm" align="center">
+                <Pagination
+                  total={totalPages}
+                  value={page}
+                  onChange={setPage}
+                  size="sm"
+                  siblings={1}
+                  boundaries={1}
+                  disabled={loading}
+                />
+                <Select
+                  aria-label="Inscritos por página"
+                  data={PAGE_SIZES.map((v) => ({ value: v, label: `${v} por página` }))}
+                  value={String(pageSize)}
+                  onChange={(v) => {
+                    if (!v) return;
+                    setPageSize(Number(v));
+                    setPage(1);
+                  }}
+                  allowDeselect={false}
+                  size="xs"
+                  w={140}
+                />
+              </Group>
+            </Group>
           )}
         </Stack>
       </Card>

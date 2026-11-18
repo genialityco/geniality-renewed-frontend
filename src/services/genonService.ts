@@ -278,6 +278,10 @@ export interface GenOnEnrollmentRow {
 }
 
 export interface GenOnEnrollments {
+  /** Inscritos con estos filtros (todas las páginas) */
+  total: number;
+  page: number;
+  page_size: number;
   by_segment: { segment: GenOnSegment; total: number; holdout: number; paused: number; exited: number }[];
   rows: GenOnEnrollmentRow[];
 }
@@ -435,7 +439,7 @@ export const fetchGenOnCourseDetail = async (id: string, eventId: string) =>
 
 export const fetchGenOnEnrollments = async (
   id: string,
-  filter: { segment?: string; eventId?: string; limit?: number }
+  filter: { segment?: string; eventId?: string; limit?: number; page?: number }
 ) =>
   (await api.get<GenOnEnrollments>(`/genon/programs/${id}/enrollments`, { params: filter }))
     .data;
