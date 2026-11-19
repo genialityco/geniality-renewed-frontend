@@ -34,6 +34,7 @@ import {
 } from "../../../services/genonService";
 import type { GenOnTabProps } from "./GenOnAdminPage";
 import PersonHistoryDrawer from "./PersonHistoryDrawer";
+import SlotResultsCard from "./SlotResultsCard";
 
 const formatDateTime = (value: string | null) =>
   value
@@ -249,6 +250,8 @@ export default function TrackingTab({ program }: GenOnTabProps) {
           )}
         </Group>
       )}
+
+      <SlotResultsCard program={program} eventId={eventId} onOpenHistory={setHistoryId} />
 
       <Card withBorder radius="md" p="lg">
         <Stack gap="md">

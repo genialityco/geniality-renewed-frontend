@@ -437,6 +437,64 @@ export const fetchGenOnCourses = async (id: string) =>
 export const fetchGenOnCourseDetail = async (id: string, eventId: string) =>
   (await api.get<GenOnCourseDetail>(`/genon/programs/${id}/courses/${eventId}`)).data;
 
+export interface GenOnSlotGroupStats {
+  people: number;
+  /** Entraron al curso después del mensaje */
+  entered: number;
+  /** Tuvieron avance registrado después del mensaje */
+  advanced: number;
+  /** Pasaron a activo después del mensaje */
+  became_active: number;
+}
+
+export interface GenOnSlotPerson {
+  slot: string;
+  /** received: le llegó el mensaje · control: grupo de control */
+  group: "received" | "control";
+  user_id: string;
+  name: string;
+  email: string;
+  event_id: string | null;
+  enrollment_id: string | null;
+  segment_at_send: string | null;
+  segment_now: string | null;
+  steps: string[];
+  sent_at: string;
+  first_progress_at: string | null;
+  progress_events: number;
+  activities_completed: number;
+  entered: boolean;
+  advanced: boolean;
+  became_active: boolean;
+  read: boolean;
+  clicked: boolean;
+}
+
+export interface GenOnSlotResults {
+  date: string;
+  timezone: string;
+  slots: string[];
+  /** Clave de los envíos fuera de toda franja */
+  outside_slot: string;
+  slot_window_minutes: number;
+  measured_at: string;
+  summary: {
+    slot: string;
+    received: GenOnSlotGroupStats;
+    control: GenOnSlotGroupStats;
+    failed: number;
+  }[];
+  people_total: number;
+  people: GenOnSlotPerson[];
+}
+
+export const fetchGenOnSlotResults = async (
+  id: string,
+  filter: { date?: string; eventId?: string }
+) =>
+  (await api.get<GenOnSlotResults>(`/genon/programs/${id}/slot-results`, { params: filter }))
+    .data;
+
 export const fetchGenOnEnrollments = async (
   id: string,
   filter: { segment?: string; eventId?: string; limit?: number; page?: number }
