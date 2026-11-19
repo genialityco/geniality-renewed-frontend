@@ -41,6 +41,12 @@ const formatDateTime = (value: string | null) =>
     ? new Date(value).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })
     : "—";
 
+/** Porcentaje de recuperados de un grupo */
+const ratio = (g: { people: number; recovered: number }) =>
+  g.people
+    ? `${((g.recovered / g.people) * 100).toLocaleString("es-CO", { maximumFractionDigits: 1 })} %`
+    : "—";
+
 const PAGE_SIZES = ["25", "50", "100", "200"];
 const DEFAULT_PAGE_SIZE = 50;
 // El Excel se arma pidiendo bloques grandes (máximo del servidor: 2000)
@@ -238,8 +244,22 @@ export default function TrackingTab({ program }: GenOnTabProps) {
                   {s.total.toLocaleString("es-CO")}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  control {s.holdout} · pausa {s.paused} · salieron {s.exited}
+                  control {s.holdout} · pausa {s.paused} · se dieron de baja {s.exited}
                 </Text>
+                {s.recovery && (
+                  <Tooltip
+                    multiline
+                    maw={320}
+                    label="De quienes entraron a la secuencia de este segmento, cuántos están hoy en activos o egresados. El grupo de control no recibió los mensajes: es la comparación."
+                  >
+                    <Text size="xs" c="green.8">
+                      recuperados {s.recovery.received.recovered} de{" "}
+                      {s.recovery.received.people} ({ratio(s.recovery.received)}) · control{" "}
+                      {s.recovery.control.recovered} de {s.recovery.control.people} (
+                      {ratio(s.recovery.control)})
+                    </Text>
+                  </Tooltip>
+                )}
               </div>
             ))}
           {!data.by_segment.length && (

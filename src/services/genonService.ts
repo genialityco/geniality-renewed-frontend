@@ -282,7 +282,21 @@ export interface GenOnEnrollments {
   total: number;
   page: number;
   page_size: number;
-  by_segment: { segment: GenOnSegment; total: number; holdout: number; paused: number; exited: number }[];
+  by_segment: {
+    segment: GenOnSegment;
+    total: number;
+    holdout: number;
+    paused: number;
+    exited: number;
+    /**
+     * Abandono e inactivos: de quienes entraron a la secuencia (con mensaje
+     * o en el grupo de control), cuántos están hoy en activos o egresados
+     */
+    recovery: {
+      received: { people: number; recovered: number };
+      control: { people: number; recovered: number };
+    } | null;
+  }[];
   rows: GenOnEnrollmentRow[];
 }
 
