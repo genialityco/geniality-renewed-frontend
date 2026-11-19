@@ -13,7 +13,7 @@ import Profile from "../pages/profile";
 import AdminOrganizationEvents from "../pages/admin/index";
 import CoursePreview from "../pages/course/CoursePreview";
 import PaymentStatus from "../pages/payment/PaymentStatus";
-import OrganizationLanding from "../pages/organizationLanding";
+import OrganizationIndex from "../pages/organizationLanding/OrganizationIndex";
 import SuperAdmin from "../pages/superadmin";
 import QuizPage from "../pages/course/QuizPage";
 import QuizResultPage from "../pages/course/QuizResultPage";
@@ -45,7 +45,8 @@ export default function AppRoutes() {
         element={<OrganizationLayout />}
       >
         {/* Landing libre (desde aquí muestras estado de membresía y tu modal) */}
-        <Route index element={<OrganizationLanding />} />
+        {/* Si la org tiene curso fijo (utils/pinnedCourse), redirige al curso. */}
+        <Route index element={<OrganizationIndex />} />
 
         {/* Rutas que requieren membresía activa */}
         <Route element={<RequireMembership />}>

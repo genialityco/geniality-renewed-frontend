@@ -45,6 +45,7 @@ import {
   trackForgotPassword,
   trackSwitchToRegister,
 } from "../../../utils/analytics";
+import { getPinnedCoursePath } from "../../../utils/pinnedCourse";
 
 declare global {
   interface Window {
@@ -62,8 +63,9 @@ export default function AuthForm({}: { isPaymentPage?: boolean }) {
   const nextParam = searchParams.get("next");
   const fromState = (location.state as any)?.from;
   const fromPath = (fromState?.pathname || "") + (fromState?.search || "");
+  // Si la org tiene curso fijo, tras entrar se va directo a ese curso.
   const defaultAfterLogin = organizationId
-    ? `/organization/${organizationId}`
+    ? getPinnedCoursePath(organizationId) ?? `/organization/${organizationId}`
     : `/`;
   const nextPath = nextParam || fromPath || defaultAfterLogin;
 

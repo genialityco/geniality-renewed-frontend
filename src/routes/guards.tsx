@@ -7,6 +7,7 @@ import { fetchPaymentPlanByUserAndOrg } from "../services/paymentPlansService";
 import { fetchOrganizationUserByUserAndOrg } from "../services/organizationUserService";
 import { fetchOrganizationById } from "../services/organizationService";
 import { isOrgAuthor, hasAdminRole } from "../utils/orgAccess";
+import { getPinnedCoursePath } from "../utils/pinnedCourse";
 
 const PAYWALL_ORGANIZATION_ID = "63f552d916065937427b3b02";
 
@@ -177,6 +178,20 @@ export function RequireMembership({
   // No decidir hasta que la resolución corresponda a la organización actual.
   if (loading || busy || decidedOrg !== organizationId)
     return <CenterLoader label="Validando membresía..." />;
+
+  // Organización con curso fijo: su landing redirige al curso, así que mandar
+  // allí a quien no tiene acceso crearía un bucle. En su lugar se lleva al
+  // registro/inicio de sesión y, al terminar, se vuelve a la URL pedida.
+  if (getPinnedCoursePath(organizationId) && (!firebaseUser || !hasAccess)) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return (
+      <Navigate
+        to={`/organization/${organizationId}/iniciar-sesion?next=${next}`}
+        replace
+        state={{ reason: "membership_required", from: location }}
+      />
+    );
+  }
 
   if (!firebaseUser) {
     const usePaymentMessage = organizationId === PAYWALL_ORGANIZATION_ID;
