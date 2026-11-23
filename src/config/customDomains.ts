@@ -8,6 +8,8 @@
 export const CUSTOM_DOMAIN_ORG_MAP: Record<string, string> = {
   "cursoacehipotiroidismo.com": "6a4ffd695b809f3cf38d3a64",
   "www.cursoacehipotiroidismo.com": "6a4ffd695b809f3cf38d3a64",
+  "cursoinsulinizacion.com": "6a4ffdbb5b809f3cf38d425f",
+  "www.cursoinsulinizacion.com": "6a4ffdbb5b809f3cf38d425f",
 };
 
 /**
@@ -28,6 +30,10 @@ export const CUSTOM_DOMAIN_HOME_MAP: Record<string, string> = {
     "/organization/6a4ffd695b809f3cf38d3a64/course/6a500d595b809f3cf38d4e45",
   "www.cursoacehipotiroidismo.com":
     "/organization/6a4ffd695b809f3cf38d3a64/course/6a500d595b809f3cf38d4e45",
+  "cursoinsulinizacion.com":
+    "/organization/6a4ffdbb5b809f3cf38d425f/course/6a50053eb6a98a15088843d6",
+  "www.cursoinsulinizacion.com":
+    "/organization/6a4ffdbb5b809f3cf38d425f/course/6a50053eb6a98a15088843d6",
 };
 
 /**
