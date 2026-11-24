@@ -105,6 +105,13 @@ interface ActivityDetailProps {
    * la última actividad del módulo y su examen aún no está aprobado.
    */
   moduleExamNextRoute?: string | null;
+  /**
+   * Ruta del examen general del curso a la que lleva "Siguiente" cuando esta es
+   * la última actividad del curso (no hay siguiente actividad).
+   */
+  courseExamNextRoute?: string | null;
+  /** El usuario ya presentó el examen general (cambia el texto del botón). */
+  courseExamAttempted?: boolean;
 }
 
 export default function ActivityDetail({
@@ -119,6 +126,8 @@ export default function ActivityDetail({
   formatTime,
   isLinear = false,
   moduleExamNextRoute = null,
+  courseExamNextRoute = null,
+  courseExamAttempted = false,
 }: ActivityDetailProps) {
   const { userId } = useUser();
   const navigate = useNavigate();
@@ -1085,9 +1094,16 @@ export default function ActivityDetail({
   // actividad), en vez de a la actividad del siguiente módulo.
   const goToModuleExam = !!moduleExamNextRoute && currentCleared;
 
+  // Última actividad del curso: "Siguiente" lleva al examen general (si existe).
+  // La compuerta de avance la valida QuizPage con datos frescos.
+  const courseExamRoute =
+    !nextActivity && !moduleExamNextRoute ? courseExamNextRoute : null;
+  const goToCourseExam = !!courseExamRoute && (!isLinear || currentCleared);
+  const goToExam = goToModuleExam || goToCourseExam;
+
   // En curso lineal, "Siguiente" queda bloqueado hasta completar esta actividad.
-  // Si hay examen de módulo pendiente, también se considera "siguiente".
-  const hasNext = !!nextActivity || !!moduleExamNextRoute;
+  // Si hay examen (de módulo o general) pendiente, también se considera "siguiente".
+  const hasNext = !!nextActivity || !!moduleExamNextRoute || !!courseExamRoute;
   const nextLocked = isLinear && hasNext && !currentCleared;
 
   const handleNextClick = () => {
@@ -1097,6 +1113,10 @@ export default function ActivityDetail({
     }
     if (goToModuleExam && moduleExamNextRoute) {
       navigate(moduleExamNextRoute);
+      return;
+    }
+    if (goToCourseExam && courseExamRoute) {
+      navigate(courseExamRoute);
       return;
     }
     if (!nextActivity) return;
@@ -1292,18 +1312,22 @@ export default function ActivityDetail({
         </Button>
 
         <Button
-          variant={goToModuleExam ? "filled" : "outline"}
-          color={goToModuleExam ? "blue" : undefined}
+          variant={goToExam ? "filled" : "outline"}
+          color={goToExam ? "blue" : undefined}
           disabled={!hasNext}
           onClick={handleNextClick}
-          rightSection={nextLocked ? "🔒" : goToModuleExam ? "📝" : "→"}
+          rightSection={nextLocked ? "🔒" : goToExam ? "📝" : "→"}
           style={nextLocked ? { opacity: 0.7 } : undefined}
         >
           {goToModuleExam
             ? "Examen del módulo"
-            : nextActivity
-              ? nextActivity.name
-              : "Siguiente"}
+            : courseExamRoute
+              ? courseExamAttempted
+                ? "Ver resultados del examen"
+                : "Realizar examen"
+              : nextActivity
+                ? nextActivity.name
+                : "Siguiente"}
         </Button>
       </Group>
 
@@ -1336,7 +1360,9 @@ export default function ActivityDetail({
           onClose={() => setNextLockedNotice(false)}
           mb="md"
         >
-          Para desbloquear la siguiente actividad debes completar esta primero.
+          {courseExamRoute
+            ? "Para presentar el examen debes completar esta actividad primero."
+            : "Para desbloquear la siguiente actividad debes completar esta primero."}
         </Notification>
       )}
 

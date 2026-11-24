@@ -24,6 +24,9 @@ interface ActivityDetailWithTrackerProps {
    * `null` cuando la navegación debe seguir normal hacia la siguiente actividad.
    */
   moduleExamNextRoute?: string | null;
+  /** Ruta del examen general del curso (para la última actividad del curso). */
+  courseExamNextRoute?: string | null;
+  courseExamAttempted?: boolean;
 }
 
 /**
@@ -43,6 +46,8 @@ export default function ActivityDetailWithTracker({
   courseName,
   isLinear,
   moduleExamNextRoute,
+  courseExamNextRoute,
+  courseExamAttempted,
 }: ActivityDetailWithTrackerProps) {
   const { userId } = useUser();
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -96,6 +101,8 @@ export default function ActivityDetailWithTracker({
       formatTime={formatTime}
       isLinear={isLinear}
       moduleExamNextRoute={moduleExamNextRoute}
+      courseExamNextRoute={courseExamNextRoute}
+      courseExamAttempted={courseExamAttempted}
     />
   );
 }

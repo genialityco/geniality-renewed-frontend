@@ -185,6 +185,15 @@ export function CourseMainContent({
       ? `/organization/${organizationId}/course/${eventId}/quiz/${moduleExamQuizId}`
       : null;
 
+    // Examen general del curso: "Siguiente" de la última actividad lleva a él.
+    const courseQuizId = quiz?._id || quiz?.id;
+    const courseExamAttempted = userAttempts.some((a) => a.userId);
+    const courseExamNextRoute = courseQuizId
+      ? `/organization/${organizationId}/course/${eventId}/quiz/${courseQuizId}${
+          courseExamAttempted ? "/result" : ""
+        }`
+      : null;
+
     return (
       <Stack gap="lg">
         {/* Banner (mismo header que en el listado del curso) */}
@@ -208,6 +217,8 @@ export function CourseMainContent({
           videoTime={videoStartTime}
           isLinear={!!event?.is_linear}
           moduleExamNextRoute={moduleExamNextRoute}
+          courseExamNextRoute={courseExamNextRoute}
+          courseExamAttempted={courseExamAttempted}
         />
 
         {/* Footer del curso (imagen configurada en el evento) */}
